@@ -1,0 +1,704 @@
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useParams, Link, useNavigate } from 'react-router-dom';
+import {
+  ArrowLeft,
+  BarChart3,
+  Package,
+  BookOpen,
+  GanttChart,
+  Users,
+  FileText,
+  DollarSign,
+  Activity,
+  Plus,
+  Pencil,
+  Trash2,
+  LayoutList,
+  Kanban,
+  ClipboardList,
+  ClipboardCheck,
+  Star,
+} from 'lucide-react';
+import { useProjects } from '../../context/ProjectContext';
+import { useAuth } from '../../context/AuthContext';
+import {
+  ProjectKPIs,
+  DeliverableCard,
+  DeliverableForm,
+  KanbanBoard,
+  GanttChart as GanttChartComponent,
+  TeamSection,
+  DocumentsSection,
+  FinanceSection,
+  ActivityTimeline,
+  AlumniOnboardingForm,
+  AttendanceSection,
+  NPSSection,
+} from '../../components/projects';
+import { ModuleCard } from '../../components/projects/ModuleCard';
+import { ModuleForm } from '../../components/projects/ModuleForm';
+import { ModuleProgress } from '../../components/projects/ModuleProgress';
+import type {
+  ProjectModule,
+  ProjectDeliverable,
+  AlumniProfile,
+} from '../../types/projects';
+import {
+  PROJECT_STATUS_CONFIG,
+  PRIORITY_CONFIG,
+  getProjectDisplayName,
+} from '../../types/projects';
+
+type TabKey = 'summary' | 'deliverables' | 'modules' | 'gantt' | 'team' | 'attendance' | 'nps' | 'documents' | 'finance' | 'activity' | 'onboarding';
+
+const ALL_TABS: { key: TabKey; label: string; icon: React.ElementType }[] = [
+  { key: 'summary', label: 'Resumen', icon: BarChart3 },
+  { key: 'deliverables', label: 'Entregables', icon: Package },
+  { key: 'modules', label: 'Módulos', icon: BookOpen },
+  { key: 'gantt', label: 'Gantt', icon: GanttChart },
+  { key: 'team', label: 'Equipo', icon: Users },
+  { key: 'attendance', label: 'Asistencia', icon: ClipboardCheck },
+  { key: 'nps', label: 'NPS', icon: Star },
+  { key: 'documents', label: 'Documentos', icon: FileText },
+  { key: 'finance', label: 'Finanzas', icon: DollarSign },
+  { key: 'activity', label: 'Actividad', icon: Activity },
+];
+
+const ALUMNO_TABS: TabKey[] = ['deliverables', 'modules', 'gantt', 'team', 'attendance', 'documents', 'onboarding'];
+
+export function ProjectDetail() {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const { appUser } = useAuth();
+  const {
+    currentProject,
+    participants,
+    deliverables,
+    modules,
+    documents,
+    activityLog,
+    loading,
+    getProject,
+    fetchParticipants,
+    fetchDeliverables,
+    fetchModules,
+    fetchDocuments,
+    fetchActivityLog,
+    deleteProject,
+    completeModule,
+    alumniProfile,
+    fetchAlumniProfile,
+    fetchAllAlumniProfiles,
+  } = useProjects();
+
+  const [activeTab, setActiveTab] = useState<TabKey>('summary');
+  const [showModuleForm, setShowModuleForm] = useState(false);
+  const [editingModule, setEditingModule] = useState<ProjectModule | null>(null);
+  const [showDeliverableForm, setShowDeliverableForm] = useState(false);
+  const [editingDeliverable, setEditingDeliverable] = useState<ProjectDeliverable | null>(null);
+  const [deliverableViewMode, setDeliverableViewMode] = useState<'list' | 'kanban'>('list');
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showOnboardingModal, setShowOnboardingModal] = useState(false);
+  const [, setAlumniProfileChecked] = useState(false);
+  const [allAlumniProfiles, setAllAlumniProfiles] = useState<AlumniProfile[]>([]);
+  const [editingAlumniProfile, setEditingAlumniProfile] = useState(false);
+
+  // Determine current user's role in this project
+  const currentParticipant = useMemo(() => {
+    if (!appUser) return null;
+    return participants.find(p => p.userId === appUser.id) ?? null;
+  }, [participants, appUser]);
+
+  const isAlumno = currentParticipant?.role === 'alumno';
+  const isAdminOrConsultor = currentParticipant?.role === 'admin' || currentParticipant?.role === 'consultor';
+  const showOnboardingTab = isAlumno || isAdminOrConsultor;
+
+  // Default tab for alumnos
+  useEffect(() => {
+    if (isAlumno && activeTab === 'summary') {
+      setActiveTab('modules');
+    }
+  }, [isAlumno, activeTab]);
+
+  const TABS = useMemo(() => {
+    let tabs = [...ALL_TABS];
+    if (showOnboardingTab) {
+      tabs = [...tabs, { key: 'onboarding' as TabKey, label: 'Onboarding', icon: ClipboardList }];
+    }
+    if (isAlumno) {
+      tabs = tabs.filter(t => ALUMNO_TABS.includes(t.key));
+    }
+    return tabs;
+  }, [showOnboardingTab, isAlumno]);
+
+  // Load project data
+  useEffect(() => {
+    if (!id) return;
+    console.log('[ProjectDetail] Loading project:', id);
+    getProject(id).catch(e => console.error('[ProjectDetail] getProject error:', e));
+    fetchParticipants(id).catch(e => console.error('[ProjectDetail] fetchParticipants error:', e));
+    fetchDeliverables(id).catch(e => console.error('[ProjectDetail] fetchDeliverables error:', e));
+    fetchModules(id).catch(e => console.error('[ProjectDetail] fetchModules error:', e));
+    fetchDocuments(id).catch(e => console.error('[ProjectDetail] fetchDocuments error:', e));
+    fetchActivityLog(id).catch(e => console.error('[ProjectDetail] fetchActivityLog error:', e));
+  }, [id, getProject, fetchParticipants, fetchDeliverables, fetchModules, fetchDocuments, fetchActivityLog]);
+
+  // Check alumni onboarding status
+  useEffect(() => {
+    if (!id || !appUser?.id || !isAlumno) return;
+    fetchAlumniProfile(id, appUser.id).then((profile) => {
+      setAlumniProfileChecked(true);
+      if (!profile) {
+        setShowOnboardingModal(true);
+      }
+    });
+  }, [id, appUser?.id, isAlumno, fetchAlumniProfile]);
+
+  // Load all alumni profiles for admin/consultor view
+  useEffect(() => {
+    if (!id || !isAdminOrConsultor) return;
+    fetchAllAlumniProfiles(id).then(setAllAlumniProfiles);
+  }, [id, isAdminOrConsultor, fetchAllAlumniProfiles]);
+
+  const handleOnboardingComplete = useCallback(() => {
+    setShowOnboardingModal(false);
+    setEditingAlumniProfile(false);
+    if (id && appUser?.id) {
+      fetchAlumniProfile(id, appUser.id);
+    }
+    if (id && isAdminOrConsultor) {
+      fetchAllAlumniProfiles(id).then(setAllAlumniProfiles);
+    }
+  }, [id, appUser?.id, fetchAlumniProfile, isAdminOrConsultor, fetchAllAlumniProfiles]);
+
+  const handleDeleteProject = async () => {
+    if (!id) return;
+    await deleteProject(id);
+    navigate('/projects/list');
+  };
+
+  // The active module is the first one with status 'pending' or 'in_progress'
+  const activeModule = useMemo(() => {
+    return modules.find((m) => m.status === 'pending' || m.status === 'in_progress') ?? null;
+  }, [modules]);
+
+  // Sorted modules by order, filtered for alumnos
+  const sortedModules = useMemo(() => {
+    let filtered = [...modules].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+    if (isAlumno) {
+      const today = new Date().toISOString().split('T')[0];
+      filtered = filtered.filter(m =>
+        m.status === 'completed' || (m.startDate && m.startDate <= today)
+      );
+    }
+    return filtered;
+  }, [modules, isAlumno]);
+
+  const handleCompleteModule = async (moduleId: string) => {
+    await completeModule(moduleId);
+    if (id) fetchModules(id);
+  };
+
+  const handleEditDeliverable = (deliverable: ProjectDeliverable) => {
+    setEditingDeliverable(deliverable);
+    setShowDeliverableForm(true);
+  };
+
+  if (loading && !currentProject) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500" />
+      </div>
+    );
+  }
+
+  if (!currentProject) {
+    return (
+      <div className="text-center py-12">
+        <p className="text-gray-500 dark:text-gray-400">Proyecto no encontrado</p>
+        <Link to="/projects/list" className="text-primary-600 hover:underline mt-2 inline-block">
+          Volver a proyectos
+        </Link>
+      </div>
+    );
+  }
+
+  const statusConfig = PROJECT_STATUS_CONFIG[currentProject.status];
+  const priorityConfig = PRIORITY_CONFIG[currentProject.priority];
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <Link
+            to="/projects/list"
+            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+          >
+            <ArrowLeft className="w-5 h-5 text-gray-500" />
+          </Link>
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+              {getProjectDisplayName(currentProject)}
+            </h1>
+            <div className="flex items-center gap-2 mt-1">
+              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusConfig.bgClass}`}>
+                {statusConfig.label}
+              </span>
+              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${priorityConfig.bgClass}`}>
+                {priorityConfig.label}
+              </span>
+            </div>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <Link
+            to={`/projects/${id}/edit`}
+            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+          >
+            <Pencil className="w-4 h-4" />
+            Editar
+          </Link>
+          <button
+            onClick={() => setShowDeleteConfirm(true)}
+            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-danger-600 bg-white dark:bg-gray-800 border border-danger-300 dark:border-danger-600 rounded-lg hover:bg-danger-50 dark:hover:bg-danger-900/20 transition-colors"
+          >
+            <Trash2 className="w-4 h-4" />
+            Eliminar
+          </button>
+        </div>
+      </div>
+
+      {/* Delete confirmation modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 max-w-sm w-full mx-4 shadow-xl">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Confirmar eliminacion</h3>
+            <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+              Esta accion eliminara el proyecto y todos sus datos asociados. Esta accion no se puede deshacer.
+            </p>
+            <div className="flex justify-end gap-3 mt-6">
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleDeleteProject}
+                className="px-4 py-2 text-sm font-medium text-white bg-danger-600 rounded-lg hover:bg-danger-700"
+              >
+                Eliminar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Alumni onboarding modal */}
+      {showOnboardingModal && isAlumno && appUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 overflow-y-auto">
+          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 max-w-2xl w-full mx-4 my-8 shadow-xl">
+            <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Bienvenido al proyecto</h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
+              Completa este formulario antes de continuar. Solo te tomara unos minutos.
+            </p>
+            <AlumniOnboardingForm
+              projectId={id!}
+              userId={appUser.id}
+              onComplete={handleOnboardingComplete}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Tab bar */}
+      <div className="border-b border-gray-200 dark:border-gray-700">
+        <nav className="-mb-px flex space-x-6 overflow-x-auto" aria-label="Tabs">
+          {TABS.map((tab) => {
+            const Icon = tab.icon;
+            const isActive = activeTab === tab.key;
+            return (
+              <button
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key)}
+                className={`flex items-center gap-2 py-3 px-1 border-b-2 text-sm font-medium whitespace-nowrap transition-colors ${
+                  isActive
+                    ? 'border-primary-500 text-primary-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+                }`}
+              >
+                <Icon className="w-4 h-4" />
+                {tab.label}
+              </button>
+            );
+          })}
+        </nav>
+      </div>
+
+      {/* Tab content */}
+      <div>
+        {/* ===== RESUMEN ===== */}
+        {activeTab === 'summary' && (
+          <div className="space-y-6">
+            <ProjectKPIs
+              project={currentProject}
+              modules={modules}
+              deliverables={deliverables}
+              participants={participants}
+            />
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Details card */}
+              <div className="lg:col-span-2 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Detalles del proyecto</h3>
+                <dl className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {currentProject.description && (
+                    <div className="sm:col-span-2">
+                      <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Descripcion</dt>
+                      <dd className="mt-1 text-sm text-gray-900 dark:text-white whitespace-pre-wrap">{currentProject.description}</dd>
+                    </div>
+                  )}
+                  {currentProject.clientName && (
+                    <div>
+                      <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Cliente</dt>
+                      <dd className="mt-1 text-sm text-gray-900 dark:text-white">{currentProject.clientName}</dd>
+                    </div>
+                  )}
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Estado</dt>
+                    <dd className="mt-1">
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusConfig.bgClass}`}>
+                        {statusConfig.label}
+                      </span>
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Prioridad</dt>
+                    <dd className="mt-1">
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${priorityConfig.bgClass}`}>
+                        {priorityConfig.label}
+                      </span>
+                    </dd>
+                  </div>
+                  {currentProject.startDate && (
+                    <div>
+                      <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Fecha de inicio</dt>
+                      <dd className="mt-1 text-sm text-gray-900 dark:text-white">
+                        {new Date(currentProject.startDate).toLocaleDateString('es-AR')}
+                      </dd>
+                    </div>
+                  )}
+                  {currentProject.estimatedEndDate && (
+                    <div>
+                      <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Fecha estimada de fin</dt>
+                      <dd className="mt-1 text-sm text-gray-900 dark:text-white">
+                        {new Date(currentProject.estimatedEndDate).toLocaleDateString('es-AR')}
+                      </dd>
+                    </div>
+                  )}
+                  {currentProject.actualEndDate && (
+                    <div>
+                      <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Fecha real de fin</dt>
+                      <dd className="mt-1 text-sm text-gray-900 dark:text-white">
+                        {new Date(currentProject.actualEndDate).toLocaleDateString('es-AR')}
+                      </dd>
+                    </div>
+                  )}
+                  {currentProject.notes && (
+                    <div className="sm:col-span-2">
+                      <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Notas</dt>
+                      <dd className="mt-1 text-sm text-gray-900 dark:text-white whitespace-pre-wrap">{currentProject.notes}</dd>
+                    </div>
+                  )}
+                </dl>
+              </div>
+
+              {/* Recent activity */}
+              <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Actividad reciente</h3>
+                <ActivityTimeline activityLog={activityLog.slice(0, 10)} />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ===== ENTREGABLES ===== */}
+        {activeTab === 'deliverables' && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden">
+                <button
+                  onClick={() => setDeliverableViewMode('list')}
+                  className={`p-2 ${deliverableViewMode === 'list' ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-600' : 'text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700'}`}
+                >
+                  <LayoutList className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => setDeliverableViewMode('kanban')}
+                  className={`p-2 ${deliverableViewMode === 'kanban' ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-600' : 'text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700'}`}
+                >
+                  <Kanban className="w-4 h-4" />
+                </button>
+              </div>
+              <button
+                onClick={() => {
+                  setEditingDeliverable(null);
+                  setShowDeliverableForm(true);
+                }}
+                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 transition-colors"
+              >
+                <Plus className="w-4 h-4" />
+                Nuevo Entregable
+              </button>
+            </div>
+            {deliverables.length === 0 ? (
+              <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
+                <Package className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto" />
+                <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">No hay entregables aun</p>
+              </div>
+            ) : deliverableViewMode === 'kanban' ? (
+              <KanbanBoard
+                deliverables={deliverables}
+                onEditDeliverable={handleEditDeliverable}
+              />
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {deliverables.map((d) => (
+                  <DeliverableCard
+                    key={d.id}
+                    deliverable={d}
+                    onEdit={() => {
+                      setEditingDeliverable(d);
+                      setShowDeliverableForm(true);
+                    }}
+                    onDelete={() => {}}
+                  />
+                ))}
+              </div>
+            )}
+            {showDeliverableForm && (
+              <DeliverableForm
+                isOpen={true}
+                projectId={id!}
+                deliverable={editingDeliverable ?? undefined}
+                participants={participants}
+                onClose={() => {
+                  setShowDeliverableForm(false);
+                  setEditingDeliverable(null);
+                }}
+                onSaved={() => {
+                  setShowDeliverableForm(false);
+                  setEditingDeliverable(null);
+                  if (id) fetchDeliverables(id);
+                }}
+              />
+            )}
+          </div>
+        )}
+
+        {/* ===== MODULOS ===== */}
+        {activeTab === 'modules' && (
+          <div className="space-y-4">
+            <ModuleProgress modules={modules} />
+
+            {sortedModules.length === 0 ? (
+              <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
+                <BookOpen className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto" />
+                <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">No hay modulos aun</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {sortedModules.map((module, index) => (
+                  <ModuleCard
+                    key={module.id}
+                    module={module}
+                    index={index}
+                    isActive={activeModule?.id === module.id}
+                    onEdit={() => {
+                      setEditingModule(module);
+                      setShowModuleForm(true);
+                    }}
+                    onComplete={() => handleCompleteModule(module.id)}
+                  />
+                ))}
+              </div>
+            )}
+
+            <div className="flex justify-center">
+              <button
+                onClick={() => {
+                  setEditingModule(null);
+                  setShowModuleForm(true);
+                }}
+                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 transition-colors"
+              >
+                <Plus className="w-4 h-4" />
+                Agregar modulo
+              </button>
+            </div>
+
+            {showModuleForm && (
+              <ModuleForm
+                isOpen={true}
+                projectId={id!}
+                module={editingModule ?? undefined}
+                nextSortOrder={modules.length + 1}
+                onClose={() => {
+                  setShowModuleForm(false);
+                  setEditingModule(null);
+                }}
+                onSaved={() => {
+                  setShowModuleForm(false);
+                  setEditingModule(null);
+                  if (id) fetchModules(id);
+                }}
+              />
+            )}
+          </div>
+        )}
+
+        {/* ===== GANTT ===== */}
+        {activeTab === 'gantt' && (
+          <GanttChartComponent
+            modules={modules}
+          />
+        )}
+
+        {/* ===== EQUIPO ===== */}
+        {activeTab === 'team' && (
+          <TeamSection
+            projectId={id!}
+            participants={participants}
+          />
+        )}
+
+        {/* ===== ASISTENCIA ===== */}
+        {activeTab === 'attendance' && (
+          <AttendanceSection
+            projectId={id!}
+            participants={participants}
+          />
+        )}
+
+        {/* ===== NPS ===== */}
+        {activeTab === 'nps' && (
+          <NPSSection projectId={id!} />
+        )}
+
+        {/* ===== DOCUMENTOS ===== */}
+        {activeTab === 'documents' && (
+          <DocumentsSection
+            projectId={id!}
+            documents={documents}
+          />
+        )}
+
+        {/* ===== FINANZAS ===== */}
+        {activeTab === 'finance' && (
+          <FinanceSection project={currentProject} />
+        )}
+
+        {/* ===== ACTIVIDAD ===== */}
+        {activeTab === 'activity' && (
+          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Historial de actividad</h3>
+            <ActivityTimeline activityLog={activityLog} />
+          </div>
+        )}
+
+        {/* ===== ONBOARDING ===== */}
+        {activeTab === 'onboarding' && (
+          <div>
+            {isAlumno && alumniProfile && !editingAlumniProfile && (
+              <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 max-w-2xl mx-auto">
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Tu perfil de onboarding</h3>
+                  <button
+                    onClick={() => setEditingAlumniProfile(true)}
+                    className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600"
+                  >
+                    <Pencil className="w-3.5 h-3.5" />
+                    Editar
+                  </button>
+                </div>
+                <dl className="space-y-4">
+                  <div><dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Nombre completo</dt><dd className="mt-1 text-sm text-gray-900 dark:text-white">{alumniProfile.fullName}</dd></div>
+                  {alumniProfile.company && <div><dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Empresa</dt><dd className="mt-1 text-sm text-gray-900 dark:text-white">{alumniProfile.company}</dd></div>}
+                  {alumniProfile.position && <div><dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Cargo</dt><dd className="mt-1 text-sm text-gray-900 dark:text-white">{alumniProfile.position}</dd></div>}
+                  {alumniProfile.phone && <div><dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Telefono</dt><dd className="mt-1 text-sm text-gray-900 dark:text-white">{alumniProfile.phone}</dd></div>}
+                  {alumniProfile.city && <div><dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Ciudad</dt><dd className="mt-1 text-sm text-gray-900 dark:text-white">{alumniProfile.city}</dd></div>}
+                  <div><dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Expectativas</dt><dd className="mt-1 text-sm text-gray-900 dark:text-white whitespace-pre-wrap">{alumniProfile.expectations}</dd></div>
+                  {alumniProfile.previousExperience && <div><dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Experiencia previa</dt><dd className="mt-1 text-sm text-gray-900 dark:text-white whitespace-pre-wrap">{alumniProfile.previousExperience}</dd></div>}
+                  <div><dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Indicador objetivo</dt><dd className="mt-1 text-sm text-gray-900 dark:text-white">{alumniProfile.targetKpi}</dd></div>
+                  {alumniProfile.targetKpiCurrentValue && <div><dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Valor actual</dt><dd className="mt-1 text-sm text-gray-900 dark:text-white">{alumniProfile.targetKpiCurrentValue}</dd></div>}
+                  {alumniProfile.targetKpiGoalValue && <div><dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Meta</dt><dd className="mt-1 text-sm text-gray-900 dark:text-white">{alumniProfile.targetKpiGoalValue}</dd></div>}
+                </dl>
+              </div>
+            )}
+
+            {isAlumno && editingAlumniProfile && appUser && (
+              <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
+                <AlumniOnboardingForm
+                  projectId={id!}
+                  userId={appUser.id}
+                  existingProfile={alumniProfile ?? undefined}
+                  onComplete={handleOnboardingComplete}
+                />
+              </div>
+            )}
+
+            {isAdminOrConsultor && (
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Perfiles de alumnos ({allAlumniProfiles.length})</h3>
+                {allAlumniProfiles.length === 0 ? (
+                  <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
+                    <ClipboardList className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto" />
+                    <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">Ningun alumno completo el onboarding aun</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {allAlumniProfiles.map(profile => (
+                      <div key={profile.id} className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5">
+                        <h4 className="font-semibold text-gray-900 dark:text-white">{profile.fullName}</h4>
+                        {(profile.company || profile.position) && (
+                          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                            {[profile.position, profile.company].filter(Boolean).join(' en ')}
+                          </p>
+                        )}
+                        <div className="mt-3 space-y-2 text-sm">
+                          <div>
+                            <span className="font-medium text-gray-700 dark:text-gray-300">KPI objetivo:</span>{' '}
+                            <span className="text-gray-900 dark:text-white">{profile.targetKpi}</span>
+                          </div>
+                          {profile.targetKpiCurrentValue && (
+                            <div>
+                              <span className="font-medium text-gray-700 dark:text-gray-300">Valor actual:</span>{' '}
+                              <span className="text-gray-900 dark:text-white">{profile.targetKpiCurrentValue}</span>
+                            </div>
+                          )}
+                          {profile.targetKpiGoalValue && (
+                            <div>
+                              <span className="font-medium text-gray-700 dark:text-gray-300">Meta:</span>{' '}
+                              <span className="text-gray-900 dark:text-white">{profile.targetKpiGoalValue}</span>
+                            </div>
+                          )}
+                          <div>
+                            <span className="font-medium text-gray-700 dark:text-gray-300">Expectativas:</span>{' '}
+                            <span className="text-gray-900 dark:text-white">{profile.expectations}</span>
+                          </div>
+                        </div>
+                        <p className="text-xs text-gray-400 dark:text-gray-500 mt-3">
+                          Completado: {new Date(profile.completedAt).toLocaleDateString('es-AR')}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

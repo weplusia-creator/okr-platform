@@ -1,0 +1,839 @@
+import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
+import { supabase } from '../lib/supabase';
+import { useAuth } from './AuthContext';
+import type {
+  Client,
+  Invoice,
+  InvoiceItem,
+  InvoiceStatus,
+  CashFlowCategory,
+  CashFlowTransaction,
+  TransactionType,
+  FinanceSummary,
+  MonthlyData,
+} from '../types/finance';
+
+interface FinanceContextType {
+  // Clients
+  clients: Client[];
+  loadingClients: boolean;
+  fetchClients: () => Promise<void>;
+  addClient: (client: Omit<Client, 'id' | 'organizationId' | 'createdAt' | 'updatedAt'>) => Promise<Client | null>;
+  updateClient: (id: string, updates: Partial<Client>) => Promise<boolean>;
+  deleteClient: (id: string) => Promise<void>;
+
+  // Invoices
+  invoices: Invoice[];
+  loadingInvoices: boolean;
+  fetchInvoices: () => Promise<void>;
+  addInvoice: (invoice: Omit<Invoice, 'id' | 'organizationId' | 'invoiceNumber' | 'createdAt' | 'updatedAt' | 'items'>, items: Omit<InvoiceItem, 'id' | 'invoiceId'>[]) => Promise<Invoice | null>;
+  updateInvoice: (id: string, updates: Partial<Invoice>, items?: Omit<InvoiceItem, 'id' | 'invoiceId'>[]) => Promise<void>;
+  deleteInvoice: (id: string) => Promise<void>;
+  markInvoiceAsPaid: (id: string, paidDate: string) => Promise<void>;
+  getClientInvoices: (clientId: string) => Invoice[];
+
+  // Cash Flow
+  categories: CashFlowCategory[];
+  transactions: CashFlowTransaction[];
+  loadingCashFlow: boolean;
+  fetchCategories: () => Promise<void>;
+  fetchTransactions: (startDate?: string, endDate?: string) => Promise<void>;
+  addCategory: (category: Omit<CashFlowCategory, 'id' | 'organizationId' | 'createdAt'>) => Promise<CashFlowCategory | null>;
+  deleteCategory: (id: string) => Promise<void>;
+  addTransaction: (transaction: Omit<CashFlowTransaction, 'id' | 'organizationId' | 'createdAt'>) => Promise<CashFlowTransaction | null>;
+  updateTransaction: (id: string, updates: Partial<CashFlowTransaction>) => Promise<void>;
+  deleteTransaction: (id: string) => Promise<void>;
+
+  // Reports
+  getFinanceSummary: () => FinanceSummary;
+  getMonthlyData: (year: number) => MonthlyData[];
+  getTopClients: (limit?: number) => { clientId: string; clientName: string; total: number }[];
+
+  error: string | null;
+}
+
+const FinanceContext = createContext<FinanceContextType | undefined>(undefined);
+
+const DEFAULT_CATEGORIES: { name: string; type: TransactionType; color: string }[] = [
+  { name: 'Ventas', type: 'income', color: '#10B981' },
+  { name: 'Servicios', type: 'income', color: '#3B82F6' },
+  { name: 'Otros ingresos', type: 'income', color: '#8B5CF6' },
+  { name: 'Sueldos', type: 'expense', color: '#EF4444' },
+  { name: 'Alquiler', type: 'expense', color: '#F59E0B' },
+  { name: 'Servicios públicos', type: 'expense', color: '#EC4899' },
+  { name: 'Impuestos', type: 'expense', color: '#6366F1' },
+  { name: 'Proveedores', type: 'expense', color: '#14B8A6' },
+  { name: 'Otros gastos', type: 'expense', color: '#6B7280' },
+];
+
+export function FinanceProvider({ children }: { children: ReactNode }) {
+  const { organization } = useAuth();
+  const [clients, setClients] = useState<Client[]>([]);
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [categories, setCategories] = useState<CashFlowCategory[]>([]);
+  const [transactions, setTransactions] = useState<CashFlowTransaction[]>([]);
+  const [loadingClients, setLoadingClients] = useState(false);
+  const [loadingInvoices, setLoadingInvoices] = useState(false);
+  const [loadingCashFlow, setLoadingCashFlow] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // ===== CLIENTS =====
+  const fetchClients = useCallback(async () => {
+    if (!organization?.id) return;
+    setLoadingClients(true);
+    try {
+      const { data, error: err } = await supabase
+        .from('clients')
+        .select('*')
+        .eq('organization_id', organization.id)
+        .order('name');
+
+      if (err) throw err;
+
+      setClients((data || []).map((c: any) => ({
+        id: c.id,
+        organizationId: c.organization_id,
+        name: c.name,
+        company: c.company,
+        email: c.email,
+        phone: c.phone,
+        address: c.address,
+        cuit: c.cuit ?? null,
+        industry: c.industry ?? null,
+        employeeCount: c.employee_count ?? null,
+        website: c.website ?? null,
+        contactName: c.contact_name ?? null,
+        contactRole: c.contact_role ?? null,
+        notes: c.notes,
+        createdAt: c.created_at,
+        updatedAt: c.updated_at,
+      })));
+    } catch (err) {
+      console.error('Error fetching clients:', err);
+      setError('Error al cargar clientes');
+    } finally {
+      setLoadingClients(false);
+    }
+  }, [organization?.id]);
+
+  const addClient = useCallback(async (client: Omit<Client, 'id' | 'organizationId' | 'createdAt' | 'updatedAt'>): Promise<Client | null> => {
+    if (!organization?.id) return null;
+    try {
+      const { data, error: err } = await supabase
+        .from('clients')
+        .insert({
+          organization_id: organization.id,
+          name: client.name,
+          company: client.company,
+          email: client.email,
+          phone: client.phone,
+          address: client.address,
+          cuit: client.cuit,
+          industry: client.industry,
+          employee_count: client.employeeCount,
+          website: client.website,
+          contact_name: client.contactName,
+          contact_role: client.contactRole,
+          notes: client.notes,
+        })
+        .select()
+        .single();
+
+      if (err) throw err;
+
+      const d = data as any;
+      const newClient: Client = {
+        id: d.id,
+        organizationId: d.organization_id,
+        name: d.name,
+        company: d.company,
+        email: d.email,
+        phone: d.phone,
+        address: d.address,
+        cuit: d.cuit ?? null,
+        industry: d.industry ?? null,
+        employeeCount: d.employee_count ?? null,
+        website: d.website ?? null,
+        contactName: d.contact_name ?? null,
+        contactRole: d.contact_role ?? null,
+        notes: d.notes,
+        createdAt: d.created_at,
+        updatedAt: d.updated_at,
+      };
+
+      setClients(prev => [...prev, newClient].sort((a, b) => a.name.localeCompare(b.name)));
+      return newClient;
+    } catch (err) {
+      console.error('Error adding client:', err);
+      setError('Error al crear cliente');
+      return null;
+    }
+  }, [organization?.id]);
+
+  const updateClient = useCallback(async (id: string, updates: Partial<Client>): Promise<boolean> => {
+    try {
+      const row: Record<string, unknown> = {};
+      if (updates.name !== undefined) row.name = updates.name;
+      if (updates.company !== undefined) row.company = updates.company;
+      if (updates.email !== undefined) row.email = updates.email;
+      if (updates.phone !== undefined) row.phone = updates.phone;
+      if (updates.address !== undefined) row.address = updates.address;
+      if (updates.cuit !== undefined) row.cuit = updates.cuit;
+      if (updates.industry !== undefined) row.industry = updates.industry;
+      if (updates.employeeCount !== undefined) row.employee_count = updates.employeeCount;
+      if (updates.website !== undefined) row.website = updates.website;
+      if (updates.contactName !== undefined) row.contact_name = updates.contactName;
+      if (updates.contactRole !== undefined) row.contact_role = updates.contactRole;
+      if (updates.notes !== undefined) row.notes = updates.notes;
+
+      if (Object.keys(row).length === 0) return true;
+
+      const { error: err } = await supabase
+        .from('clients')
+        .update(row)
+        .eq('id', id);
+
+      if (err) throw err;
+
+      setClients(prev => prev.map(c => c.id === id ? { ...c, ...updates } : c));
+      return true;
+    } catch (err) {
+      console.error('Error updating client:', err);
+      setError('Error al actualizar cliente');
+      return false;
+    }
+  }, []);
+
+  const deleteClient = useCallback(async (id: string) => {
+    try {
+      const { error: err } = await supabase
+        .from('clients')
+        .delete()
+        .eq('id', id);
+
+      if (err) throw err;
+
+      setClients(prev => prev.filter(c => c.id !== id));
+    } catch (err) {
+      console.error('Error deleting client:', err);
+      setError('Error al eliminar cliente');
+    }
+  }, []);
+
+  // ===== INVOICES =====
+  const fetchInvoices = useCallback(async () => {
+    if (!organization?.id) return;
+    setLoadingInvoices(true);
+    try {
+      const { data: invoicesData, error: invErr } = await supabase
+        .from('invoices')
+        .select('*, clients(name, company)')
+        .eq('organization_id', organization.id)
+        .order('created_at', { ascending: false });
+
+      if (invErr) throw invErr;
+
+      const invoiceIds = invoicesData?.map(i => i.id) || [];
+      let itemsData: any[] = [];
+
+      if (invoiceIds.length > 0) {
+        const { data: items, error: itemsErr } = await supabase
+          .from('invoice_items')
+          .select('*')
+          .in('invoice_id', invoiceIds);
+
+        if (itemsErr) throw itemsErr;
+        itemsData = items || [];
+      }
+
+      setInvoices((invoicesData || []).map(inv => ({
+        id: inv.id,
+        organizationId: inv.organization_id,
+        clientId: inv.client_id,
+        client: inv.clients ? {
+          id: inv.client_id,
+          organizationId: inv.organization_id,
+          name: inv.clients.name,
+          company: inv.clients.company,
+          email: null,
+          phone: null,
+          address: null,
+          notes: null,
+          createdAt: '',
+          updatedAt: '',
+        } : undefined,
+        invoiceNumber: inv.invoice_number,
+        status: inv.status as InvoiceStatus,
+        issueDate: inv.issue_date,
+        dueDate: inv.due_date,
+        paidDate: inv.paid_date,
+        subtotal: inv.subtotal,
+        tax: inv.tax,
+        total: inv.total,
+        notes: inv.notes,
+        items: itemsData
+          .filter(item => item.invoice_id === inv.id)
+          .map(item => ({
+            id: item.id,
+            invoiceId: item.invoice_id,
+            description: item.description,
+            quantity: item.quantity,
+            unitPrice: item.unit_price,
+            total: item.total,
+          })),
+        createdAt: inv.created_at,
+        updatedAt: inv.updated_at,
+      })));
+    } catch (err) {
+      console.error('Error fetching invoices:', err);
+      setError('Error al cargar facturas');
+    } finally {
+      setLoadingInvoices(false);
+    }
+  }, [organization?.id]);
+
+  const addInvoice = useCallback(async (
+    invoice: Omit<Invoice, 'id' | 'organizationId' | 'invoiceNumber' | 'createdAt' | 'updatedAt' | 'items'>,
+    items: Omit<InvoiceItem, 'id' | 'invoiceId'>[]
+  ): Promise<Invoice | null> => {
+    if (!organization?.id) return null;
+    try {
+      // Generate invoice number
+      const year = new Date().getFullYear();
+      const { count } = await supabase
+        .from('invoices')
+        .select('*', { count: 'exact', head: true })
+        .eq('organization_id', organization.id)
+        .gte('created_at', `${year}-01-01`);
+
+      const invoiceNumber = `FAC-${year}-${String((count || 0) + 1).padStart(4, '0')}`;
+
+      const { data: invData, error: invErr } = await supabase
+        .from('invoices')
+        .insert({
+          organization_id: organization.id,
+          client_id: invoice.clientId,
+          invoice_number: invoiceNumber,
+          status: invoice.status,
+          issue_date: invoice.issueDate,
+          due_date: invoice.dueDate,
+          paid_date: invoice.paidDate,
+          subtotal: invoice.subtotal,
+          tax: invoice.tax,
+          total: invoice.total,
+          notes: invoice.notes,
+        })
+        .select()
+        .single();
+
+      if (invErr) throw invErr;
+
+      // Insert items
+      if (items.length > 0) {
+        const { error: itemsErr } = await supabase
+          .from('invoice_items')
+          .insert(items.map(item => ({
+            invoice_id: invData.id,
+            description: item.description,
+            quantity: item.quantity,
+            unit_price: item.unitPrice,
+            total: item.total,
+          })));
+
+        if (itemsErr) throw itemsErr;
+      }
+
+      await fetchInvoices();
+      return invoices.find(i => i.id === invData.id) || null;
+    } catch (err) {
+      console.error('Error adding invoice:', err);
+      setError('Error al crear factura');
+      return null;
+    }
+  }, [organization?.id, fetchInvoices, invoices]);
+
+  const updateInvoice = useCallback(async (
+    id: string,
+    updates: Partial<Invoice>,
+    items?: Omit<InvoiceItem, 'id' | 'invoiceId'>[]
+  ) => {
+    try {
+      const dbUpdates: Record<string, unknown> = {};
+      if (updates.clientId !== undefined) dbUpdates.client_id = updates.clientId;
+      if (updates.status !== undefined) dbUpdates.status = updates.status;
+      if (updates.issueDate !== undefined) dbUpdates.issue_date = updates.issueDate;
+      if (updates.dueDate !== undefined) dbUpdates.due_date = updates.dueDate;
+      if (updates.paidDate !== undefined) dbUpdates.paid_date = updates.paidDate;
+      if (updates.subtotal !== undefined) dbUpdates.subtotal = updates.subtotal;
+      if (updates.tax !== undefined) dbUpdates.tax = updates.tax;
+      if (updates.total !== undefined) dbUpdates.total = updates.total;
+      if (updates.notes !== undefined) dbUpdates.notes = updates.notes;
+
+      if (Object.keys(dbUpdates).length > 0) {
+        const { error: err } = await supabase
+          .from('invoices')
+          .update(dbUpdates)
+          .eq('id', id);
+
+        if (err) throw err;
+      }
+
+      // Update items if provided
+      if (items) {
+        // Delete existing items
+        await supabase.from('invoice_items').delete().eq('invoice_id', id);
+
+        // Insert new items
+        if (items.length > 0) {
+          const { error: itemsErr } = await supabase
+            .from('invoice_items')
+            .insert(items.map(item => ({
+              invoice_id: id,
+              description: item.description,
+              quantity: item.quantity,
+              unit_price: item.unitPrice,
+              total: item.total,
+            })));
+
+          if (itemsErr) throw itemsErr;
+        }
+      }
+
+      await fetchInvoices();
+    } catch (err) {
+      console.error('Error updating invoice:', err);
+      setError('Error al actualizar factura');
+    }
+  }, [fetchInvoices]);
+
+  const deleteInvoice = useCallback(async (id: string) => {
+    try {
+      const { error: err } = await supabase
+        .from('invoices')
+        .delete()
+        .eq('id', id);
+
+      if (err) throw err;
+
+      setInvoices(prev => prev.filter(i => i.id !== id));
+    } catch (err) {
+      console.error('Error deleting invoice:', err);
+      setError('Error al eliminar factura');
+    }
+  }, []);
+
+  const markInvoiceAsPaid = useCallback(async (id: string, paidDate: string) => {
+    try {
+      const { error: err } = await supabase
+        .from('invoices')
+        .update({ status: 'paid', paid_date: paidDate })
+        .eq('id', id);
+
+      if (err) throw err;
+
+      // Create income transaction
+      const invoice = invoices.find(i => i.id === id);
+      if (invoice && organization?.id) {
+        const incomeCategory = categories.find(c => c.type === 'income');
+        if (incomeCategory) {
+          await supabase.from('cash_flow_transactions').insert({
+            organization_id: organization.id,
+            category_id: incomeCategory.id,
+            type: 'income',
+            amount: invoice.total,
+            description: `Pago factura ${invoice.invoiceNumber}`,
+            date: paidDate,
+            invoice_id: id,
+          });
+          await fetchTransactions();
+        }
+      }
+
+      await fetchInvoices();
+    } catch (err) {
+      console.error('Error marking invoice as paid:', err);
+      setError('Error al marcar factura como pagada');
+    }
+  }, [invoices, categories, organization?.id, fetchInvoices]);
+
+  const getClientInvoices = useCallback((clientId: string) => {
+    return invoices.filter(i => i.clientId === clientId);
+  }, [invoices]);
+
+  // ===== CASH FLOW =====
+  const fetchCategories = useCallback(async () => {
+    if (!organization?.id) return;
+    try {
+      const { data, error: err } = await supabase
+        .from('cash_flow_categories')
+        .select('*')
+        .eq('organization_id', organization.id)
+        .order('name');
+
+      if (err) throw err;
+
+      if (!data || data.length === 0) {
+        // Create default categories
+        const { data: newCats, error: insertErr } = await supabase
+          .from('cash_flow_categories')
+          .insert(DEFAULT_CATEGORIES.map(c => ({
+            organization_id: organization.id,
+            name: c.name,
+            type: c.type,
+            color: c.color,
+          })))
+          .select();
+
+        if (insertErr) throw insertErr;
+
+        setCategories((newCats || []).map(c => ({
+          id: c.id,
+          organizationId: c.organization_id,
+          name: c.name,
+          type: c.type as TransactionType,
+          color: c.color,
+          createdAt: c.created_at,
+        })));
+      } else {
+        setCategories(data.map(c => ({
+          id: c.id,
+          organizationId: c.organization_id,
+          name: c.name,
+          type: c.type as TransactionType,
+          color: c.color,
+          createdAt: c.created_at,
+        })));
+      }
+    } catch (err) {
+      console.error('Error fetching categories:', err);
+      setError('Error al cargar categorías');
+    }
+  }, [organization?.id]);
+
+  const fetchTransactions = useCallback(async (startDate?: string, endDate?: string) => {
+    if (!organization?.id) return;
+    setLoadingCashFlow(true);
+    try {
+      let query = supabase
+        .from('cash_flow_transactions')
+        .select('*, cash_flow_categories(name, color)')
+        .eq('organization_id', organization.id)
+        .order('date', { ascending: false });
+
+      if (startDate) query = query.gte('date', startDate);
+      if (endDate) query = query.lte('date', endDate);
+
+      const { data, error: err } = await query;
+
+      if (err) throw err;
+
+      setTransactions((data || []).map(t => ({
+        id: t.id,
+        organizationId: t.organization_id,
+        categoryId: t.category_id,
+        category: t.cash_flow_categories ? {
+          id: t.category_id,
+          organizationId: t.organization_id,
+          name: t.cash_flow_categories.name,
+          type: t.type as TransactionType,
+          color: t.cash_flow_categories.color,
+          createdAt: '',
+        } : undefined,
+        type: t.type as TransactionType,
+        amount: t.amount,
+        description: t.description,
+        date: t.date,
+        invoiceId: t.invoice_id,
+        createdAt: t.created_at,
+      })));
+    } catch (err) {
+      console.error('Error fetching transactions:', err);
+      setError('Error al cargar transacciones');
+    } finally {
+      setLoadingCashFlow(false);
+    }
+  }, [organization?.id]);
+
+  const addCategory = useCallback(async (category: Omit<CashFlowCategory, 'id' | 'organizationId' | 'createdAt'>): Promise<CashFlowCategory | null> => {
+    if (!organization?.id) return null;
+    try {
+      const { data, error: err } = await supabase
+        .from('cash_flow_categories')
+        .insert({
+          organization_id: organization.id,
+          name: category.name,
+          type: category.type,
+          color: category.color,
+        })
+        .select()
+        .single();
+
+      if (err) throw err;
+
+      const newCategory: CashFlowCategory = {
+        id: data.id,
+        organizationId: data.organization_id,
+        name: data.name,
+        type: data.type as TransactionType,
+        color: data.color,
+        createdAt: data.created_at,
+      };
+
+      setCategories(prev => [...prev, newCategory]);
+      return newCategory;
+    } catch (err) {
+      console.error('Error adding category:', err);
+      setError('Error al crear categoría');
+      return null;
+    }
+  }, [organization?.id]);
+
+  const deleteCategory = useCallback(async (id: string) => {
+    try {
+      const { error: err } = await supabase
+        .from('cash_flow_categories')
+        .delete()
+        .eq('id', id);
+
+      if (err) throw err;
+
+      setCategories(prev => prev.filter(c => c.id !== id));
+    } catch (err) {
+      console.error('Error deleting category:', err);
+      setError('Error al eliminar categoría');
+    }
+  }, []);
+
+  const addTransaction = useCallback(async (transaction: Omit<CashFlowTransaction, 'id' | 'organizationId' | 'createdAt'>): Promise<CashFlowTransaction | null> => {
+    if (!organization?.id) return null;
+    try {
+      const { data, error: err } = await supabase
+        .from('cash_flow_transactions')
+        .insert({
+          organization_id: organization.id,
+          category_id: transaction.categoryId,
+          type: transaction.type,
+          amount: transaction.amount,
+          description: transaction.description,
+          date: transaction.date,
+          invoice_id: transaction.invoiceId,
+        })
+        .select('*, cash_flow_categories(name, color)')
+        .single();
+
+      if (err) throw err;
+
+      const newTransaction: CashFlowTransaction = {
+        id: data.id,
+        organizationId: data.organization_id,
+        categoryId: data.category_id,
+        category: data.cash_flow_categories ? {
+          id: data.category_id,
+          organizationId: data.organization_id,
+          name: data.cash_flow_categories.name,
+          type: data.type as TransactionType,
+          color: data.cash_flow_categories.color,
+          createdAt: '',
+        } : undefined,
+        type: data.type as TransactionType,
+        amount: data.amount,
+        description: data.description,
+        date: data.date,
+        invoiceId: data.invoice_id,
+        createdAt: data.created_at,
+      };
+
+      setTransactions(prev => [newTransaction, ...prev]);
+      return newTransaction;
+    } catch (err) {
+      console.error('Error adding transaction:', err);
+      setError('Error al crear transacción');
+      return null;
+    }
+  }, [organization?.id]);
+
+  const updateTransaction = useCallback(async (id: string, updates: Partial<CashFlowTransaction>) => {
+    try {
+      const dbUpdates: Record<string, unknown> = {};
+      if (updates.categoryId !== undefined) dbUpdates.category_id = updates.categoryId;
+      if (updates.type !== undefined) dbUpdates.type = updates.type;
+      if (updates.amount !== undefined) dbUpdates.amount = updates.amount;
+      if (updates.description !== undefined) dbUpdates.description = updates.description;
+      if (updates.date !== undefined) dbUpdates.date = updates.date;
+
+      const { error: err } = await supabase
+        .from('cash_flow_transactions')
+        .update(dbUpdates)
+        .eq('id', id);
+
+      if (err) throw err;
+
+      await fetchTransactions();
+    } catch (err) {
+      console.error('Error updating transaction:', err);
+      setError('Error al actualizar transacción');
+    }
+  }, [fetchTransactions]);
+
+  const deleteTransaction = useCallback(async (id: string) => {
+    try {
+      const { error: err } = await supabase
+        .from('cash_flow_transactions')
+        .delete()
+        .eq('id', id);
+
+      if (err) throw err;
+
+      setTransactions(prev => prev.filter(t => t.id !== id));
+    } catch (err) {
+      console.error('Error deleting transaction:', err);
+      setError('Error al eliminar transacción');
+    }
+  }, []);
+
+  // ===== REPORTS =====
+  const getFinanceSummary = useCallback((): FinanceSummary => {
+    const totalIncome = transactions
+      .filter(t => t.type === 'income')
+      .reduce((sum, t) => sum + t.amount, 0);
+
+    const totalExpenses = transactions
+      .filter(t => t.type === 'expense')
+      .reduce((sum, t) => sum + t.amount, 0);
+
+    const pendingInvoices = invoices.filter(i => i.status === 'issued');
+    const overdueInvoices = invoices.filter(i => i.status === 'overdue');
+
+    return {
+      totalIncome,
+      totalExpenses,
+      balance: totalIncome - totalExpenses,
+      pendingInvoices: pendingInvoices.length,
+      pendingAmount: pendingInvoices.reduce((sum, i) => sum + i.total, 0),
+      overdueInvoices: overdueInvoices.length,
+      overdueAmount: overdueInvoices.reduce((sum, i) => sum + i.total, 0),
+    };
+  }, [transactions, invoices]);
+
+  const getMonthlyData = useCallback((year: number): MonthlyData[] => {
+    const months = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+
+    return months.map((month, index) => {
+      const monthStr = String(index + 1).padStart(2, '0');
+      const startDate = `${year}-${monthStr}-01`;
+      const endDate = `${year}-${monthStr}-31`;
+
+      const monthTransactions = transactions.filter(t =>
+        t.date >= startDate && t.date <= endDate
+      );
+
+      return {
+        month,
+        income: monthTransactions
+          .filter(t => t.type === 'income')
+          .reduce((sum, t) => sum + t.amount, 0),
+        expenses: monthTransactions
+          .filter(t => t.type === 'expense')
+          .reduce((sum, t) => sum + t.amount, 0),
+      };
+    });
+  }, [transactions]);
+
+  const getTopClients = useCallback((limit: number = 5) => {
+    const clientTotals = new Map<string, { name: string; total: number }>();
+
+    invoices
+      .filter(i => i.status === 'paid')
+      .forEach(inv => {
+        const current = clientTotals.get(inv.clientId) || {
+          name: inv.client?.name || 'Cliente desconocido',
+          total: 0
+        };
+        clientTotals.set(inv.clientId, {
+          name: current.name,
+          total: current.total + inv.total,
+        });
+      });
+
+    return Array.from(clientTotals.entries())
+      .map(([clientId, data]) => ({
+        clientId,
+        clientName: data.name,
+        total: data.total,
+      }))
+      .sort((a, b) => b.total - a.total)
+      .slice(0, limit);
+  }, [invoices]);
+
+  // Load initial data
+  useEffect(() => {
+    if (organization?.id) {
+      fetchClients();
+      fetchInvoices();
+      fetchCategories();
+      fetchTransactions();
+    }
+  }, [organization?.id, fetchClients, fetchInvoices, fetchCategories, fetchTransactions]);
+
+  // Check for overdue invoices periodically
+  useEffect(() => {
+    const checkOverdue = async () => {
+      const today = new Date().toISOString().split('T')[0];
+      const overdueIds = invoices
+        .filter(i => i.status === 'issued' && i.dueDate < today)
+        .map(i => i.id);
+
+      if (overdueIds.length > 0) {
+        await supabase
+          .from('invoices')
+          .update({ status: 'overdue' })
+          .in('id', overdueIds);
+
+        await fetchInvoices();
+      }
+    };
+
+    checkOverdue();
+  }, [invoices, fetchInvoices]);
+
+  const value: FinanceContextType = {
+    clients,
+    loadingClients,
+    fetchClients,
+    addClient,
+    updateClient,
+    deleteClient,
+    invoices,
+    loadingInvoices,
+    fetchInvoices,
+    addInvoice,
+    updateInvoice,
+    deleteInvoice,
+    markInvoiceAsPaid,
+    getClientInvoices,
+    categories,
+    transactions,
+    loadingCashFlow,
+    fetchCategories,
+    fetchTransactions,
+    addCategory,
+    deleteCategory,
+    addTransaction,
+    updateTransaction,
+    deleteTransaction,
+    getFinanceSummary,
+    getMonthlyData,
+    getTopClients,
+    error,
+  };
+
+  return <FinanceContext.Provider value={value}>{children}</FinanceContext.Provider>;
+}
+
+export function useFinance() {
+  const context = useContext(FinanceContext);
+  if (context === undefined) {
+    throw new Error('useFinance must be used within a FinanceProvider');
+  }
+  return context;
+}

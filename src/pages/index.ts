@@ -1,3 +1,5 @@
+export { Landing } from './Landing';
+export { AgroLanding } from './AgroLanding';
 export { Login } from './Login';
 export { Register } from './Register';
 export { Dashboard } from './Dashboard';
@@ -6,3 +8,7 @@ export * from './projects';
 export { NPSSurveyForm } from './NPSSurveyForm';
 export * from './admin';
 export * from './kpi';
+export { OKRInitiatives } from './OKRInitiatives';
+export * from './portal';
+export * from './playbook';
+export * from './tasks';

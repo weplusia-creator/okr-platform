@@ -17,9 +17,19 @@ import {
   Lightbulb,
   Megaphone,
   Handshake,
-  CalendarRange,
   Award,
   Rocket,
+  Wheat,
+  Tractor,
+  Leaf,
+  Sun,
+  LandPlot,
+  Fence,
+  Droplets,
+  TreeDeciduous,
+  CloudSun,
+  Shovel,
+  Mountain,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
@@ -80,26 +90,26 @@ const MONTH_4 = {
 };
 
 const MONTHS = [MONTH_1, MONTH_2, MONTH_3, MONTH_4];
-const MONTH_ICONS = [Target, BarChart3, Rocket, Megaphone];
+const MONTH_ICONS = [Sprout, Fence, Tractor, Megaphone];
 
 const FOR_WHO = [
-  'Vendedores de insumos, servicios o maquinaria',
-  'Emprendedores del agro',
-  'Empresas chicas (1–5 personas vendiendo)',
-  'Técnicos que hoy también venden',
-  'Personas con conocimiento, pero sin sistema',
+  { text: 'Vendedores de insumos, servicios o maquinaria', icon: Tractor },
+  { text: 'Emprendedores del agro', icon: Sprout },
+  { text: 'Empresas chicas (1–5 personas vendiendo)', icon: Users },
+  { text: 'Técnicos que hoy también venden', icon: Wheat },
+  { text: 'Personas con conocimiento, pero sin sistema', icon: Lightbulb },
 ];
 
 const DELIVERABLES = [
-  'Propuesta de valor clara',
-  'Proceso comercial armado',
-  'Funnel definido',
-  'CRM operativo',
-  'OKRs comerciales vivos',
-  'Pipeline activo',
-  'Marca personal en marcha',
-  'Comunidad y contactos',
-  'Método que podés repetir campaña tras campaña',
+  { text: 'Propuesta de valor clara', icon: Target },
+  { text: 'Proceso comercial armado', icon: Fence },
+  { text: 'Funnel definido', icon: Droplets },
+  { text: 'CRM operativo', icon: BarChart3 },
+  { text: 'OKRs comerciales vivos', icon: Sprout },
+  { text: 'Pipeline activo', icon: Rocket },
+  { text: 'Marca personal en marcha', icon: Megaphone },
+  { text: 'Comunidad y contactos', icon: Handshake },
+  { text: 'Método que podés repetir campaña tras campaña', icon: Wheat },
 ];
 
 export function AgroLanding() {
@@ -164,11 +174,22 @@ export function AgroLanding() {
       </nav>
 
       {/* Hero */}
-      <section className="pt-16 bg-wau-black">
-        <div className="pt-20 pb-24 px-6">
+      <section className="pt-16 bg-wau-black relative overflow-hidden">
+        {/* Decorative agro icons */}
+        <div className="absolute inset-0 pointer-events-none opacity-[0.03]">
+          <Wheat className="absolute top-24 left-[10%] w-24 h-24 text-primary-300" />
+          <Tractor className="absolute top-40 right-[8%] w-20 h-20 text-primary-300" />
+          <Sun className="absolute bottom-20 left-[15%] w-16 h-16 text-primary-300" />
+          <LandPlot className="absolute bottom-32 right-[12%] w-20 h-20 text-primary-300" />
+          <Leaf className="absolute top-32 left-[45%] w-12 h-12 text-primary-300 rotate-45" />
+          <CloudSun className="absolute top-20 right-[30%] w-14 h-14 text-primary-300" />
+          <TreeDeciduous className="absolute bottom-16 left-[40%] w-16 h-16 text-primary-300" />
+          <Mountain className="absolute bottom-10 right-[35%] w-20 h-20 text-primary-300" />
+        </div>
+        <div className="relative pt-20 pb-24 px-6">
           <div className="max-w-4xl mx-auto text-center">
             <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-primary-300/10 text-primary-300 rounded-full text-sm font-medium mb-8 border border-primary-300/20">
-              <Sprout className="w-4 h-4" />
+              <Wheat className="w-4 h-4" />
               Programa de Ventas para el Agro
             </div>
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-white tracking-tight leading-tight mb-4">
@@ -203,17 +224,22 @@ export function AgroLanding() {
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 max-w-3xl mx-auto">
             {[
-              'Tenés toda tu arquitectura comercial armada',
-              'Empezás a vender con un sistema, no por intuición',
-              'Aprendés a mostrar lo que sabés y construir marca personal',
-              'Formás parte de una comunidad agro-comercial',
-              'Tenés 1:1 con especialistas (ventas, estrategia y marca)',
-            ].map((item, i) => (
-              <div key={i} className="flex items-start gap-3 p-4 bg-white rounded-xl border border-gray-100">
-                <CheckCircle2 className="w-5 h-5 text-primary-500 flex-shrink-0 mt-0.5" />
-                <p className="text-sm text-gray-700 leading-relaxed">{item}</p>
-              </div>
-            ))}
+              { text: 'Tenés toda tu arquitectura comercial armada', icon: Fence },
+              { text: 'Empezás a vender con un sistema, no por intuición', icon: Tractor },
+              { text: 'Aprendés a mostrar lo que sabés y construir marca personal', icon: Megaphone },
+              { text: 'Formás parte de una comunidad agro-comercial', icon: Wheat },
+              { text: 'Tenés 1:1 con especialistas (ventas, estrategia y marca)', icon: Handshake },
+            ].map((item, i) => {
+              const Icon = item.icon;
+              return (
+                <div key={i} className="flex items-start gap-3 p-4 bg-white rounded-xl border border-gray-100">
+                  <div className="w-8 h-8 bg-wau-black rounded-lg flex items-center justify-center flex-shrink-0">
+                    <Icon className="w-4 h-4 text-primary-300" />
+                  </div>
+                  <p className="text-sm text-gray-700 leading-relaxed">{item.text}</p>
+                </div>
+              );
+            })}
           </div>
         </div>
       </section>
@@ -228,14 +254,17 @@ export function AgroLanding() {
             </h2>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-2xl mx-auto mb-8">
-            {FOR_WHO.map((item, i) => (
-              <div key={i} className="flex items-center gap-3 p-4 rounded-xl border border-gray-100 hover:border-primary-300/50 transition-colors">
-                <div className="w-8 h-8 bg-primary-300 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <CheckCircle2 className="w-4 h-4 text-wau-black" />
+            {FOR_WHO.map((item, i) => {
+              const Icon = item.icon;
+              return (
+                <div key={i} className="flex items-center gap-3 p-4 rounded-xl border border-gray-100 hover:border-primary-300/50 transition-colors">
+                  <div className="w-10 h-10 bg-wau-black rounded-lg flex items-center justify-center flex-shrink-0">
+                    <Icon className="w-5 h-5 text-primary-300" />
+                  </div>
+                  <p className="text-sm text-gray-700">{item.text}</p>
                 </div>
-                <p className="text-sm text-gray-700">{item}</p>
-              </div>
-            ))}
+              );
+            })}
           </div>
           <div className="max-w-md mx-auto bg-wau-black rounded-2xl p-6 text-center">
             <p className="text-gray-400 text-sm mb-1">No es para quien busca "tips sueltos"</p>
@@ -324,17 +353,25 @@ export function AgroLanding() {
             {/* Community */}
             <div className="p-8 rounded-2xl border border-gray-100">
               <div className="w-12 h-12 bg-wau-black rounded-xl flex items-center justify-center mb-5">
-                <Handshake className="w-6 h-6 text-primary-300" />
+                <Wheat className="w-6 h-6 text-primary-300" />
               </div>
               <h3 className="text-2xl font-bold text-wau-black mb-2">Comunidad WAU Agro</h3>
               <p className="text-gray-500 mb-5 leading-relaxed">
                 El agro se mueve por confianza. La comunidad acelera eso.
               </p>
               <ul className="space-y-3">
-                {['Grupo privado de participantes', 'Casos reales', 'Preguntas abiertas', 'Networking agro', 'Aprendizaje cruzado'].map((item, i) => (
-                  <li key={i} className="flex items-center gap-2 text-sm text-gray-600">
-                    <CheckCircle2 className="w-4 h-4 text-primary-500 flex-shrink-0" />
-                    {item}
+                {[
+                  { text: 'Grupo privado de participantes', icon: Users },
+                  { text: 'Casos reales', icon: LandPlot },
+                  { text: 'Preguntas abiertas', icon: MessageSquare },
+                  { text: 'Networking agro', icon: Handshake },
+                  { text: 'Aprendizaje cruzado', icon: Sprout },
+                ].map((item, i) => (
+                  <li key={i} className="flex items-center gap-3 text-sm text-gray-600">
+                    <div className="w-7 h-7 bg-primary-50 rounded-md flex items-center justify-center flex-shrink-0">
+                      <item.icon className="w-3.5 h-3.5 text-primary-600" />
+                    </div>
+                    {item.text}
                   </li>
                 ))}
               </ul>
@@ -350,12 +387,16 @@ export function AgroLanding() {
                 No sos un número. Ajustamos el sistema a tu realidad.
               </p>
               <ul className="space-y-3">
-                {['Especialista en ventas', 'Especialista en estrategia', 'Especialista en marca personal'].map((item, i) => (
+                {[
+                  { text: 'Especialista en ventas', icon: Target },
+                  { text: 'Especialista en estrategia', icon: BarChart3 },
+                  { text: 'Especialista en marca personal', icon: Megaphone },
+                ].map((item, i) => (
                   <li key={i} className="flex items-center gap-3 text-sm text-gray-600">
                     <div className="w-8 h-8 bg-primary-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                      <Lightbulb className="w-4 h-4 text-primary-700" />
+                      <item.icon className="w-4 h-4 text-primary-700" />
                     </div>
-                    {item}
+                    {item.text}
                   </li>
                 ))}
               </ul>
@@ -374,14 +415,17 @@ export function AgroLanding() {
             </h2>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 max-w-3xl mx-auto">
-            {DELIVERABLES.map((item, i) => (
-              <div key={i} className="flex items-center gap-3 p-4 bg-white rounded-xl border border-gray-100">
-                <div className="w-7 h-7 bg-primary-300 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <Award className="w-4 h-4 text-wau-black" />
+            {DELIVERABLES.map((item, i) => {
+              const Icon = item.icon;
+              return (
+                <div key={i} className="flex items-center gap-3 p-4 bg-white rounded-xl border border-gray-100">
+                  <div className="w-8 h-8 bg-primary-300 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <Icon className="w-4 h-4 text-wau-black" />
+                  </div>
+                  <p className="text-sm font-medium text-wau-black">{item.text}</p>
                 </div>
-                <p className="text-sm font-medium text-wau-black">{item}</p>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </section>

@@ -1,8 +1,9 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DragDropContext, Droppable, Draggable, type DropResult } from '@hello-pangea/dnd';
-import { Plus, Calendar, User, DollarSign, GripVertical, ChevronDown, ChevronRight, Trophy, XCircle } from 'lucide-react';
+import { Plus, Calendar, User, DollarSign, GripVertical, ChevronDown, ChevronRight, Trophy, XCircle, Users, UserCircle } from 'lucide-react';
 import { useCRM } from '../../context/CRMContext';
+import { useAuth } from '../../context/AuthContext';
 import { TERMINAL_STAGES, type DealStage, type Deal } from '../../types/crm';
 
 const formatCurrency = (amount: number): string => {
@@ -207,24 +208,30 @@ function ClosedDealsSection({ title, icon, deals, colorClass, onCardClick }: Clo
 export function DealPipeline() {
   const navigate = useNavigate();
   const { deals, updateDealStage, loading, pipelineStages, getStageConfig } = useCRM();
+  const { appUser } = useAuth();
+  const [showAll, setShowAll] = useState(false);
 
   const pipelineStageNames = useMemo(() => pipelineStages.map(s => s.name), [pipelineStages]);
 
+  const filteredDeals = useMemo(() => {
+    if (showAll) return deals;
+    return deals.filter(d => d.ownerId === appUser?.id);
+  }, [deals, showAll, appUser?.id]);
+
   const dealsByStage = useMemo(() => {
     const grouped: Record<string, Deal[]> = {};
-    // Initialize all pipeline + terminal stages
     pipelineStageNames.forEach(s => { grouped[s] = []; });
     grouped['ganado'] = [];
     grouped['perdido'] = [];
 
-    deals.forEach((deal) => {
+    filteredDeals.forEach((deal) => {
       if (grouped[deal.stage]) {
         grouped[deal.stage].push(deal);
       }
     });
 
     return grouped;
-  }, [deals, pipelineStageNames]);
+  }, [filteredDeals, pipelineStageNames]);
 
   const handleDragEnd = async (result: DropResult) => {
     const { destination, source, draggableId } = result;
@@ -263,13 +270,26 @@ export function DealPipeline() {
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
           Pipeline de Ventas
         </h1>
-        <button
-          onClick={handleNewDeal}
-          className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-        >
-          <Plus className="w-5 h-5" />
-          Nueva Oportunidad
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setShowAll(!showAll)}
+            className={`inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg border transition-colors ${
+              showAll
+                ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300'
+                : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
+            }`}
+          >
+            {showAll ? <Users className="w-4 h-4" /> : <UserCircle className="w-4 h-4" />}
+            {showAll ? 'Todos' : 'Mis oportunidades'}
+          </button>
+          <button
+            onClick={handleNewDeal}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            <Plus className="w-5 h-5" />
+            Nueva Oportunidad
+          </button>
+        </div>
       </div>
 
       {/* Kanban Board */}

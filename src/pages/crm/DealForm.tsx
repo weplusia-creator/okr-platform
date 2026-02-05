@@ -9,7 +9,7 @@ import type { DealStage } from '../../types/crm';
 export function DealForm() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { deals, leads, addDeal, updateDeal, fetchDeals, pipelineStages, getStageConfig } = useCRM();
+  const { deals, leads, addDeal, updateDeal, fetchDeals, pipelineStages, getStageConfig, error: crmError } = useCRM();
   const { clients } = useFinance();
   const { orgUsers } = useAuth();
   const isEditing = !!id;
@@ -19,7 +19,7 @@ export function DealForm() {
     description: '',
     leadId: '',
     clientId: '',
-    stage: 'prospecto' as DealStage,
+    stage: '' as DealStage,
     amount: '',
     monthlyFee: '',
     product: '',
@@ -27,6 +27,14 @@ export function DealForm() {
     ownerId: '',
   });
   const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+
+  // Set default stage when pipelineStages load (only for new deals)
+  useEffect(() => {
+    if (!isEditing && pipelineStages.length > 0 && !form.stage) {
+      setForm(f => ({ ...f, stage: pipelineStages[0].name }));
+    }
+  }, [pipelineStages, isEditing, form.stage]);
 
   useEffect(() => {
     if (isEditing && deals.length === 0) {
@@ -56,7 +64,10 @@ export function DealForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setFormError(null);
     if (!form.name.trim()) return;
+
+    const stage = form.stage || (pipelineStages.length > 0 ? pipelineStages[0].name : 'prospecto');
 
     setSaving(true);
     try {
@@ -66,7 +77,7 @@ export function DealForm() {
           description: form.description.trim() || null,
           leadId: form.leadId || null,
           clientId: form.clientId || null,
-          stage: form.stage,
+          stage,
           amount: form.amount ? parseFloat(form.amount) : 0,
           monthlyFee: form.monthlyFee ? parseFloat(form.monthlyFee) : null,
           product: form.product.trim() || null,
@@ -80,8 +91,8 @@ export function DealForm() {
           description: form.description.trim() || null,
           leadId: form.leadId || null,
           clientId: form.clientId || null,
-          stage: form.stage,
-          probability: getStageConfig(form.stage).probability,
+          stage,
+          probability: getStageConfig(stage).probability,
           amount: form.amount ? parseFloat(form.amount) : 0,
           currency: 'ARS',
           monthlyFee: form.monthlyFee ? parseFloat(form.monthlyFee) : null,
@@ -97,8 +108,12 @@ export function DealForm() {
         });
         if (deal) {
           navigate(`/crm/deals/${deal.id}`);
+        } else {
+          setFormError('Error al crear la oportunidad. Revisá los datos e intentá de nuevo.');
         }
       }
+    } catch (err) {
+      setFormError('Error inesperado al guardar.');
     } finally {
       setSaving(false);
     }
@@ -262,6 +277,13 @@ export function DealForm() {
             </div>
           </div>
         </div>
+
+        {/* Error */}
+        {(formError || crmError) && (
+          <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-sm text-red-700 dark:text-red-300">
+            {formError || crmError}
+          </div>
+        )}
 
         {/* Footer */}
         <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">

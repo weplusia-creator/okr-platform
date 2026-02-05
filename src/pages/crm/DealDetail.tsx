@@ -326,31 +326,40 @@ export function DealDetail() {
           </div>
         </div>
 
-        {isActive && (
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => navigate(`/proposals/new?dealId=${deal.id}`)}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
-            >
-              <FileText className="w-5 h-5" />
-              Generar Propuesta
-            </button>
-            <button
-              onClick={() => setShowWonModal(true)}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-            >
-              <Trophy className="w-5 h-5" />
-              Marcar Ganado
-            </button>
-            <button
-              onClick={() => setShowLostModal(true)}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-            >
-              <XCircle className="w-5 h-5" />
-              Marcar Perdido
-            </button>
-          </div>
-        )}
+        <div className="flex items-center gap-3 flex-wrap">
+          <button
+            onClick={() => navigate(`/crm/deals/${deal.id}/edit`)}
+            className="inline-flex items-center gap-2 px-4 py-2 text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+          >
+            <Pencil className="w-4 h-4" />
+            Editar
+          </button>
+          {isActive && (
+            <>
+              <button
+                onClick={() => navigate(`/proposals/new?dealId=${deal.id}`)}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+              >
+                <FileText className="w-5 h-5" />
+                Generar Propuesta
+              </button>
+              <button
+                onClick={() => setShowWonModal(true)}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+              >
+                <Trophy className="w-5 h-5" />
+                Marcar Ganado
+              </button>
+              <button
+                onClick={() => setShowLostModal(true)}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+              >
+                <XCircle className="w-5 h-5" />
+                Marcar Perdido
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
       {/* Two columns */}

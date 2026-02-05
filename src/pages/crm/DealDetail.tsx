@@ -12,16 +12,30 @@ import {
   Plus,
   Building2,
   ArrowRight,
+  Pencil,
+  Save,
+  X,
+  Mail,
+  Phone,
+  Globe,
+  MapPin,
+  Briefcase,
+  Users,
 } from 'lucide-react';
 import { useCRM } from '../../context/CRMContext';
+import { useFinance } from '../../context/FinanceContext';
 import {
   ACTIVITY_TYPE_CONFIG,
   LOST_REASONS,
   TERMINAL_STAGES,
+  LEAD_SOURCE_LABELS,
+  LEAD_STATUS_CONFIG,
   type DealHistory,
   type Activity,
   type ActivityType,
+  type Lead,
 } from '../../types/crm';
+import type { Client } from '../../types/finance';
 import { Modal } from '../../components/Modal';
 
 const formatCurrency = (amount: number): string => {
@@ -53,6 +67,19 @@ const formatDateTime = (dateString: string | null): string => {
   });
 };
 
+function InfoRow({ icon, label, value }: { icon: React.ReactNode; label: string; value: string | null | undefined }) {
+  if (!value) return null;
+  return (
+    <div className="flex items-center gap-3">
+      <div className="text-gray-400 dark:text-gray-500 shrink-0">{icon}</div>
+      <div className="min-w-0">
+        <label className="text-xs font-medium text-gray-500 dark:text-gray-400">{label}</label>
+        <p className="text-sm text-gray-900 dark:text-white truncate">{value}</p>
+      </div>
+    </div>
+  );
+}
+
 export function DealDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -66,9 +93,11 @@ export function DealDetail() {
     markDealLost,
     addActivity,
     completeActivity,
+    updateLead,
     loading,
     getStageConfig,
   } = useCRM();
+  const { clients, updateClient } = useFinance();
 
   const [history, setHistory] = useState<DealHistory[]>([]);
   const [historyLoading, setHistoryLoading] = useState(true);
@@ -77,6 +106,11 @@ export function DealDetail() {
   const [showWonModal, setShowWonModal] = useState(false);
   const [showLostModal, setShowLostModal] = useState(false);
   const [showActivityModal, setShowActivityModal] = useState(false);
+
+  // Contact/company edit state
+  const [editingContact, setEditingContact] = useState(false);
+  const [contactForm, setContactForm] = useState<Record<string, string>>({});
+  const [savingContact, setSavingContact] = useState(false);
 
   // Won modal state
   const [createClient, setCreateClient] = useState(true);
@@ -95,9 +129,79 @@ export function DealDetail() {
 
   const deal = deals.find((d) => d.id === id);
   const linkedLead = deal?.leadId ? leads.find((l) => l.id === deal.leadId) : null;
+  const linkedClient = deal?.clientId ? clients.find((c) => c.id === deal.clientId) : null;
   const dealActivities = activities.filter((a) => a.dealId === id);
 
   const isActive = deal && !(TERMINAL_STAGES as readonly string[]).includes(deal.stage);
+
+  const startEditContact = () => {
+    if (linkedClient) {
+      setContactForm({
+        name: linkedClient.name || '',
+        company: linkedClient.company || '',
+        email: linkedClient.email || '',
+        phone: linkedClient.phone || '',
+        address: linkedClient.address || '',
+        cuit: linkedClient.cuit || '',
+        industry: linkedClient.industry || '',
+        employeeCount: linkedClient.employeeCount || '',
+        website: linkedClient.website || '',
+        contactName: linkedClient.contactName || '',
+        contactRole: linkedClient.contactRole || '',
+        notes: linkedClient.notes || '',
+      });
+    } else if (linkedLead) {
+      setContactForm({
+        contactName: linkedLead.contactName || '',
+        company: linkedLead.company || '',
+        email: linkedLead.email || '',
+        phone: linkedLead.phone || '',
+        position: linkedLead.position || '',
+        budgetRange: linkedLead.budgetRange || '',
+        timeline: linkedLead.timeline || '',
+        needs: linkedLead.needs || '',
+        notes: linkedLead.notes || '',
+      });
+    }
+    setEditingContact(true);
+  };
+
+  const saveContact = async () => {
+    setSavingContact(true);
+    try {
+      if (linkedClient) {
+        await updateClient(linkedClient.id, {
+          name: contactForm.name || linkedClient.name,
+          company: contactForm.company || null,
+          email: contactForm.email || null,
+          phone: contactForm.phone || null,
+          address: contactForm.address || null,
+          cuit: contactForm.cuit || null,
+          industry: contactForm.industry || null,
+          employeeCount: contactForm.employeeCount || null,
+          website: contactForm.website || null,
+          contactName: contactForm.contactName || null,
+          contactRole: contactForm.contactRole || null,
+          notes: contactForm.notes || null,
+        });
+      } else if (linkedLead) {
+        await updateLead(linkedLead.id, {
+          contactName: contactForm.contactName || linkedLead.contactName,
+          company: contactForm.company || null,
+          email: contactForm.email || null,
+          phone: contactForm.phone || null,
+          position: contactForm.position || null,
+          budgetRange: contactForm.budgetRange || null,
+          timeline: contactForm.timeline || null,
+          needs: contactForm.needs || null,
+          notes: contactForm.notes || null,
+        });
+      }
+      setEditingContact(false);
+    } finally {
+      setSavingContact(false);
+    }
+  };
 
   // Calculate days in pipeline
   const daysInPipeline = deal
@@ -377,6 +481,192 @@ export function DealDetail() {
               )}
             </div>
           </div>
+
+          {/* Contact / Company Info */}
+          {(linkedClient || linkedLead) && (
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                  <Building2 className="w-5 h-5" />
+                  {linkedClient ? 'Cliente' : 'Lead / Contacto'}
+                </h2>
+                {!editingContact ? (
+                  <button
+                    onClick={startEditContact}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
+                  >
+                    <Pencil className="w-4 h-4" />
+                    Editar
+                  </button>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setEditingContact(false)}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                    >
+                      <X className="w-4 h-4" />
+                      Cancelar
+                    </button>
+                    <button
+                      onClick={saveContact}
+                      disabled={savingContact}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                    >
+                      <Save className="w-4 h-4" />
+                      {savingContact ? 'Guardando...' : 'Guardar'}
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {editingContact ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {linkedClient ? (
+                    <>
+                      <div>
+                        <label className="label">Nombre</label>
+                        <input className="input" value={contactForm.name || ''} onChange={e => setContactForm(f => ({ ...f, name: e.target.value }))} />
+                      </div>
+                      <div>
+                        <label className="label">Empresa</label>
+                        <input className="input" value={contactForm.company || ''} onChange={e => setContactForm(f => ({ ...f, company: e.target.value }))} />
+                      </div>
+                      <div>
+                        <label className="label">Email</label>
+                        <input type="email" className="input" value={contactForm.email || ''} onChange={e => setContactForm(f => ({ ...f, email: e.target.value }))} />
+                      </div>
+                      <div>
+                        <label className="label">Telefono</label>
+                        <input className="input" value={contactForm.phone || ''} onChange={e => setContactForm(f => ({ ...f, phone: e.target.value }))} />
+                      </div>
+                      <div>
+                        <label className="label">Industria</label>
+                        <input className="input" value={contactForm.industry || ''} onChange={e => setContactForm(f => ({ ...f, industry: e.target.value }))} placeholder="Ej: Tecnologia, Agro, etc." />
+                      </div>
+                      <div>
+                        <label className="label">Cantidad de empleados</label>
+                        <input className="input" value={contactForm.employeeCount || ''} onChange={e => setContactForm(f => ({ ...f, employeeCount: e.target.value }))} placeholder="Ej: 1-10, 11-50, 51-200" />
+                      </div>
+                      <div>
+                        <label className="label">CUIT</label>
+                        <input className="input" value={contactForm.cuit || ''} onChange={e => setContactForm(f => ({ ...f, cuit: e.target.value }))} />
+                      </div>
+                      <div>
+                        <label className="label">Sitio Web</label>
+                        <input className="input" value={contactForm.website || ''} onChange={e => setContactForm(f => ({ ...f, website: e.target.value }))} placeholder="https://" />
+                      </div>
+                      <div>
+                        <label className="label">Direccion</label>
+                        <input className="input" value={contactForm.address || ''} onChange={e => setContactForm(f => ({ ...f, address: e.target.value }))} />
+                      </div>
+                      <div>
+                        <label className="label">Contacto principal</label>
+                        <input className="input" value={contactForm.contactName || ''} onChange={e => setContactForm(f => ({ ...f, contactName: e.target.value }))} />
+                      </div>
+                      <div>
+                        <label className="label">Cargo del contacto</label>
+                        <input className="input" value={contactForm.contactRole || ''} onChange={e => setContactForm(f => ({ ...f, contactRole: e.target.value }))} />
+                      </div>
+                      <div className="sm:col-span-2">
+                        <label className="label">Notas</label>
+                        <textarea className="input" rows={2} value={contactForm.notes || ''} onChange={e => setContactForm(f => ({ ...f, notes: e.target.value }))} />
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div>
+                        <label className="label">Nombre de contacto</label>
+                        <input className="input" value={contactForm.contactName || ''} onChange={e => setContactForm(f => ({ ...f, contactName: e.target.value }))} />
+                      </div>
+                      <div>
+                        <label className="label">Empresa</label>
+                        <input className="input" value={contactForm.company || ''} onChange={e => setContactForm(f => ({ ...f, company: e.target.value }))} />
+                      </div>
+                      <div>
+                        <label className="label">Email</label>
+                        <input type="email" className="input" value={contactForm.email || ''} onChange={e => setContactForm(f => ({ ...f, email: e.target.value }))} />
+                      </div>
+                      <div>
+                        <label className="label">Telefono</label>
+                        <input className="input" value={contactForm.phone || ''} onChange={e => setContactForm(f => ({ ...f, phone: e.target.value }))} />
+                      </div>
+                      <div>
+                        <label className="label">Cargo</label>
+                        <input className="input" value={contactForm.position || ''} onChange={e => setContactForm(f => ({ ...f, position: e.target.value }))} />
+                      </div>
+                      <div>
+                        <label className="label">Rango de presupuesto</label>
+                        <input className="input" value={contactForm.budgetRange || ''} onChange={e => setContactForm(f => ({ ...f, budgetRange: e.target.value }))} />
+                      </div>
+                      <div>
+                        <label className="label">Timeline</label>
+                        <input className="input" value={contactForm.timeline || ''} onChange={e => setContactForm(f => ({ ...f, timeline: e.target.value }))} />
+                      </div>
+                      <div className="sm:col-span-2">
+                        <label className="label">Necesidades</label>
+                        <textarea className="input" rows={2} value={contactForm.needs || ''} onChange={e => setContactForm(f => ({ ...f, needs: e.target.value }))} />
+                      </div>
+                      <div className="sm:col-span-2">
+                        <label className="label">Notas</label>
+                        <textarea className="input" rows={2} value={contactForm.notes || ''} onChange={e => setContactForm(f => ({ ...f, notes: e.target.value }))} />
+                      </div>
+                    </>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {linkedClient ? (
+                    <>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <InfoRow icon={<Building2 className="w-4 h-4" />} label="Nombre" value={linkedClient.name} />
+                        <InfoRow icon={<Briefcase className="w-4 h-4" />} label="Empresa" value={linkedClient.company} />
+                        <InfoRow icon={<Mail className="w-4 h-4" />} label="Email" value={linkedClient.email} />
+                        <InfoRow icon={<Phone className="w-4 h-4" />} label="Telefono" value={linkedClient.phone} />
+                        <InfoRow icon={<Briefcase className="w-4 h-4" />} label="Industria" value={linkedClient.industry} />
+                        <InfoRow icon={<Users className="w-4 h-4" />} label="Empleados" value={linkedClient.employeeCount} />
+                        <InfoRow icon={<FileText className="w-4 h-4" />} label="CUIT" value={linkedClient.cuit} />
+                        <InfoRow icon={<Globe className="w-4 h-4" />} label="Sitio Web" value={linkedClient.website} />
+                        <InfoRow icon={<MapPin className="w-4 h-4" />} label="Direccion" value={linkedClient.address} />
+                        <InfoRow icon={<User className="w-4 h-4" />} label="Contacto" value={linkedClient.contactName} />
+                        <InfoRow icon={<Briefcase className="w-4 h-4" />} label="Cargo" value={linkedClient.contactRole} />
+                      </div>
+                      {linkedClient.notes && (
+                        <div className="pt-3 border-t border-gray-100 dark:border-gray-700">
+                          <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Notas</label>
+                          <p className="mt-1 text-sm text-gray-700 dark:text-gray-300">{linkedClient.notes}</p>
+                        </div>
+                      )}
+                    </>
+                  ) : linkedLead ? (
+                    <>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <InfoRow icon={<User className="w-4 h-4" />} label="Contacto" value={linkedLead.contactName} />
+                        <InfoRow icon={<Building2 className="w-4 h-4" />} label="Empresa" value={linkedLead.company} />
+                        <InfoRow icon={<Mail className="w-4 h-4" />} label="Email" value={linkedLead.email} />
+                        <InfoRow icon={<Phone className="w-4 h-4" />} label="Telefono" value={linkedLead.phone} />
+                        <InfoRow icon={<Briefcase className="w-4 h-4" />} label="Cargo" value={linkedLead.position} />
+                        <InfoRow icon={<DollarSign className="w-4 h-4" />} label="Presupuesto" value={linkedLead.budgetRange} />
+                        <InfoRow icon={<Clock className="w-4 h-4" />} label="Timeline" value={linkedLead.timeline} />
+                        <InfoRow icon={<FileText className="w-4 h-4" />} label="Fuente" value={LEAD_SOURCE_LABELS[linkedLead.source]} />
+                      </div>
+                      {linkedLead.needs && (
+                        <div className="pt-3 border-t border-gray-100 dark:border-gray-700">
+                          <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Necesidades</label>
+                          <p className="mt-1 text-sm text-gray-700 dark:text-gray-300">{linkedLead.needs}</p>
+                        </div>
+                      )}
+                      {linkedLead.notes && (
+                        <div className="pt-3 border-t border-gray-100 dark:border-gray-700">
+                          <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Notas</label>
+                          <p className="mt-1 text-sm text-gray-700 dark:text-gray-300">{linkedLead.notes}</p>
+                        </div>
+                      )}
+                    </>
+                  ) : null}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Stage History Timeline */}
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">

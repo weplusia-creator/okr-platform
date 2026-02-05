@@ -9,7 +9,7 @@ import type { DealStage } from '../../types/crm';
 export function DealForm() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { deals, leads, addDeal, updateDeal, fetchDeals, pipelineStages, getStageConfig, error: crmError } = useCRM();
+  const { deals, leads, addDeal, updateDeal, fetchDeals, pipelineStages, getStageConfig } = useCRM();
   const { clients } = useFinance();
   const { orgUsers } = useAuth();
   const isEditing = !!id;
@@ -70,6 +70,13 @@ export function DealForm() {
     const stage = form.stage || (pipelineStages.length > 0 ? pipelineStages[0].name : 'prospecto');
 
     setSaving(true);
+
+    // Safety timeout: reset saving state if it takes too long
+    const timeout = setTimeout(() => {
+      setSaving(false);
+      setFormError('La operación tardó demasiado. Intentá de nuevo.');
+    }, 15000);
+
     try {
       if (isEditing) {
         await updateDeal(id!, {
@@ -84,6 +91,7 @@ export function DealForm() {
           expectedCloseDate: form.expectedCloseDate || null,
           ownerId: form.ownerId || null,
         });
+        clearTimeout(timeout);
         navigate(`/crm/deals/${id}`);
       } else {
         const deal = await addDeal({
@@ -106,6 +114,7 @@ export function DealForm() {
           createdProjectId: null,
           lastActivityAt: null,
         });
+        clearTimeout(timeout);
         if (deal) {
           navigate(`/crm/deals/${deal.id}`);
         } else {
@@ -113,6 +122,7 @@ export function DealForm() {
         }
       }
     } catch (err) {
+      clearTimeout(timeout);
       setFormError('Error inesperado al guardar.');
     } finally {
       setSaving(false);
@@ -279,9 +289,9 @@ export function DealForm() {
         </div>
 
         {/* Error */}
-        {(formError || crmError) && (
+        {formError && (
           <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-sm text-red-700 dark:text-red-300">
-            {formError || crmError}
+            {formError}
           </div>
         )}
 

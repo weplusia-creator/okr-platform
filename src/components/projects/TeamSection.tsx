@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { UserPlus, Trash2, Info, Pencil, LayoutGrid, List } from 'lucide-react';
+import { UserPlus, Trash2, Info, Pencil, LayoutGrid, List, MessageCircle, Copy, Phone } from 'lucide-react';
 import { Modal } from '../Modal';
 import { useProjects } from '../../context/ProjectContext';
 import { supabase } from '../../lib/supabase';
@@ -25,8 +25,10 @@ export function TeamSection({ projectId, participants }: TeamSectionProps) {
   const { addParticipant, updateParticipantRole, removeParticipant, fetchParticipants } = useProjects();
 
   const [showModal, setShowModal] = useState(false);
+  const [showWhatsApp, setShowWhatsApp] = useState(false);
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [role, setRole] = useState<ParticipantRole>('alumno');
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -36,6 +38,7 @@ export function TeamSection({ projectId, participants }: TeamSectionProps) {
   const [editingParticipant, setEditingParticipant] = useState<ProjectParticipant | null>(null);
   const [editName, setEditName] = useState('');
   const [editEmail, setEditEmail] = useState('');
+  const [editPhone, setEditPhone] = useState('');
   const [editSaving, setEditSaving] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -50,7 +53,7 @@ export function TeamSection({ projectId, participants }: TeamSectionProps) {
     setSaving(true);
     setSaveError(null);
     try {
-      await addParticipant({
+      const newParticipant = await addParticipant({
         projectId,
         userId: '',
         userName: trimmedName,
@@ -59,9 +62,14 @@ export function TeamSection({ projectId, participants }: TeamSectionProps) {
         hourlyRate: null,
         allocatedHours: null,
       });
+      // Update phone if provided
+      if (phone.trim() && newParticipant?.userId) {
+        await (supabase as any).from('users').update({ phone: phone.trim() }).eq('id', newParticipant.userId);
+      }
       setShowModal(false);
       setFullName('');
       setEmail('');
+      setPhone('');
       setRole('alumno');
       setSaveError(null);
       fetchParticipants(projectId);
@@ -85,6 +93,7 @@ export function TeamSection({ projectId, participants }: TeamSectionProps) {
     setEditingParticipant(p);
     setEditName(p.userName || '');
     setEditEmail(p.userEmail || '');
+    setEditPhone(p.userPhone || '');
     setEditError(null);
   };
 
@@ -102,7 +111,7 @@ export function TeamSection({ projectId, participants }: TeamSectionProps) {
       const db = supabase as any;
       const { error } = await db
         .from('users')
-        .update({ full_name: trimmedName, email: trimmedEmail.toLowerCase() })
+        .update({ full_name: trimmedName, email: trimmedEmail.toLowerCase(), phone: editPhone.trim() || null })
         .eq('id', editingParticipant.userId);
       if (error) throw error;
       setEditingParticipant(null);
@@ -141,10 +150,18 @@ export function TeamSection({ projectId, participants }: TeamSectionProps) {
             </button>
           </div>
         </div>
-        <button onClick={() => setShowModal(true)} className="btn-primary btn-sm flex items-center gap-1">
-          <UserPlus className="w-4 h-4" />
-          Agregar Miembro
-        </button>
+        <div className="flex items-center gap-2">
+          {participants.some(p => p.userPhone) && (
+            <button onClick={() => setShowWhatsApp(true)} className="btn-secondary btn-sm flex items-center gap-1 text-green-600 border-green-300 hover:bg-green-50 dark:text-green-400 dark:border-green-700 dark:hover:bg-green-900/20">
+              <MessageCircle className="w-4 h-4" />
+              Grupo WhatsApp
+            </button>
+          )}
+          <button onClick={() => setShowModal(true)} className="btn-primary btn-sm flex items-center gap-1">
+            <UserPlus className="w-4 h-4" />
+            Agregar Miembro
+          </button>
+        </div>
       </div>
 
       {successMsg && (
@@ -186,6 +203,11 @@ export function TeamSection({ projectId, participants }: TeamSectionProps) {
                   </h4>
                   {p.userEmail && p.userName && (
                     <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{p.userEmail}</p>
+                  )}
+                  {p.userPhone && (
+                    <p className="text-xs text-gray-400 dark:text-gray-500 truncate flex items-center gap-1">
+                      <Phone className="w-3 h-3" />{p.userPhone}
+                    </p>
                   )}
                 </div>
                 <select
@@ -310,6 +332,18 @@ export function TeamSection({ projectId, participants }: TeamSectionProps) {
           </div>
 
           <div>
+            <label className="label">Teléfono (con código de país)</label>
+            <input
+              type="tel"
+              className="input"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="5491123456789"
+            />
+            <p className="text-xs text-gray-400 mt-1">Para WhatsApp. Ej: 5491123456789 (sin + ni espacios)</p>
+          </div>
+
+          <div>
             <label className="label">Rol</label>
             <select className="select" value={role} onChange={(e) => setRole(e.target.value as ParticipantRole)}>
               {Object.entries(PARTICIPANT_ROLE_CONFIG).map(([key, cfg]) => (
@@ -336,6 +370,60 @@ export function TeamSection({ projectId, participants }: TeamSectionProps) {
         </div>
       </Modal>
 
+      {/* WhatsApp Group Modal */}
+      <Modal isOpen={showWhatsApp} onClose={() => setShowWhatsApp(false)} title="Crear Grupo WhatsApp">
+        <div className="space-y-4">
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            WhatsApp no permite crear grupos automáticamente desde una web. Usá los números de abajo para crear el grupo manualmente.
+          </p>
+
+          <div className="space-y-2">
+            {participants.map(p => (
+              <div key={p.id} className="flex items-center justify-between bg-gray-50 dark:bg-gray-700/30 rounded-lg px-3 py-2">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{p.userName || p.userEmail}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    {p.userPhone || 'Sin teléfono'}
+                  </p>
+                </div>
+                {p.userPhone && (
+                  <a
+                    href={`https://wa.me/${p.userPhone.replace(/[^0-9]/g, '')}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1 text-xs text-green-600 hover:text-green-700 dark:text-green-400 font-medium"
+                  >
+                    <MessageCircle className="w-3.5 h-3.5" />
+                    Abrir chat
+                  </a>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {participants.some(p => p.userPhone) && (
+            <button
+              onClick={() => {
+                const phones = participants
+                  .filter(p => p.userPhone)
+                  .map(p => `${p.userName || 'Sin nombre'}: ${p.userPhone}`)
+                  .join('\n');
+                navigator.clipboard.writeText(phones);
+                alert('Números copiados al portapapeles');
+              }}
+              className="btn-secondary w-full flex items-center justify-center gap-2"
+            >
+              <Copy className="w-4 h-4" />
+              Copiar todos los números
+            </button>
+          )}
+
+          <p className="text-xs text-gray-400 dark:text-gray-500">
+            Tip: Copiá los números, abrí WhatsApp, creá un grupo nuevo y agregá los contactos.
+          </p>
+        </div>
+      </Modal>
+
       {/* Edit Participant Modal */}
       <Modal isOpen={!!editingParticipant} onClose={() => setEditingParticipant(null)} title="Editar Miembro">
         <div className="space-y-4">
@@ -355,6 +443,16 @@ export function TeamSection({ projectId, participants }: TeamSectionProps) {
               className="input"
               value={editEmail}
               onChange={(e) => setEditEmail(e.target.value)}
+            />
+          </div>
+          <div>
+            <label className="label">Teléfono</label>
+            <input
+              type="tel"
+              className="input"
+              value={editPhone}
+              onChange={(e) => setEditPhone(e.target.value)}
+              placeholder="5491123456789"
             />
           </div>
           {editError && (

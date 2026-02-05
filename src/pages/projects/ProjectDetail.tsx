@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -18,9 +18,15 @@ import {
   ClipboardList,
   ClipboardCheck,
   Star,
+  LayoutGrid,
+  BookMarked,
+  MoreHorizontal,
 } from 'lucide-react';
 import { useProjects } from '../../context/ProjectContext';
 import { useAuth } from '../../context/AuthContext';
+import { useBMC } from '../../context/BMCContext';
+import { usePlaybook } from '../../context/PlaybookContext';
+import { useCheckin } from '../../context/CheckinContext';
 import {
   ProjectKPIs,
   DeliverableCard,
@@ -45,18 +51,23 @@ import type {
 } from '../../types/projects';
 import {
   PROJECT_STATUS_CONFIG,
-  PRIORITY_CONFIG,
   getProjectDisplayName,
 } from '../../types/projects';
 
-type TabKey = 'summary' | 'deliverables' | 'modules' | 'gantt' | 'team' | 'attendance' | 'nps' | 'documents' | 'finance' | 'activity' | 'onboarding';
+type TabKey = 'summary' | 'deliverables' | 'modules' | 'gantt' | 'team' | 'attendance' | 'nps' | 'documents' | 'finance' | 'activity' | 'onboarding' | 'bmc' | 'playbook' | 'checkins';
 
-const ALL_TABS: { key: TabKey; label: string; icon: React.ElementType }[] = [
+const PRIMARY_TABS: { key: TabKey; label: string; icon: React.ElementType }[] = [
   { key: 'summary', label: 'Resumen', icon: BarChart3 },
-  { key: 'deliverables', label: 'Entregables', icon: Package },
   { key: 'modules', label: 'Módulos', icon: BookOpen },
+  { key: 'deliverables', label: 'Entregables', icon: Package },
   { key: 'gantt', label: 'Gantt', icon: GanttChart },
   { key: 'team', label: 'Equipo', icon: Users },
+];
+
+const SECONDARY_TABS: { key: TabKey; label: string; icon: React.ElementType }[] = [
+  { key: 'checkins', label: 'Check-ins', icon: ClipboardCheck },
+  { key: 'bmc', label: 'BMC', icon: LayoutGrid },
+  { key: 'playbook', label: 'Playbook', icon: BookMarked },
   { key: 'attendance', label: 'Asistencia', icon: ClipboardCheck },
   { key: 'nps', label: 'NPS', icon: Star },
   { key: 'documents', label: 'Documentos', icon: FileText },
@@ -91,6 +102,10 @@ export function ProjectDetail() {
     fetchAllAlumniProfiles,
   } = useProjects();
 
+  const { canvases, fetchCanvases } = useBMC();
+  const { playbooks, fetchPlaybooks } = usePlaybook();
+  const { checkins, configs, fetchCheckins, fetchConfigs } = useCheckin();
+
   const [activeTab, setActiveTab] = useState<TabKey>('summary');
   const [showModuleForm, setShowModuleForm] = useState(false);
   const [editingModule, setEditingModule] = useState<ProjectModule | null>(null);
@@ -113,6 +128,14 @@ export function ProjectDetail() {
   const isAdminOrConsultor = currentParticipant?.role === 'admin' || currentParticipant?.role === 'consultor';
   const showOnboardingTab = isAlumno || isAdminOrConsultor;
 
+  // BMC & Playbook linked to this project
+  const projectCanvases = useMemo(() => canvases.filter(c => c.projectId === id), [canvases, id]);
+  const projectPlaybooks = useMemo(() => playbooks.filter(p => p.projectId === id && p.status === 'activo'), [playbooks, id]);
+  const projectCheckins = useMemo(() => checkins.filter(c => c.proyectoId === id).sort((a, b) => b.numero - a.numero), [checkins, id]);
+  const projectConfig = useMemo(() => configs.find(c => c.proyectoId === id), [configs, id]);
+  const hasBMC = projectCanvases.length > 0;
+  const hasPlaybook = projectPlaybooks.length > 0;
+
   // Default tab for alumnos
   useEffect(() => {
     if (isAlumno && activeTab === 'summary') {
@@ -120,16 +143,33 @@ export function ProjectDetail() {
     }
   }, [isAlumno, activeTab]);
 
-  const TABS = useMemo(() => {
-    let tabs = [...ALL_TABS];
+  const { primaryTabs, secondaryTabs } = useMemo(() => {
+    let primary = [...PRIMARY_TABS];
+    let secondary = [...SECONDARY_TABS];
     if (showOnboardingTab) {
-      tabs = [...tabs, { key: 'onboarding' as TabKey, label: 'Onboarding', icon: ClipboardList }];
+      secondary = [...secondary, { key: 'onboarding' as TabKey, label: 'Onboarding', icon: ClipboardList }];
     }
     if (isAlumno) {
-      tabs = tabs.filter(t => ALUMNO_TABS.includes(t.key));
+      primary = primary.filter(t => ALUMNO_TABS.includes(t.key));
+      secondary = secondary.filter(t => ALUMNO_TABS.includes(t.key));
     }
-    return tabs;
+    return { primaryTabs: primary, secondaryTabs: secondary };
   }, [showOnboardingTab, isAlumno]);
+
+  const [showMoreMenu, setShowMoreMenu] = useState(false);
+  const moreMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (moreMenuRef.current && !moreMenuRef.current.contains(e.target as Node)) {
+        setShowMoreMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, []);
+
+  const isSecondaryActive = secondaryTabs.some(t => t.key === activeTab);
 
   // Load project data
   useEffect(() => {
@@ -141,6 +181,10 @@ export function ProjectDetail() {
     fetchModules(id).catch(e => console.error('[ProjectDetail] fetchModules error:', e));
     fetchDocuments(id).catch(e => console.error('[ProjectDetail] fetchDocuments error:', e));
     fetchActivityLog(id).catch(e => console.error('[ProjectDetail] fetchActivityLog error:', e));
+    fetchCanvases(id).catch(e => console.error('[ProjectDetail] fetchCanvases error:', e));
+    fetchPlaybooks().catch(e => console.error('[ProjectDetail] fetchPlaybooks error:', e));
+    fetchCheckins(id).catch(e => console.error('[ProjectDetail] fetchCheckins error:', e));
+    fetchConfigs().catch(e => console.error('[ProjectDetail] fetchConfigs error:', e));
   }, [id, getProject, fetchParticipants, fetchDeliverables, fetchModules, fetchDocuments, fetchActivityLog]);
 
   // Check alumni onboarding status
@@ -224,7 +268,6 @@ export function ProjectDetail() {
   }
 
   const statusConfig = PROJECT_STATUS_CONFIG[currentProject.status];
-  const priorityConfig = PRIORITY_CONFIG[currentProject.priority];
 
   return (
     <div className="space-y-6">
@@ -244,9 +287,6 @@ export function ProjectDetail() {
             <div className="flex items-center gap-2 mt-1">
               <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusConfig.bgClass}`}>
                 {statusConfig.label}
-              </span>
-              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${priorityConfig.bgClass}`}>
-                {priorityConfig.label}
               </span>
             </div>
           </div>
@@ -314,8 +354,8 @@ export function ProjectDetail() {
 
       {/* Tab bar */}
       <div className="border-b border-gray-200 dark:border-gray-700">
-        <nav className="-mb-px flex space-x-6 overflow-x-auto" aria-label="Tabs">
-          {TABS.map((tab) => {
+        <nav className="-mb-px flex space-x-6 items-center" aria-label="Tabs">
+          {primaryTabs.map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.key;
             return (
@@ -333,6 +373,43 @@ export function ProjectDetail() {
               </button>
             );
           })}
+
+          {/* More dropdown */}
+          {secondaryTabs.length > 0 && (
+            <div className="relative" ref={moreMenuRef}>
+              <button
+                onClick={() => setShowMoreMenu(!showMoreMenu)}
+                className={`flex items-center gap-1.5 py-3 px-1 border-b-2 text-sm font-medium whitespace-nowrap transition-colors ${
+                  isSecondaryActive
+                    ? 'border-primary-500 text-primary-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+                }`}
+              >
+                <MoreHorizontal className="w-4 h-4" />
+                {isSecondaryActive ? secondaryTabs.find(t => t.key === activeTab)?.label : 'Más'}
+              </button>
+              {showMoreMenu && (
+                <div className="absolute z-50 mt-1 left-0 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg py-1 min-w-[180px]">
+                  {secondaryTabs.map((tab) => {
+                    const Icon = tab.icon;
+                    const isActive = activeTab === tab.key;
+                    return (
+                      <button
+                        key={tab.key}
+                        onClick={() => { setActiveTab(tab.key); setShowMoreMenu(false); }}
+                        className={`w-full text-left px-3 py-2 text-sm flex items-center gap-2.5 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors ${
+                          isActive ? 'text-primary-600 font-semibold bg-primary-50 dark:bg-primary-900/20' : 'text-gray-700 dark:text-gray-300'
+                        }`}
+                      >
+                        <Icon className="w-4 h-4" />
+                        {tab.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
         </nav>
       </div>
 
@@ -369,14 +446,6 @@ export function ProjectDetail() {
                     <dd className="mt-1">
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusConfig.bgClass}`}>
                         {statusConfig.label}
-                      </span>
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Prioridad</dt>
-                    <dd className="mt-1">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${priorityConfig.bgClass}`}>
-                        {priorityConfig.label}
                       </span>
                     </dd>
                   </div>
@@ -604,6 +673,118 @@ export function ProjectDetail() {
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Historial de actividad</h3>
             <ActivityTimeline activityLog={activityLog} />
           </div>
+        )}
+
+        {/* ===== CHECK-INS ===== */}
+        {activeTab === 'checkins' && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Check-ins</h3>
+              <div className="flex gap-2">
+                <Link
+                  to={`/checkins/config/${id}`}
+                  className="btn-secondary text-sm"
+                >
+                  Configurar
+                </Link>
+                <Link
+                  to={`/checkins/history/${id}`}
+                  className="btn-secondary text-sm"
+                >
+                  Historial
+                </Link>
+              </div>
+            </div>
+            {projectCheckins.length > 0 ? (
+              <div className="space-y-2">
+                {projectCheckins.slice(0, 10).map(ci => (
+                  <Link
+                    key={ci.id}
+                    to={`/checkins/${ci.id}`}
+                    className="card px-5 py-3 flex items-center gap-3 hover:shadow-md transition-shadow"
+                  >
+                    <span className="font-medium text-gray-900 dark:text-white">#{ci.numero}</span>
+                    <span className="text-sm text-gray-500 flex-1">{ci.periodo || ''}</span>
+                    <span className={`text-sm font-bold ${ci.pulsoScore && ci.pulsoScore >= 8 ? 'text-green-600' : ci.pulsoScore && ci.pulsoScore >= 5 ? 'text-yellow-600' : ci.pulsoScore ? 'text-red-600' : 'text-gray-400'}`}>
+                      {ci.pulsoScore ?? '-'}/10
+                    </span>
+                  </Link>
+                ))}
+              </div>
+            ) : (
+              <div className="card p-12 text-center">
+                <ClipboardCheck className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
+                <p className="text-gray-500 dark:text-gray-400 mb-4">No hay check-ins para este proyecto</p>
+                <Link to={`/checkins/config/${id}`} className="btn-primary inline-flex items-center gap-2">
+                  <Plus className="w-4 h-4" /> Configurar check-ins
+                </Link>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ===== BMC ===== */}
+        {activeTab === 'bmc' && (
+          hasBMC ? (
+            <div className="space-y-4">
+              {projectCanvases.map(canvas => (
+                <div key={canvas.id} className="card p-5">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{canvas.name}</h3>
+                    <Link
+                      to={`/bmc/${canvas.id}`}
+                      className="text-sm text-primary-600 hover:text-primary-700 dark:text-primary-400 hover:underline"
+                    >
+                      Abrir canvas completo →
+                    </Link>
+                  </div>
+                  {canvas.description && (
+                    <p className="text-sm text-gray-500 dark:text-gray-400">{canvas.description}</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="card p-12 text-center">
+              <LayoutGrid className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
+              <p className="text-gray-500 dark:text-gray-400 mb-4">No hay BMC vinculado a este proyecto</p>
+              <Link to="/bmc" className="btn-primary inline-flex items-center gap-2">
+                <Plus className="w-4 h-4" /> Crear BMC
+              </Link>
+            </div>
+          )
+        )}
+
+        {/* ===== PLAYBOOK ===== */}
+        {activeTab === 'playbook' && (
+          hasPlaybook ? (
+            <div className="space-y-4">
+              {projectPlaybooks.map(pb => (
+                <div key={pb.id} className="card p-5">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{pb.name}</h3>
+                    <Link
+                      to={`/playbook/${pb.id}/view`}
+                      className="text-sm text-primary-600 hover:text-primary-700 dark:text-primary-400 hover:underline"
+                    >
+                      Ver playbook completo →
+                    </Link>
+                  </div>
+                  {pb.description && (
+                    <p className="text-sm text-gray-500 dark:text-gray-400">{pb.description}</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="card p-12 text-center">
+              <BookMarked className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
+              <p className="text-gray-500 dark:text-gray-400 mb-4">No hay Playbook vinculado a este proyecto</p>
+              <Link to="/playbook" className="btn-primary inline-flex items-center gap-2">
+                <Plus className="w-4 h-4" /> Crear Playbook
+              </Link>
+            </div>
+          )
         )}
 
         {/* ===== ONBOARDING ===== */}

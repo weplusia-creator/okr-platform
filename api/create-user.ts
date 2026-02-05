@@ -6,7 +6,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { email, password, fullName, organizationId, role: userRole, jobTitle, userType } = req.body;
+  const { email, password, fullName, organizationId, role: userRole, jobTitle, userType, clientId } = req.body;
 
   if (!email || !password) {
     return res.status(400).json({ error: 'Email and password are required' });
@@ -42,7 +42,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   // Check caller is admin
   const { data: callerData } = await adminClient.from('users').select('role').eq('id', caller.id).single();
-  if (callerData?.role !== 'admin') {
+  if (callerData?.role !== 'admin' && callerData?.role !== 'super_admin') {
     return res.status(403).json({ error: 'Only admins can create users' });
   }
 
@@ -60,30 +60,42 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     const authUserId = authData.user.id;
+    const assignedRole = userRole || 'member';
+    const userData = {
+      organization_id: organizationId,
+      full_name: fullName || email.split('@')[0],
+      role: assignedRole,
+      job_title: jobTitle || null,
+      user_type: userType || 'consultant',
+      client_id: clientId || null,
+    };
+
+    // Wait briefly for any trigger to create the row
+    await new Promise(r => setTimeout(r, 500));
 
     // Check if users row exists (trigger may have created it)
     const { data: existing } = await adminClient.from('users').select('id').eq('id', authUserId).maybeSingle();
 
-    const assignedRole = userRole || 'member';
     if (!existing) {
-      await adminClient.from('users').insert({
+      const { error: insertErr } = await adminClient.from('users').insert({
         id: authUserId,
         email,
-        full_name: fullName || email.split('@')[0],
-        organization_id: organizationId,
-        role: assignedRole,
-        job_title: jobTitle || null,
-        user_type: userType || 'consultant',
+        ...userData,
       });
+      if (insertErr) {
+        return res.status(400).json({ error: `Error creating user record: ${insertErr.message}` });
+      }
     } else {
-      // Update organization_id in case trigger created the row without it
-      await adminClient.from('users').update({
-        organization_id: organizationId,
-        full_name: fullName || email.split('@')[0],
-        role: assignedRole,
-        job_title: jobTitle || null,
-        user_type: userType || 'consultant',
-      }).eq('id', authUserId);
+      const { error: updateErr } = await adminClient.from('users').update(userData).eq('id', authUserId);
+      if (updateErr) {
+        return res.status(400).json({ error: `Error updating user record: ${updateErr.message}` });
+      }
+    }
+
+    // Verify organization_id was set
+    const { data: verify } = await adminClient.from('users').select('organization_id').eq('id', authUserId).single();
+    if (!verify?.organization_id) {
+      return res.status(500).json({ error: 'User created but organization_id not set. Check database triggers.' });
     }
 
     return res.status(200).json({ userId: authUserId, email });

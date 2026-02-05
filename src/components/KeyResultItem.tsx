@@ -1,6 +1,7 @@
-import { useState } from 'react';
-import { Trash2, Edit2, Check, X, GripVertical } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { Trash2, Edit2, Check, X, GripVertical, Plus, Calendar, User } from 'lucide-react';
 import type { KeyResult } from '../types';
+import { INITIATIVE_STATUS_CONFIG } from '../types';
 import { ProgressBar } from './ProgressBar';
 import { useOKR } from '../context/OKRContext';
 import { useAuth } from '../context/AuthContext';
@@ -11,11 +12,23 @@ interface KeyResultItemProps {
 }
 
 export function KeyResultItem({ keyResult, objectiveId }: KeyResultItemProps) {
-  const { updateKeyResult, deleteKeyResult } = useOKR();
-  const { isAdmin } = useAuth();
+  const { updateKeyResult, deleteKeyResult, initiatives, addInitiative, deleteInitiative } = useOKR();
+  const { isAdmin, orgUsers } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [editedProgress, setEditedProgress] = useState(keyResult.progress);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+  // Initiative form
+  const [showInitForm, setShowInitForm] = useState(false);
+  const [initTitle, setInitTitle] = useState('');
+  const [initResponsible, setInitResponsible] = useState('');
+  const [initDueDate, setInitDueDate] = useState('');
+  const [initSaving, setInitSaving] = useState(false);
+
+  const krInitiatives = useMemo(
+    () => initiatives.filter(i => i.keyResultId === keyResult.id),
+    [initiatives, keyResult.id],
+  );
 
   const handleSaveProgress = () => {
     updateKeyResult(objectiveId, keyResult.id, { progress: editedProgress });
@@ -30,6 +43,21 @@ export function KeyResultItem({ keyResult, objectiveId }: KeyResultItemProps) {
   const handleDelete = () => {
     deleteKeyResult(objectiveId, keyResult.id);
     setShowDeleteConfirm(false);
+  };
+
+  const handleAddInitiative = async () => {
+    if (!initTitle.trim()) return;
+    setInitSaving(true);
+    await addInitiative(keyResult.id, {
+      title: initTitle.trim(),
+      responsibleId: initResponsible || null,
+      dueDate: initDueDate || null,
+    });
+    setInitTitle('');
+    setInitResponsible('');
+    setInitDueDate('');
+    setShowInitForm(false);
+    setInitSaving(false);
   };
 
   return (
@@ -103,6 +131,82 @@ export function KeyResultItem({ keyResult, objectiveId }: KeyResultItemProps) {
           </div>
         ) : (
           <ProgressBar progress={keyResult.progress} size="sm" />
+        )}
+
+        {/* Initiatives list */}
+        {krInitiatives.length > 0 && (
+          <div className="mt-2 space-y-1">
+            {krInitiatives.map(init => {
+              const statusCfg = INITIATIVE_STATUS_CONFIG[init.status];
+              const isOverdue = init.dueDate && new Date(init.dueDate) < new Date() && init.status !== 'done';
+              const respUser = init.responsibleId ? orgUsers.find(u => u.id === init.responsibleId) : null;
+              const respName = respUser?.fullName || respUser?.email || init.responsibleName;
+              return (
+                <div key={init.id} className="flex items-center gap-2 text-xs py-1 px-2 rounded bg-white dark:bg-gray-900/50">
+                  <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${init.status === 'done' ? 'bg-green-500' : init.status === 'in_progress' ? 'bg-blue-500' : 'bg-gray-400'}`} />
+                  <span className="flex-1 truncate text-gray-700 dark:text-gray-300">{init.title}</span>
+                  {respName && (
+                    <span className="text-gray-400 truncate max-w-[80px]">{respName}</span>
+                  )}
+                  {init.dueDate && (
+                    <span className={`flex-shrink-0 ${isOverdue ? 'text-danger-600' : 'text-gray-400'}`}>
+                      {new Date(init.dueDate).toLocaleDateString('es-AR', { day: '2-digit', month: 'short' })}
+                    </span>
+                  )}
+                  {isAdmin && (
+                    <button onClick={() => deleteInitiative(init.id)} className="text-gray-300 hover:text-danger-500 flex-shrink-0">
+                      <X className="w-3 h-3" />
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Add initiative button / form */}
+        {showInitForm ? (
+          <div className="mt-2 p-2 rounded-lg bg-white dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 space-y-2">
+            <input
+              type="text"
+              value={initTitle}
+              onChange={e => setInitTitle(e.target.value)}
+              placeholder="Título de la iniciativa"
+              className="input text-xs py-1.5"
+              autoFocus
+            />
+            <div className="grid grid-cols-2 gap-2">
+              <select value={initResponsible} onChange={e => setInitResponsible(e.target.value)} className="select text-xs py-1.5">
+                <option value="">Responsable</option>
+                {orgUsers.filter(u => u.status === 'active' && u.userType !== 'client').map(u => (
+                  <option key={u.id} value={u.id}>{u.fullName || u.email}</option>
+                ))}
+              </select>
+              <input
+                type="date"
+                value={initDueDate}
+                onChange={e => setInitDueDate(e.target.value)}
+                className="input text-xs py-1.5"
+              />
+            </div>
+            <div className="flex justify-end gap-1">
+              <button onClick={() => setShowInitForm(false)} className="text-xs text-gray-500 hover:text-gray-700 px-2 py-1">Cancelar</button>
+              <button
+                onClick={handleAddInitiative}
+                disabled={!initTitle.trim() || initSaving}
+                className="text-xs bg-primary-600 text-white px-3 py-1 rounded-md hover:bg-primary-700 disabled:opacity-50"
+              >
+                Crear
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button
+            onClick={() => setShowInitForm(true)}
+            className="mt-1 flex items-center gap-1 text-xs text-gray-400 hover:text-primary-600 transition-colors"
+          >
+            <Plus className="w-3 h-3" /> Iniciativa
+          </button>
         )}
       </div>
 

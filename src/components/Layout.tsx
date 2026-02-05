@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Link, useLocation, Outlet } from 'react-router-dom';
 import {
   Target,
@@ -14,15 +14,27 @@ import {
   Sun,
   Moon,
   FolderKanban,
-  CheckSquare,
   GanttChart as GanttChartIcon,
-  Package,
+  Sparkles,
   Briefcase,
   Building2,
   BarChart3,
+  Eye,
+  Kanban,
+  Calendar,
+  Settings,
+  BookOpen,
+  ClipboardList,
+  ClipboardCheck,
+  Shield,
+  ArrowLeftRight,
+  Handshake,
+  Wrench,
+  Calculator,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../hooks/useTheme';
+import { InfoBar } from './InfoBar';
 
 interface NavItem {
   label: string;
@@ -44,8 +56,22 @@ const ADMIN_NAV: NavItem[] = [
       { label: 'Dashboard', path: '/projects', icon: LayoutDashboard },
       { label: 'Proyectos', path: '/projects/list', icon: FolderKanban },
       { label: 'Clientes', path: '/projects/clients', icon: Users },
-      { label: 'Mis Módulos', path: '/projects/my-modules', icon: CheckSquare },
       { label: 'Gantt', path: '/projects/gantt', icon: GanttChartIcon },
+      { label: 'Check-ins', path: '/checkins', icon: ClipboardCheck },
+      { label: 'Diagnóstico BMC', path: '/bmc', icon: ClipboardList },
+      { label: 'Playbook', path: '/playbook', icon: BookOpen },
+    ],
+  },
+  {
+    label: 'CRM',
+    icon: Handshake,
+    children: [
+      { label: 'Dashboard', path: '/crm', icon: LayoutDashboard },
+      { label: 'Tablero Control', path: '/crm/control', icon: BarChart3 },
+      { label: 'Leads', path: '/crm/leads', icon: Users },
+      { label: 'Pipeline', path: '/crm/pipeline', icon: Kanban },
+      { label: 'Propuestas', path: '/proposals', icon: FileText },
+      { label: 'Actividades', path: '/crm/activities', icon: Calendar },
     ],
   },
   {
@@ -55,12 +81,21 @@ const ADMIN_NAV: NavItem[] = [
       { label: 'Dashboard', path: '/finance', icon: LayoutDashboard },
       { label: 'Facturas', path: '/finance/invoices', icon: FileText },
       { label: 'Flujo de caja', path: '/finance/cash-flow', icon: TrendingUp },
+      { label: 'ARCA', path: '/finance/arca', icon: Shield },
     ],
   },
   {
-    label: 'Productos',
-    icon: Package,
-    path: '/products',
+    label: 'OKRs',
+    icon: Target,
+    children: [
+      { label: 'Objetivos', path: '/okrs', icon: Target },
+      { label: 'Iniciativas', path: '/okrs/initiatives', icon: Kanban },
+    ],
+  },
+  {
+    label: 'Gestión',
+    icon: ClipboardList,
+    path: '/gestion',
   },
   {
     label: 'KPIs',
@@ -68,17 +103,40 @@ const ADMIN_NAV: NavItem[] = [
     path: '/kpis',
   },
   {
-    label: 'Equipo',
-    icon: Users,
+    label: 'Tools',
+    icon: Wrench,
     children: [
-      { label: 'Consultor', path: '/admin/team', icon: Briefcase },
-      { label: 'Clientes', path: '/admin/clients', icon: Building2 },
+      { label: 'Todas', path: '/tools', icon: Wrench },
+      { label: 'Calculadora ROI', path: '/tools/roi', icon: Calculator },
     ],
   },
   {
-    label: 'OKRs',
-    icon: Target,
-    path: '/okrs',
+    label: 'Admin',
+    icon: Settings,
+    children: [
+      { label: 'Consultor', path: '/admin/team', icon: Briefcase },
+      { label: 'Clientes', path: '/admin/clients', icon: Building2 },
+      { label: 'Reuniones', path: '/admin/meetings', icon: Calendar },
+      { label: 'Servicios', path: '/products', icon: Sparkles },
+      { label: 'Manual de uso', path: '/admin/manual', icon: BookOpen },
+    ],
+  },
+  {
+    label: 'Portal Cliente',
+    icon: Eye,
+    path: '/portal',
+  },
+];
+
+const SUPER_ADMIN_NAV: NavItem[] = [
+  ...ADMIN_NAV,
+  {
+    label: 'Super Admin',
+    icon: Shield,
+    children: [
+      { label: 'Organizaciones', path: '/super/organizations', icon: Building2 },
+      { label: 'Todos los usuarios', path: '/super/users', icon: Users },
+    ],
   },
 ];
 
@@ -101,23 +159,51 @@ const MEMBER_NAV: NavItem[] = [
     icon: FolderKanban,
     children: [
       { label: 'Proyectos', path: '/projects/list', icon: FolderKanban },
-      { label: 'Mis Módulos', path: '/projects/my-modules', icon: CheckSquare },
     ],
+  },
+];
+
+const CLIENT_NAV: NavItem[] = [
+  {
+    label: 'Mis Proyectos',
+    icon: FolderKanban,
+    path: '/portal',
   },
 ];
 
 export function Layout() {
   const location = useLocation();
-  const { appUser, organization, signOut } = useAuth();
-  const isAdmin = appUser?.role === 'admin';
-  const navigation = isAdmin ? ADMIN_NAV : appUser?.role === 'viewer' ? VIEWER_NAV : MEMBER_NAV;
+  const { appUser, organization, signOut, isSuperAdmin, impersonating, stopImpersonating } = useAuth();
+  const isAdmin = appUser?.role === 'admin' || appUser?.role === 'super_admin';
+  const navigation = appUser?.userType === 'client'
+    ? CLIENT_NAV
+    : isSuperAdmin && !impersonating
+      ? SUPER_ADMIN_NAV
+      : isAdmin
+        ? ADMIN_NAV
+        : appUser?.role === 'viewer'
+          ? VIEWER_NAV
+          : MEMBER_NAV;
   const { theme, toggleTheme } = useTheme();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [openSections, setOpenSections] = useState<Record<string, boolean>>({
-    Proyectos: location.pathname.startsWith('/projects'),
-    Finanzas: location.pathname.startsWith('/finance'),
-    Equipo: location.pathname.startsWith('/admin'),
-  });
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
+
+  // Derive which section contains the current path
+  const activeSectionLabel = useMemo(() => {
+    for (const item of navigation) {
+      if (item.children?.some((c) => location.pathname === c.path || location.pathname.startsWith(c.path + '/'))) {
+        return item.label;
+      }
+    }
+    return null;
+  }, [location.pathname, navigation]);
+
+  // Auto-open the section that contains the current route
+  useEffect(() => {
+    if (activeSectionLabel) {
+      setOpenSections((prev) => ({ ...prev, [activeSectionLabel]: true }));
+    }
+  }, [activeSectionLabel]);
 
   const toggleSection = (label: string) => {
     setOpenSections((prev) => ({ ...prev, [label]: !prev[label] }));
@@ -129,7 +215,10 @@ export function Layout() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen bg-white dark:bg-[#2e2a2b]">
+      {/* WAU Brand accent bar */}
+      <div className="wau-accent-bar fixed top-0 left-0 right-0 z-[60]" />
+
       {/* Mobile sidebar backdrop */}
       {sidebarOpen && (
         <div
@@ -140,22 +229,22 @@ export function Layout() {
 
       {/* Sidebar */}
       <aside
-        className={`fixed top-0 left-0 z-50 h-full w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 transform transition-transform duration-200 lg:translate-x-0 ${
+        className={`fixed top-1 left-0 z-50 h-[calc(100%-4px)] w-64 bg-white dark:bg-[#272324] border-r border-gray-200 dark:border-[#443f40] transform transition-transform duration-200 lg:translate-x-0 ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
         <div className="flex flex-col h-full">
           {/* Logo */}
-          <div className="flex items-center justify-between h-16 px-4 border-b border-gray-200 dark:border-gray-700">
-            <Link to="/" className="flex items-center gap-3">
+          <div className="flex items-center justify-between h-16 px-4 border-b border-gray-200 dark:border-[#443f40]">
+            <Link to="/home" className="flex items-center gap-3">
               <img src="/wau-logo.png" alt="WAU" className="w-9 h-9 rounded-lg object-contain" />
-              <span className="font-bold text-gray-900 dark:text-white">
+              <span className="font-bold text-gray-900 dark:text-white tracking-tight">
                 WAU Platform
               </span>
             </Link>
             <button
               onClick={() => setSidebarOpen(false)}
-              className="lg:hidden p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+              className="lg:hidden p-1 hover:bg-gray-100 dark:hover:bg-[#3d3839] rounded"
             >
               <X className="w-5 h-5 text-gray-500" />
             </button>
@@ -163,7 +252,7 @@ export function Layout() {
 
           {/* Organization */}
           {organization && (
-            <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
+            <div className="px-4 py-3 border-b border-gray-200 dark:border-[#443f40]">
               <p className="text-xs text-gray-500 dark:text-gray-400">Organización</p>
               <p className="font-medium text-gray-900 dark:text-white truncate">
                 {organization.name}
@@ -181,8 +270,8 @@ export function Layout() {
                     onClick={() => setSidebarOpen(false)}
                     className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
                       isActive(item.path)
-                        ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-600'
-                        : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                        ? 'bg-primary-300 dark:bg-primary-400/20 dark:text-primary-300 nav-active-light'
+                        : 'text-gray-700 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-[#3d3839]'
                     }`}
                   >
                     <item.icon className="w-5 h-5" />
@@ -194,8 +283,8 @@ export function Layout() {
                       onClick={() => toggleSection(item.label)}
                       className={`w-full flex items-center justify-between px-3 py-2 rounded-lg transition-colors ${
                         item.children?.some((c) => location.pathname.startsWith(c.path))
-                          ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-600'
-                          : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                          ? 'bg-primary-300 dark:bg-primary-400/20 dark:text-primary-300 nav-active-light'
+                          : 'text-gray-700 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-[#3d3839]'
                       }`}
                     >
                       <div className="flex items-center gap-3">
@@ -215,8 +304,8 @@ export function Layout() {
                             onClick={() => setSidebarOpen(false)}
                             className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
                               location.pathname === child.path
-                                ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-600'
-                                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
+                                ? 'bg-primary-300 dark:bg-primary-400/20 dark:text-primary-300 font-medium nav-active-light'
+                                : 'text-gray-600 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-[#3d3839] dark:hover:text-gray-300'
                             }`}
                           >
                             <child.icon className="w-4 h-4" />
@@ -232,10 +321,10 @@ export function Layout() {
           </nav>
 
           {/* User section */}
-          <div className="p-3 border-t border-gray-200 dark:border-gray-700">
+          <div className="p-3 border-t border-gray-200 dark:border-[#443f40]">
             <div className="flex items-center gap-3 px-3 py-2">
-              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center">
-                <span className="text-sm font-medium text-primary-600">
+              <div className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: '#D4FC59' }}>
+                <span className="text-sm font-medium" style={{ color: '#231F1F' }}>
                   {appUser?.fullName?.charAt(0) || appUser?.email?.charAt(0) || '?'}
                 </span>
               </div>
@@ -251,7 +340,7 @@ export function Layout() {
             <div className="flex gap-1 mt-2">
               <button
                 onClick={toggleTheme}
-                className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-[#3d3839] rounded-lg transition-colors"
               >
                 {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
               </button>
@@ -268,26 +357,42 @@ export function Layout() {
       </aside>
 
       {/* Main content */}
-      <div className="lg:pl-64">
+      <div className="lg:pl-64 pt-1">
         {/* Mobile header */}
-        <header className="lg:hidden sticky top-0 z-30 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+        <header className="lg:hidden sticky top-1 z-30 bg-white dark:bg-[#272324] border-b border-gray-200 dark:border-[#443f40]">
           <div className="flex items-center justify-between h-16 px-4">
             <button
               onClick={() => setSidebarOpen(true)}
-              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+              className="p-2 hover:bg-gray-100 dark:hover:bg-[#3d3839] rounded-lg"
             >
               <Menu className="w-5 h-5 text-gray-600 dark:text-gray-400" />
             </button>
-            <Link to="/" className="flex items-center gap-2">
+            <Link to="/home" className="flex items-center gap-2">
               <img src="/wau-logo.png" alt="WAU" className="w-8 h-8 rounded-lg object-contain" />
-              <span className="font-bold text-gray-900 dark:text-white">WAU Platform</span>
+              <span className="font-bold text-gray-900 dark:text-white tracking-tight">WAU Platform</span>
             </Link>
             <div className="w-9" /> {/* Spacer */}
           </div>
         </header>
 
+        {/* Impersonation bar */}
+        {impersonating && (
+          <div className="sticky top-0 z-40 bg-amber-500 text-white px-4 py-2 flex items-center justify-between text-sm">
+            <div className="flex items-center gap-2">
+              <ArrowLeftRight className="w-4 h-4" />
+              <span>Viendo como: <strong>{appUser?.fullName || appUser?.email}</strong> — {organization?.name || 'Sin organización'}</span>
+            </div>
+            <button onClick={stopImpersonating} className="bg-white text-amber-600 px-3 py-1 rounded font-medium hover:bg-amber-50 transition-colors text-xs">
+              Volver a Super Admin
+            </button>
+          </div>
+        )}
+
+        {/* Info bar */}
+        {appUser?.userType !== 'client' && <InfoBar />}
+
         {/* Page content */}
-        <main className="p-6">
+        <main className="p-6 min-h-[calc(100vh-4px)]">
           <Outlet />
         </main>
       </div>

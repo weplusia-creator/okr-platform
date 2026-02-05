@@ -1,9 +1,9 @@
 // ===== Project Statuses & Enums =====
 
 export type ProjectStatus = 'proposal' | 'approved' | 'in_progress' | 'paused' | 'completed' | 'cancelled';
-export type ProjectPriority = 'high' | 'medium' | 'low';
 export type DeliverableStatus = 'pending' | 'in_progress' | 'in_review' | 'delivered' | 'approved';
 export type ModuleStatus = 'pending' | 'in_progress' | 'completed' | 'skipped';
+export type SessionStatus = 'pending' | 'completed';
 export type ParticipantRole = 'alumno' | 'consultor' | 'admin' | 'sponsor';
 export type DocumentType = 'kickoff' | 'progress' | 'delivery' | 'closure' | 'other';
 
@@ -16,12 +16,6 @@ export const PROJECT_STATUS_CONFIG: Record<ProjectStatus, { label: string; color
   paused: { label: 'Pausado', color: 'warning', bgClass: 'badge-warning' },
   completed: { label: 'Completado', color: 'success', bgClass: 'badge-success' },
   cancelled: { label: 'Cancelado', color: 'danger', bgClass: 'badge-danger' },
-};
-
-export const PRIORITY_CONFIG: Record<ProjectPriority, { label: string; color: string; bgClass: string }> = {
-  high: { label: 'Alta', color: 'danger', bgClass: 'badge-danger' },
-  medium: { label: 'Media', color: 'warning', bgClass: 'badge-warning' },
-  low: { label: 'Baja', color: 'gray', bgClass: 'badge-gray' },
 };
 
 export const DELIVERABLE_STATUS_CONFIG: Record<DeliverableStatus, { label: string; color: string; bgClass: string }> = {
@@ -75,7 +69,6 @@ export interface Project {
   name: string;
   description: string | null;
   status: ProjectStatus;
-  priority: ProjectPriority;
   ownerId: string;
   ownerName?: string;
   product: string | null;
@@ -101,6 +94,7 @@ export interface ProjectParticipant {
   userId: string;
   userName?: string;
   userEmail?: string;
+  userPhone?: string;
   role: ParticipantRole;
   hourlyRate: number | null;
   allocatedHours: number | null;
@@ -141,6 +135,29 @@ export interface ProjectModule {
   completedAt: string | null;
   completedBy: string | null;
   completedByName?: string;
+  presentationUrl: string | null;
+  taskUrl: string | null;
+  videoUrl: string | null;
+  supportMaterialUrl: string | null;
+  sessions: ModuleSession[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ModuleSession {
+  id: string;
+  moduleId: string;
+  title: string;
+  description: string | null;
+  sessionDate: string | null;
+  status: SessionStatus;
+  presentationUrl: string | null;
+  videoUrl: string | null;
+  supportMaterialUrl: string | null;
+  npsSurveyId: string | null;
+  npsToken?: string;
+  sortOrder: number;
+  completedAt: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -223,11 +240,31 @@ export interface NPSResponse {
 
 // ===== Products =====
 
+export type ProductStatus = 'active' | 'inactive';
+
+export interface ProductFAQ {
+  question: string;
+  answer: string;
+}
+
 export interface Product {
   id: string;
   organizationId: string;
   name: string;
   description: string | null;
+  basePrice: number | null;
+  estimatedDurationDays: number | null;
+  status: ProductStatus;
+  tools: string[];
+  sortOrder: number;
+  includesDiagnostic: boolean;
+  // Campos para propuestas
+  benefits: string[];
+  methodology: string | null;
+  requirements: string | null;
+  scope: string | null;
+  outOfScope: string | null;
+  faqs: ProductFAQ[];
   createdAt: string;
   updatedAt: string;
 }
@@ -283,7 +320,6 @@ export interface ProjectFilters {
   status: ProjectStatus | 'all';
   clientId: string | 'all';
   ownerId: string | 'all';
-  priority: ProjectPriority | 'all';
   search: string;
 }
 
@@ -310,6 +346,7 @@ export interface AlumniProfile {
 export interface AttendanceSession {
   id: string;
   projectId: string;
+  moduleId: string | null;
   sessionDate: string;
   sessionTitle: string;
   sessionDescription: string | null;

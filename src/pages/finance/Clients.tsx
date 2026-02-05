@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   Plus,
@@ -13,6 +13,7 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
+import { useProjects } from '../../context/ProjectContext';
 import { useAuth } from '../../context/AuthContext';
 import type { Client } from '../../types/finance';
 
@@ -29,9 +30,15 @@ function getFaviconUrl(website: string | null): string | null {
 export function Clients() {
   const navigate = useNavigate();
   const { clients, loadingClients, deleteClient, getClientInvoices } = useFinance();
+  const { projects, fetchAllPayments } = useProjects();
   const { isAdmin } = useAuth();
   const [search, setSearch] = useState('');
   const [deleteModal, setDeleteModal] = useState<Client | null>(null);
+  const [allPayments, setAllPayments] = useState<any[]>([]);
+
+  useEffect(() => {
+    fetchAllPayments().then(setAllPayments);
+  }, [fetchAllPayments]);
 
   const filteredClients = clients.filter(client => {
     const searchLower = search.toLowerCase();
@@ -43,12 +50,25 @@ export function Clients() {
   });
 
   const getClientBalance = (clientId: string) => {
+    // Facturas
     const invoices = getClientInvoices(clientId);
-    const pending = invoices
+    const invoicePending = invoices
       .filter(i => i.status === 'issued' || i.status === 'overdue')
       .reduce((sum, i) => sum + i.total, 0);
-    const total = invoices.reduce((sum, i) => sum + i.total, 0);
-    return { pending, total, count: invoices.length };
+    const invoiceTotal = invoices.reduce((sum, i) => sum + i.total, 0);
+
+    // Cuotas de proyectos del cliente
+    const clientProjectIds = projects.filter(p => p.clientId === clientId).map(p => p.id);
+    const clientPayments = allPayments.filter(p => clientProjectIds.includes(p.projectId));
+    const paymentsPaid = clientPayments.filter(p => p.status === 'paid').reduce((sum, p) => sum + p.amount, 0);
+    const paymentsPending = clientPayments.filter(p => p.status === 'pending').reduce((sum, p) => sum + p.amount, 0);
+
+    const totalProject = clientPayments.reduce((sum, p) => sum + p.amount, 0);
+    const total = invoiceTotal + totalProject;
+    const pending = invoicePending + paymentsPending;
+    const paid = invoices.filter(i => i.status === 'paid').reduce((sum, i) => sum + i.total, 0) + paymentsPaid;
+
+    return { pending, paid, total, count: invoices.length + clientPayments.length };
   };
 
   const formatCurrency = (amount: number) => {
@@ -188,20 +208,19 @@ export function Clients() {
 
                   <div className="text-right">
                     <div className="mb-2">
-                      {balance.pending > 0 ? (
-                        <>
-                          <p className="text-sm text-gray-500 dark:text-gray-400">Pendiente</p>
-                          <p className="text-lg font-semibold text-warning-600">
-                            {formatCurrency(balance.pending)}
-                          </p>
-                        </>
-                      ) : (
-                        <>
-                          <p className="text-sm text-gray-500 dark:text-gray-400">Total facturado</p>
-                          <p className="text-lg font-semibold text-success-600">
-                            {formatCurrency(balance.total)}
-                          </p>
-                        </>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">Monto total</p>
+                      <p className="text-lg font-semibold text-gray-900 dark:text-white">
+                        {formatCurrency(balance.total)}
+                      </p>
+                      {balance.pending > 0 && (
+                        <p className="text-xs text-warning-600">
+                          Pendiente: {formatCurrency(balance.pending)}
+                        </p>
+                      )}
+                      {balance.paid > 0 && (
+                        <p className="text-xs text-success-600">
+                          Cobrado: {formatCurrency(balance.paid)}
+                        </p>
                       )}
                     </div>
                     <div className="flex items-center gap-2">

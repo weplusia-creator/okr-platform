@@ -21,7 +21,7 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 dark:bg-[#2e2a2b] flex items-center justify-center">
         <div className="text-center">
           <Loader2 className="w-10 h-10 animate-spin text-primary-500 mx-auto mb-4" />
           <p className="text-gray-500 dark:text-gray-400">Cargando...</p>
@@ -38,7 +38,7 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
   if (!appUser) {
     if (!retried) {
       return (
-        <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+        <div className="min-h-screen bg-gray-50 dark:bg-[#2e2a2b] flex items-center justify-center">
           <div className="text-center">
             <Loader2 className="w-10 h-10 animate-spin text-primary-500 mx-auto mb-4" />
             <p className="text-gray-500 dark:text-gray-400">Cargando perfil...</p>
@@ -48,7 +48,7 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
     }
 
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gray-50 dark:bg-[#2e2a2b] flex items-center justify-center p-4">
         <div className="card p-8 max-w-md w-full text-center">
           <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
             Error al cargar perfil
@@ -83,10 +83,15 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
     );
   }
 
+  // Super admin can access without organization
+  if (!organization && appUser.role === 'super_admin') {
+    return <>{children}</>;
+  }
+
   // If user has no organization, show a message
   if (!organization) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gray-50 dark:bg-[#2e2a2b] flex items-center justify-center p-4">
         <div className="card p-8 max-w-md w-full text-center">
           <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
             Sin organización

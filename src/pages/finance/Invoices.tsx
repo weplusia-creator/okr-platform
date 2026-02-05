@@ -12,7 +12,9 @@ import {
 } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
 import { useAuth } from '../../context/AuthContext';
+import { ArcaStatusBadge } from '../../components/arca/ArcaStatusBadge';
 import type { Invoice, InvoiceStatus } from '../../types/finance';
+import type { ArcaInvoiceStatus } from '../../types/arca';
 
 const STATUS_CONFIG: Record<InvoiceStatus, { label: string; class: string }> = {
   draft: { label: 'Borrador', class: 'badge-gray' },
@@ -165,7 +167,7 @@ export function Invoices() {
         <div className="card overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead className="bg-gray-50 dark:bg-gray-800">
+              <thead className="bg-gray-50 dark:bg-[#3d3839]">
                 <tr>
                   <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 dark:text-gray-400">
                     Número
@@ -181,6 +183,9 @@ export function Invoices() {
                   </th>
                   <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 dark:text-gray-400">
                     Estado
+                  </th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 dark:text-gray-400">
+                    ARCA
                   </th>
                   <th className="px-4 py-3 text-right text-sm font-medium text-gray-500 dark:text-gray-400">
                     Total
@@ -220,6 +225,13 @@ export function Invoices() {
                         {STATUS_CONFIG[invoice.status].label}
                       </span>
                     </td>
+                    <td className="px-4 py-3">
+                      {invoice.arcaStatus ? (
+                        <ArcaStatusBadge status={invoice.arcaStatus as ArcaInvoiceStatus} />
+                      ) : (
+                        <span className="text-xs text-gray-400">—</span>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-right font-semibold text-gray-900 dark:text-white">
                       {formatCurrency(invoice.total)}
                     </td>
@@ -227,7 +239,7 @@ export function Invoices() {
                       <div className="flex items-center justify-end gap-1">
                         <button
                           onClick={() => navigate(`/finance/invoices/${invoice.id}`)}
-                          className="p-2 text-gray-400 hover:text-primary-600 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                          className="p-2 text-gray-400 hover:text-primary-600 hover:bg-gray-100 dark:hover:bg-[#252525] rounded-lg transition-colors"
                           title="Ver"
                         >
                           <Eye className="w-4 h-4" />
@@ -238,7 +250,7 @@ export function Invoices() {
                               setPayModal(invoice);
                               setPaidDate(new Date().toISOString().split('T')[0]);
                             }}
-                            className="p-2 text-gray-400 hover:text-success-600 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                            className="p-2 text-gray-400 hover:text-success-600 hover:bg-gray-100 dark:hover:bg-[#252525] rounded-lg transition-colors"
                             title="Marcar como pagada"
                           >
                             <CheckCircle className="w-4 h-4" />
@@ -247,7 +259,7 @@ export function Invoices() {
                         {isAdmin && invoice.status === 'draft' && (
                           <button
                             onClick={() => setDeleteModal(invoice)}
-                            className="p-2 text-gray-400 hover:text-danger-600 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                            className="p-2 text-gray-400 hover:text-danger-600 hover:bg-gray-100 dark:hover:bg-[#252525] rounded-lg transition-colors"
                             title="Eliminar"
                           >
                             <Trash2 className="w-4 h-4" />

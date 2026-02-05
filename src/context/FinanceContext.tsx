@@ -99,11 +99,14 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
         phone: c.phone,
         address: c.address,
         cuit: c.cuit ?? null,
+        tipoDocumento: c.tipo_documento ?? null,
+        condicionIva: c.condicion_iva ?? null,
         industry: c.industry ?? null,
         employeeCount: c.employee_count ?? null,
         website: c.website ?? null,
         contactName: c.contact_name ?? null,
         contactRole: c.contact_role ?? null,
+        logoUrl: c.logo_url ?? null,
         notes: c.notes,
         createdAt: c.created_at,
         updatedAt: c.updated_at,
@@ -117,58 +120,48 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
   }, [organization?.id]);
 
   const addClient = useCallback(async (client: Omit<Client, 'id' | 'organizationId' | 'createdAt' | 'updatedAt'>): Promise<Client | null> => {
-    if (!organization?.id) return null;
+    if (!organization?.id) {
+      console.error('[addClient] No organization id');
+      return null;
+    }
     try {
-      const { data, error: err } = await supabase
+      const row: Record<string, unknown> = {
+        organization_id: organization.id,
+        name: client.name,
+        company: client.company || null,
+        email: client.email || null,
+        phone: client.phone || null,
+        address: client.address || null,
+        notes: client.notes || null,
+      };
+      if (client.cuit != null) row.cuit = client.cuit;
+      if (client.tipoDocumento != null) row.tipo_documento = client.tipoDocumento;
+      if (client.condicionIva != null) row.condicion_iva = client.condicionIva;
+      if (client.industry != null) row.industry = client.industry;
+      if (client.employeeCount != null) row.employee_count = client.employeeCount;
+      if (client.website != null) row.website = client.website;
+      if (client.contactName != null) row.contact_name = client.contactName;
+      if (client.contactRole != null) row.contact_role = client.contactRole;
+      if (client.logoUrl != null) row.logo_url = client.logoUrl;
+
+      const { data: inserted, error: insertErr } = await supabase
         .from('clients')
-        .insert({
-          organization_id: organization.id,
-          name: client.name,
-          company: client.company,
-          email: client.email,
-          phone: client.phone,
-          address: client.address,
-          cuit: client.cuit,
-          industry: client.industry,
-          employee_count: client.employeeCount,
-          website: client.website,
-          contact_name: client.contactName,
-          contact_role: client.contactRole,
-          notes: client.notes,
-        })
+        .insert(row)
         .select()
         .single();
 
-      if (err) throw err;
+      if (insertErr) throw new Error(insertErr.message);
+      if (!inserted) throw new Error('No se pudo crear el cliente');
 
-      const d = data as any;
-      const newClient: Client = {
-        id: d.id,
-        organizationId: d.organization_id,
-        name: d.name,
-        company: d.company,
-        email: d.email,
-        phone: d.phone,
-        address: d.address,
-        cuit: d.cuit ?? null,
-        industry: d.industry ?? null,
-        employeeCount: d.employee_count ?? null,
-        website: d.website ?? null,
-        contactName: d.contact_name ?? null,
-        contactRole: d.contact_role ?? null,
-        notes: d.notes,
-        createdAt: d.created_at,
-        updatedAt: d.updated_at,
-      };
+      await fetchClients();
 
-      setClients(prev => [...prev, newClient].sort((a, b) => a.name.localeCompare(b.name)));
-      return newClient;
-    } catch (err) {
-      console.error('Error adding client:', err);
-      setError('Error al crear cliente');
+      return { id: inserted.id, name: inserted.name } as Client;
+    } catch (err: any) {
+      console.error('[addClient] Error:', err);
+      setError(err?.message || 'Error al crear cliente');
       return null;
     }
-  }, [organization?.id]);
+  }, [organization?.id, fetchClients]);
 
   const updateClient = useCallback(async (id: string, updates: Partial<Client>): Promise<boolean> => {
     try {
@@ -179,11 +172,14 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
       if (updates.phone !== undefined) row.phone = updates.phone;
       if (updates.address !== undefined) row.address = updates.address;
       if (updates.cuit !== undefined) row.cuit = updates.cuit;
+      if (updates.tipoDocumento !== undefined) row.tipo_documento = updates.tipoDocumento;
+      if (updates.condicionIva !== undefined) row.condicion_iva = updates.condicionIva;
       if (updates.industry !== undefined) row.industry = updates.industry;
       if (updates.employeeCount !== undefined) row.employee_count = updates.employeeCount;
       if (updates.website !== undefined) row.website = updates.website;
       if (updates.contactName !== undefined) row.contact_name = updates.contactName;
       if (updates.contactRole !== undefined) row.contact_role = updates.contactRole;
+      if (updates.logoUrl !== undefined) row.logo_url = updates.logoUrl;
       if (updates.notes !== undefined) row.notes = updates.notes;
 
       if (Object.keys(row).length === 0) return true;
@@ -281,6 +277,9 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
             unitPrice: item.unit_price,
             total: item.total,
           })),
+        arcaStatus: inv.arca_status || null,
+        cae: inv.cae || null,
+        caeVencimiento: inv.cae_vencimiento || null,
         createdAt: inv.created_at,
         updatedAt: inv.updated_at,
       })));
@@ -327,6 +326,7 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
         .single();
 
       if (invErr) throw invErr;
+      if (!invData) throw new Error('No se pudo crear la factura');
 
       // Insert items
       if (items.length > 0) {
@@ -514,18 +514,35 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
     if (!organization?.id) return;
     setLoadingCashFlow(true);
     try {
-      let query = supabase
-        .from('cash_flow_transactions')
-        .select('*, cash_flow_categories(name, color)')
-        .eq('organization_id', organization.id)
-        .order('date', { ascending: false });
+      // Try full query with FK joins first; fall back to basic query if columns don't exist yet
+      let data: any[] | null = null;
+      let usedFullQuery = false;
 
-      if (startDate) query = query.gte('date', startDate);
-      if (endDate) query = query.lte('date', endDate);
-
-      const { data, error: err } = await query;
-
-      if (err) throw err;
+      try {
+        let query = supabase
+          .from('cash_flow_transactions')
+          .select('*, cash_flow_categories(name, color), clients(name), projects(name, client_name)')
+          .eq('organization_id', organization.id)
+          .order('date', { ascending: false });
+        if (startDate) query = query.gte('date', startDate);
+        if (endDate) query = query.lte('date', endDate);
+        const res = await query;
+        if (res.error) throw res.error;
+        data = res.data;
+        usedFullQuery = true;
+      } catch {
+        // Fallback: basic query without FK joins (columns may not exist)
+        let query = supabase
+          .from('cash_flow_transactions')
+          .select('*, cash_flow_categories(name, color)')
+          .eq('organization_id', organization.id)
+          .order('date', { ascending: false });
+        if (startDate) query = query.gte('date', startDate);
+        if (endDate) query = query.lte('date', endDate);
+        const res = await query;
+        if (res.error) throw res.error;
+        data = res.data;
+      }
 
       setTransactions((data || []).map(t => ({
         id: t.id,
@@ -544,6 +561,11 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
         description: t.description,
         date: t.date,
         invoiceId: t.invoice_id,
+        clientId: t.client_id || null,
+        projectId: t.project_id || null,
+        paymentId: t.payment_id || null,
+        clientName: usedFullQuery ? ((t as any).clients?.name || undefined) : undefined,
+        projectName: usedFullQuery ? ((t as any).projects?.name || (t as any).projects?.client_name || undefined) : undefined,
         createdAt: t.created_at,
       })));
     } catch (err) {
@@ -569,6 +591,7 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
         .single();
 
       if (err) throw err;
+      if (!data) throw new Error('No se pudo crear la categoría');
 
       const newCategory: CashFlowCategory = {
         id: data.id,
@@ -607,21 +630,45 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
   const addTransaction = useCallback(async (transaction: Omit<CashFlowTransaction, 'id' | 'organizationId' | 'createdAt'>): Promise<CashFlowTransaction | null> => {
     if (!organization?.id) return null;
     try {
-      const { data, error: err } = await supabase
-        .from('cash_flow_transactions')
-        .insert({
-          organization_id: organization.id,
-          category_id: transaction.categoryId,
-          type: transaction.type,
-          amount: transaction.amount,
-          description: transaction.description,
-          date: transaction.date,
-          invoice_id: transaction.invoiceId,
-        })
-        .select('*, cash_flow_categories(name, color)')
-        .single();
+      const basePayload: Record<string, unknown> = {
+        organization_id: organization.id,
+        category_id: transaction.categoryId,
+        type: transaction.type,
+        amount: transaction.amount,
+        description: transaction.description,
+        date: transaction.date,
+        invoice_id: transaction.invoiceId,
+      };
 
-      if (err) throw err;
+      let data: any = null;
+
+      // Try with extended columns first; fall back to base-only if columns don't exist
+      try {
+        const fullPayload = {
+          ...basePayload,
+          client_id: transaction.clientId || null,
+          project_id: transaction.projectId || null,
+          payment_id: transaction.paymentId || null,
+        };
+        const res = await supabase
+          .from('cash_flow_transactions')
+          .insert(fullPayload)
+          .select('*, cash_flow_categories(name, color)')
+          .single();
+        if (res.error) throw res.error;
+        data = res.data;
+      } catch {
+        // Fallback: insert without optional FK columns
+        const res = await supabase
+          .from('cash_flow_transactions')
+          .insert(basePayload)
+          .select('*, cash_flow_categories(name, color)')
+          .single();
+        if (res.error) throw res.error;
+        data = res.data;
+      }
+
+      if (!data) throw new Error('No se pudo crear la transacción');
 
       const newTransaction: CashFlowTransaction = {
         id: data.id,
@@ -640,6 +687,9 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
         description: data.description,
         date: data.date,
         invoiceId: data.invoice_id,
+        clientId: data.client_id || null,
+        projectId: data.project_id || null,
+        paymentId: data.payment_id || null,
         createdAt: data.created_at,
       };
 
@@ -661,12 +711,27 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
       if (updates.description !== undefined) dbUpdates.description = updates.description;
       if (updates.date !== undefined) dbUpdates.date = updates.date;
 
-      const { error: err } = await supabase
-        .from('cash_flow_transactions')
-        .update(dbUpdates)
-        .eq('id', id);
+      // Try with optional FK columns; fall back without them
+      const optionalUpdates: Record<string, unknown> = {};
+      if (updates.clientId !== undefined) optionalUpdates.client_id = updates.clientId;
+      if (updates.projectId !== undefined) optionalUpdates.project_id = updates.projectId;
 
-      if (err) throw err;
+      try {
+        const { error: err } = await supabase
+          .from('cash_flow_transactions')
+          .update({ ...dbUpdates, ...optionalUpdates })
+          .eq('id', id);
+        if (err) throw err;
+      } catch {
+        // Fallback without optional FK columns
+        if (Object.keys(dbUpdates).length > 0) {
+          const { error: err } = await supabase
+            .from('cash_flow_transactions')
+            .update(dbUpdates)
+            .eq('id', id);
+          if (err) throw err;
+        }
+      }
 
       await fetchTransactions();
     } catch (err) {

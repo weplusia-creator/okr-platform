@@ -1,7 +1,7 @@
 import { createContext, useContext, useMemo, useCallback, useState, useEffect, type ReactNode } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from './AuthContext';
-import type { Objective, KeyResult, OKRFilters } from '../types';
+import type { Objective, KeyResult, OKRFilters, Initiative, InitiativeStatus, InitiativeComment } from '../types';
 import { getCurrentQuarter, getCurrentYear } from '../utils/helpers';
 
 interface OKRContextType {
@@ -18,12 +18,21 @@ interface OKRContextType {
   updateKeyResult: (objectiveId: string, keyResultId: string, updates: Partial<KeyResult>) => Promise<void>;
   deleteKeyResult: (objectiveId: string, keyResultId: string) => Promise<void>;
   refreshObjectives: () => Promise<void>;
+  initiatives: Initiative[];
+  fetchInitiatives: () => Promise<void>;
+  addInitiative: (keyResultId: string, data: { title: string; responsibleId?: string | null; dueDate?: string | null; description?: string | null }) => Promise<Initiative | null>;
+  updateInitiative: (id: string, updates: Partial<Pick<Initiative, 'title' | 'description' | 'responsibleId' | 'dueDate' | 'status' | 'sortOrder'>>) => Promise<void>;
+  deleteInitiative: (id: string) => Promise<void>;
+  initiativeComments: Record<string, InitiativeComment[]>;
+  fetchComments: (initiativeId: string) => Promise<void>;
+  addComment: (initiativeId: string, text: string) => Promise<void>;
+  deleteComment: (commentId: string, initiativeId: string) => Promise<void>;
 }
 
 const OKRContext = createContext<OKRContextType | undefined>(undefined);
 
 export function OKRProvider({ children }: { children: ReactNode }) {
-  const { organization } = useAuth();
+  const { organization, appUser } = useAuth();
   const [objectives, setObjectives] = useState<Objective[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -380,6 +389,189 @@ export function OKRProvider({ children }: { children: ReactNode }) {
     []
   );
 
+  // ===== INITIATIVES =====
+  const [initiatives, setInitiatives] = useState<Initiative[]>([]);
+
+  const fetchInitiatives = useCallback(async () => {
+    if (!organization?.id) return;
+    try {
+      const { data, error: err } = await supabase
+        .from('initiatives')
+        .select('*, users!initiatives_responsible_id_fkey(full_name)')
+        .eq('organization_id', organization.id)
+        .order('sort_order');
+
+      if (err) throw err;
+
+      setInitiatives((data || []).map((i: any) => ({
+        id: i.id,
+        keyResultId: i.key_result_id,
+        organizationId: i.organization_id,
+        title: i.title,
+        description: i.description,
+        responsibleId: i.responsible_id,
+        responsibleName: i.users?.full_name || null,
+        dueDate: i.due_date,
+        status: i.status as InitiativeStatus,
+        sortOrder: i.sort_order || 0,
+        createdAt: i.created_at,
+        updatedAt: i.updated_at,
+      })));
+    } catch (err) {
+      console.error('Error fetching initiatives:', err);
+    }
+  }, [organization?.id]);
+
+  useEffect(() => {
+    if (organization?.id) fetchInitiatives();
+  }, [organization?.id, fetchInitiatives]);
+
+  const addInitiative = useCallback(async (keyResultId: string, data: { title: string; responsibleId?: string | null; dueDate?: string | null; description?: string | null }): Promise<Initiative | null> => {
+    if (!organization?.id) return null;
+    try {
+      const { data: row, error: err } = await supabase
+        .from('initiatives')
+        .insert({
+          key_result_id: keyResultId,
+          organization_id: organization.id,
+          title: data.title,
+          description: data.description || null,
+          responsible_id: data.responsibleId || null,
+          due_date: data.dueDate || null,
+        })
+        .select('*, users!initiatives_responsible_id_fkey(full_name)')
+        .single();
+
+      if (err) throw err;
+
+      const newInit: Initiative = {
+        id: row.id,
+        keyResultId: row.key_result_id,
+        organizationId: row.organization_id,
+        title: row.title,
+        description: row.description,
+        responsibleId: row.responsible_id,
+        responsibleName: row.users?.full_name || null,
+        dueDate: row.due_date,
+        status: row.status as InitiativeStatus,
+        sortOrder: row.sort_order || 0,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+      };
+
+      setInitiatives(prev => [...prev, newInit]);
+      return newInit;
+    } catch (err) {
+      console.error('Error adding initiative:', err);
+      return null;
+    }
+  }, [organization?.id]);
+
+  const updateInitiative = useCallback(async (id: string, updates: Partial<Pick<Initiative, 'title' | 'description' | 'responsibleId' | 'dueDate' | 'status' | 'sortOrder'>>) => {
+    try {
+      const dbUpdates: Record<string, unknown> = {};
+      if (updates.title !== undefined) dbUpdates.title = updates.title;
+      if (updates.description !== undefined) dbUpdates.description = updates.description;
+      if (updates.responsibleId !== undefined) dbUpdates.responsible_id = updates.responsibleId;
+      if (updates.dueDate !== undefined) dbUpdates.due_date = updates.dueDate;
+      if (updates.status !== undefined) dbUpdates.status = updates.status;
+      if (updates.sortOrder !== undefined) dbUpdates.sort_order = updates.sortOrder;
+      dbUpdates.updated_at = new Date().toISOString();
+
+      const { error: err } = await supabase.from('initiatives').update(dbUpdates).eq('id', id);
+      if (err) throw err;
+
+      setInitiatives(prev => prev.map(i => i.id === id ? { ...i, ...updates, updatedAt: new Date().toISOString() } : i));
+    } catch (err) {
+      console.error('Error updating initiative:', err);
+    }
+  }, []);
+
+  const deleteInitiative = useCallback(async (id: string) => {
+    try {
+      const { error: err } = await supabase.from('initiatives').delete().eq('id', id);
+      if (err) throw err;
+      setInitiatives(prev => prev.filter(i => i.id !== id));
+    } catch (err) {
+      console.error('Error deleting initiative:', err);
+    }
+  }, []);
+
+  // ===== INITIATIVE COMMENTS =====
+  const [initiativeComments, setInitiativeComments] = useState<Record<string, InitiativeComment[]>>({});
+
+  const fetchComments = useCallback(async (initiativeId: string) => {
+    try {
+      const { data, error: err } = await supabase
+        .from('initiative_comments')
+        .select('*, users(full_name)')
+        .eq('initiative_id', initiativeId)
+        .order('created_at', { ascending: true });
+
+      if (err) throw err;
+
+      setInitiativeComments(prev => ({
+        ...prev,
+        [initiativeId]: (data || []).map((c: any) => ({
+          id: c.id,
+          initiativeId: c.initiative_id,
+          userId: c.user_id,
+          userName: c.users?.full_name || null,
+          text: c.text,
+          createdAt: c.created_at,
+        })),
+      }));
+    } catch (err) {
+      console.error('Error fetching comments:', err);
+    }
+  }, []);
+
+  const addComment = useCallback(async (initiativeId: string, text: string) => {
+    if (!appUser) return;
+    try {
+      const { data, error: err } = await supabase
+        .from('initiative_comments')
+        .insert({
+          initiative_id: initiativeId,
+          user_id: appUser.id,
+          text,
+        })
+        .select('*, users(full_name)')
+        .single();
+
+      if (err) throw err;
+
+      const newComment: InitiativeComment = {
+        id: data.id,
+        initiativeId: data.initiative_id,
+        userId: data.user_id,
+        userName: data.users?.full_name || null,
+        text: data.text,
+        createdAt: data.created_at,
+      };
+
+      setInitiativeComments(prev => ({
+        ...prev,
+        [initiativeId]: [...(prev[initiativeId] || []), newComment],
+      }));
+    } catch (err) {
+      console.error('Error adding comment:', err);
+    }
+  }, [appUser]);
+
+  const deleteComment = useCallback(async (commentId: string, initiativeId: string) => {
+    try {
+      const { error: err } = await supabase.from('initiative_comments').delete().eq('id', commentId);
+      if (err) throw err;
+      setInitiativeComments(prev => ({
+        ...prev,
+        [initiativeId]: (prev[initiativeId] || []).filter(c => c.id !== commentId),
+      }));
+    } catch (err) {
+      console.error('Error deleting comment:', err);
+    }
+  }, []);
+
   const value = useMemo(
     () => ({
       objectives,
@@ -395,6 +587,15 @@ export function OKRProvider({ children }: { children: ReactNode }) {
       updateKeyResult,
       deleteKeyResult,
       refreshObjectives: fetchObjectives,
+      initiatives,
+      fetchInitiatives,
+      addInitiative,
+      updateInitiative,
+      deleteInitiative,
+      initiativeComments,
+      fetchComments,
+      addComment,
+      deleteComment,
     }),
     [
       objectives,
@@ -409,6 +610,15 @@ export function OKRProvider({ children }: { children: ReactNode }) {
       updateKeyResult,
       deleteKeyResult,
       fetchObjectives,
+      initiatives,
+      fetchInitiatives,
+      addInitiative,
+      updateInitiative,
+      deleteInitiative,
+      initiativeComments,
+      fetchComments,
+      addComment,
+      deleteComment,
     ]
   );
 

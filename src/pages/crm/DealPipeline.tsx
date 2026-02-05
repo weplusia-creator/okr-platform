@@ -209,7 +209,7 @@ export function DealPipeline() {
   const navigate = useNavigate();
   const { deals, updateDealStage, loading, pipelineStages, getStageConfig } = useCRM();
   const { appUser } = useAuth();
-  const [showAll, setShowAll] = useState(false);
+  const [showAll, setShowAll] = useState(true);
 
   const pipelineStageNames = useMemo(() => pipelineStages.map(s => s.name), [pipelineStages]);
 

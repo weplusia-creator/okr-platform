@@ -7,32 +7,62 @@ export default {
   darkMode: 'class',
   theme: {
     extend: {
+      fontFamily: {
+        sans: ['Neue Haas Grotesk', 'Inter', 'system-ui', '-apple-system', 'sans-serif'],
+        display: ['Liria', 'Georgia', 'serif'],
+      },
       colors: {
+        // WAU Brand Colors
+        wau: {
+          green: '#D4FC59',
+          blue: '#3100E2',
+          black: '#231F1F',
+          orange: '#FF4632',
+          sand: '#FFFBE8',
+        },
+        // Primary - WAU Green (accent color)
         primary: {
-          50: '#f0f9ff',
-          100: '#e0f2fe',
-          200: '#bae6fd',
-          300: '#7dd3fc',
-          400: '#38bdf8',
-          500: '#0ea5e9',
-          600: '#0284c7',
-          700: '#0369a1',
-          800: '#075985',
-          900: '#0c4a6e',
-          950: '#082f49',
+          50: '#f9ffe6',
+          100: '#f0ffc9',
+          200: '#e2ff99',
+          300: '#D4FC59', // WAU Green
+          400: '#c5f03a',
+          500: '#a8d91a',
+          600: '#84ad10',
+          700: '#648311',
+          800: '#506813',
+          900: '#445714',
+          950: '#233006',
         },
+        // Accent - WAU Blue (secondary)
+        accent: {
+          50: '#f0f0ff',
+          100: '#e0e0ff',
+          200: '#c4c0ff',
+          300: '#9f94ff',
+          400: '#7a5fff',
+          500: '#5a2bff',
+          600: '#3100E2', // WAU Blue
+          700: '#2a00c4',
+          800: '#2300a3',
+          900: '#1e0085',
+          950: '#120052',
+        },
+        // Success - green (same as primary for consistency)
         success: {
-          50: '#f0fdf4',
-          100: '#dcfce7',
-          200: '#bbf7d0',
-          300: '#86efac',
-          400: '#4ade80',
-          500: '#22c55e',
-          600: '#16a34a',
-          700: '#15803d',
-          800: '#166534',
-          900: '#14532d',
+          50: '#f9ffe6',
+          100: '#f0ffc9',
+          200: '#e2ff99',
+          300: '#D4FC59',
+          400: '#c5f03a',
+          500: '#a8d91a',
+          600: '#84ad10',
+          700: '#648311',
+          800: '#506813',
+          900: '#445714',
+          950: '#233006',
         },
+        // Warning - adjusted for WAU palette
         warning: {
           50: '#fffbeb',
           100: '#fef3c7',
@@ -45,17 +75,32 @@ export default {
           800: '#92400e',
           900: '#78350f',
         },
+        // Danger - WAU Orange
         danger: {
-          50: '#fef2f2',
-          100: '#fee2e2',
-          200: '#fecaca',
-          300: '#fca5a5',
-          400: '#f87171',
-          500: '#ef4444',
-          600: '#dc2626',
-          700: '#b91c1c',
-          800: '#991b1b',
-          900: '#7f1d1d',
+          50: '#fff5f3',
+          100: '#ffe8e4',
+          200: '#ffd5ce',
+          300: '#ffb5aa',
+          400: '#ff8677',
+          500: '#FF4632', // WAU Orange
+          600: '#ed2f1a',
+          700: '#c82312',
+          800: '#a52112',
+          900: '#882116',
+          950: '#4b0c06',
+        },
+        // Sand background
+        sand: {
+          50: '#FFFBE8', // WAU Sand
+          100: '#fff8d6',
+          200: '#fff1ad',
+          300: '#ffe97a',
+          400: '#ffde47',
+          500: '#ffd11a',
+          600: '#e6b000',
+          700: '#b38500',
+          800: '#916800',
+          900: '#785500',
         },
       },
       animation: {

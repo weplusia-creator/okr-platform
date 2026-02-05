@@ -1,5 +1,5 @@
 import { useMemo, useEffect, useState } from 'react';
-import { DollarSign, FileText, ExternalLink, TrendingUp, CalendarDays, CheckCircle2, Circle, Loader2, Receipt, Link2 } from 'lucide-react';
+import { DollarSign, FileText, ExternalLink, TrendingUp, CalendarDays, CheckCircle2, Circle, Loader2, Receipt, Link2, Pencil, Trash2 } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
 import { useProjects } from '../../context/ProjectContext';
 import type { Project, ProjectPayment } from '../../types/projects';
@@ -19,11 +19,13 @@ const formatMonth = (month: string) => {
 
 export function FinanceSection({ project }: FinanceSectionProps) {
   const { invoices, addInvoice, addTransaction, categories } = useFinance();
-  const { payments, fetchPayments, generatePayments, markPaymentPaid, markPaymentPending, updatePaymentPaidDate, linkPaymentInvoice } = useProjects();
+  const { payments, fetchPayments, generatePayments, markPaymentPaid, markPaymentPending, updatePaymentPaidDate, updatePaymentAmount, deletePayment, linkPaymentInvoice } = useProjects();
   const [generating, setGenerating] = useState(false);
   const [creatingInvoiceFor, setCreatingInvoiceFor] = useState<string | null>(null);
   const [editingPaidDate, setEditingPaidDate] = useState<string | null>(null);
   const [editPaidDateValue, setEditPaidDateValue] = useState('');
+  const [editingAmount, setEditingAmount] = useState<string | null>(null);
+  const [editAmountValue, setEditAmountValue] = useState('');
 
   useEffect(() => {
     fetchPayments(project.id);
@@ -81,6 +83,9 @@ export function FinanceSection({ project }: FinanceSectionProps) {
         description: `Cuota ${formatMonth(payment.month)} — ${project.name}`,
         date: today,
         invoiceId: null,
+        clientId: project.clientId || null,
+        projectId: project.id,
+        paymentId: payment.id,
       });
     }
   };
@@ -131,7 +136,7 @@ export function FinanceSection({ project }: FinanceSectionProps) {
             <CalendarDays className="w-5 h-5 text-purple-500" />
             Cuotas Mensuales
           </h4>
-          {project.monthlyFee && project.startDate && project.estimatedEndDate && (
+          {project.monthlyFee && project.startDate && (project.estimatedEndDate || project.actualEndDate) && (
             <button
               onClick={handleGenerate}
               disabled={generating}
@@ -192,7 +197,47 @@ export function FinanceSection({ project }: FinanceSectionProps) {
                     return (
                       <tr key={payment.id} className="text-gray-700 dark:text-gray-300">
                         <td className="py-2 font-medium capitalize">{formatMonth(payment.month)}</td>
-                        <td className="py-2">{formatARS(payment.amount)}</td>
+                        <td className="py-2">
+                          {editingAmount === payment.id ? (
+                            <div className="flex items-center gap-1">
+                              <input
+                                type="number"
+                                value={editAmountValue}
+                                onChange={e => setEditAmountValue(e.target.value)}
+                                className="input text-xs py-0.5 px-1 w-28"
+                                autoFocus
+                                min="0"
+                                step="0.01"
+                              />
+                              <button
+                                onClick={async () => {
+                                  const val = parseFloat(editAmountValue);
+                                  if (!isNaN(val) && val >= 0) {
+                                    await updatePaymentAmount(payment.id, val);
+                                  }
+                                  setEditingAmount(null);
+                                }}
+                                className="text-xs text-green-600 font-medium"
+                              >
+                                OK
+                              </button>
+                              <button
+                                onClick={() => setEditingAmount(null)}
+                                className="text-xs text-gray-400"
+                              >
+                                ✕
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => { setEditingAmount(payment.id); setEditAmountValue(String(payment.amount)); }}
+                              className="hover:text-primary-600 hover:underline transition-colors"
+                              title="Editar monto"
+                            >
+                              {formatARS(payment.amount)}
+                            </button>
+                          )}
+                        </td>
                         <td className="py-2">
                           {payment.status === 'paid' ? (
                             <span className="badge-success text-xs px-2 py-0.5 rounded-full inline-flex items-center gap-1">
@@ -271,21 +316,34 @@ export function FinanceSection({ project }: FinanceSectionProps) {
                           )}
                         </td>
                         <td className="py-2">
-                          {payment.status === 'pending' ? (
+                          <div className="flex items-center gap-2">
+                            {payment.status === 'pending' ? (
+                              <button
+                                onClick={() => handleMarkPaid(payment)}
+                                className="text-xs text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 font-medium"
+                              >
+                                Marcar cobrado
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => markPaymentPending(payment.id)}
+                                className="text-xs text-yellow-600 hover:text-yellow-800 dark:text-yellow-400 dark:hover:text-yellow-300 font-medium"
+                              >
+                                Marcar pendiente
+                              </button>
+                            )}
                             <button
-                              onClick={() => handleMarkPaid(payment)}
-                              className="text-xs text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 font-medium"
+                              onClick={() => {
+                                if (confirm(`Eliminar cuota de ${formatMonth(payment.month)}?`)) {
+                                  deletePayment(payment.id);
+                                }
+                              }}
+                              className="text-xs text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+                              title="Eliminar cuota"
                             >
-                              Marcar cobrado
+                              <Trash2 className="w-3.5 h-3.5" />
                             </button>
-                          ) : (
-                            <button
-                              onClick={() => markPaymentPending(payment.id)}
-                              className="text-xs text-yellow-600 hover:text-yellow-800 dark:text-yellow-400 dark:hover:text-yellow-300 font-medium"
-                            >
-                              Marcar pendiente
-                            </button>
-                          )}
+                          </div>
                         </td>
                       </tr>
                     );
@@ -375,7 +433,7 @@ export function FinanceSection({ project }: FinanceSectionProps) {
           </h4>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3">
-              <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Total Facturado</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Ingresos total</p>
               <p className="text-lg font-bold text-blue-700 dark:text-blue-400">{formatARS(summary.totalFacturado)}</p>
             </div>
             <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-3">

@@ -256,6 +256,7 @@ export function CRMProvider({ children }: { children: ReactNode }) {
   const fetchLeads = useCallback(async () => {
     if (!organization?.id) return;
     setLoading(true);
+    setError(null);
     try {
       const { data, error: err } = await supabase
         .from('crm_leads')
@@ -468,6 +469,7 @@ export function CRMProvider({ children }: { children: ReactNode }) {
   const fetchDeals = useCallback(async () => {
     if (!organization?.id) return;
     setLoading(true);
+    setError(null);
     try {
       const { data, error: err } = await supabase
         .from('crm_deals')
@@ -537,13 +539,13 @@ export function CRMProvider({ children }: { children: ReactNode }) {
       if (err) throw err;
       if (!row) throw new Error('No se pudo crear la oportunidad');
 
-      // Log initial stage
-      await supabase.from('crm_deal_history').insert({
+      // Log initial stage (fire-and-forget, don't block deal creation)
+      supabase.from('crm_deal_history').insert({
         deal_id: row.id,
         from_stage: null,
         to_stage: data.stage || 'prospecto',
         changed_by: appUser?.id,
-      });
+      }).then(() => {}).catch(e => console.error('Error logging deal history:', e));
 
       const newDeal: Deal = {
         id: row.id,
@@ -627,14 +629,14 @@ export function CRMProvider({ children }: { children: ReactNode }) {
 
       if (err) throw err;
 
-      // Log stage change
-      await supabase.from('crm_deal_history').insert({
+      // Log stage change (fire-and-forget)
+      supabase.from('crm_deal_history').insert({
         deal_id: id,
         from_stage: deal.stage,
         to_stage: newStage,
         changed_by: appUser?.id,
         notes,
-      });
+      }).then(() => {}).catch(e => console.error('Error logging deal history:', e));
 
       setDeals(prev => prev.map(d =>
         d.id === id
@@ -731,14 +733,14 @@ export function CRMProvider({ children }: { children: ReactNode }) {
 
       if (err) throw err;
 
-      // Log stage change
-      await supabase.from('crm_deal_history').insert({
+      // Log stage change (fire-and-forget)
+      supabase.from('crm_deal_history').insert({
         deal_id: id,
         from_stage: deal.stage,
         to_stage: 'ganado',
         changed_by: appUser?.id,
         notes: options.wonNotes,
-      });
+      }).then(() => {}).catch(e => console.error('Error logging deal history:', e));
 
       setDeals(prev => prev.map(d =>
         d.id === id
@@ -779,14 +781,14 @@ export function CRMProvider({ children }: { children: ReactNode }) {
 
       if (err) throw err;
 
-      // Log stage change
-      await supabase.from('crm_deal_history').insert({
+      // Log stage change (fire-and-forget)
+      supabase.from('crm_deal_history').insert({
         deal_id: id,
         from_stage: deal.stage,
         to_stage: 'perdido',
         changed_by: appUser?.id,
         notes: lostReason,
-      });
+      }).then(() => {}).catch(e => console.error('Error logging deal history:', e));
 
       setDeals(prev => prev.map(d =>
         d.id === id
@@ -835,6 +837,7 @@ export function CRMProvider({ children }: { children: ReactNode }) {
 
   const fetchActivities = useCallback(async (options?: { leadId?: string; dealId?: string; pendingOnly?: boolean }) => {
     if (!organization?.id) return;
+    setError(null);
     try {
       let query = supabase
         .from('crm_activities')

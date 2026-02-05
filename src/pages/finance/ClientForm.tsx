@@ -41,6 +41,15 @@ async function fetchWebsiteData(url: string): Promise<Record<string, string>> {
   return result;
 }
 
+const IVA_CONDITIONS = [
+  { value: '', label: 'Seleccionar condición IVA' },
+  { value: 'responsable_inscripto', label: 'IVA Responsable Inscripto' },
+  { value: 'monotributista', label: 'Responsable Monotributo' },
+  { value: 'exento', label: 'IVA Sujeto Exento' },
+  { value: 'consumidor_final', label: 'Consumidor Final' },
+  { value: 'no_responsable', label: 'IVA No Responsable' },
+];
+
 const EMPTY_FORM = {
   name: '',
   company: '',
@@ -48,11 +57,13 @@ const EMPTY_FORM = {
   phone: '',
   address: '',
   cuit: '',
+  condicionIva: '',
   industry: '',
   employeeCount: '',
   website: '',
   contactName: '',
   contactRole: '',
+  logoUrl: '',
   notes: '',
 };
 
@@ -63,6 +74,7 @@ export function ClientForm() {
   const isEditing = Boolean(id);
 
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [fetchingWeb, setFetchingWeb] = useState(false);
   const [webMessage, setWebMessage] = useState('');
   const [formData, setFormData] = useState(EMPTY_FORM);
@@ -80,11 +92,13 @@ export function ClientForm() {
           phone: client.phone || '',
           address: client.address || '',
           cuit: client.cuit || '',
+          condicionIva: client.condicionIva || '',
           industry: client.industry || '',
           employeeCount: client.employeeCount || '',
           website: client.website || '',
           contactName: client.contactName || '',
           contactRole: client.contactRole || '',
+          logoUrl: client.logoUrl || '',
           notes: client.notes || '',
         });
       }
@@ -130,15 +144,18 @@ export function ClientForm() {
       phone: formData.phone.trim() || null,
       address: formData.address.trim() || null,
       cuit: formData.cuit.trim() || null,
+      condicionIva: formData.condicionIva || null,
       industry: formData.industry || null,
       employeeCount: formData.employeeCount.trim() || null,
       website: formData.website.trim() || null,
       contactName: formData.contactName.trim() || null,
       contactRole: formData.contactRole.trim() || null,
+      logoUrl: formData.logoUrl.trim() || null,
       notes: formData.notes.trim() || null,
     };
 
     setSaving(true);
+    setSaveError(null);
     try {
       if (isEditing) {
         const ok = await updateClient(id!, clientData);
@@ -146,15 +163,18 @@ export function ClientForm() {
           navigate(`/projects/clients/${id}`);
           return;
         }
+        setSaveError('Error al guardar. Revisa la consola para más detalles.');
       } else {
         const newClient = await addClient(clientData);
         if (newClient) {
-          navigate(`/projects/clients/${newClient.id}`);
+          navigate('/projects/clients');
           return;
         }
+        setSaveError('Error al crear cliente. Revisa la consola para más detalles.');
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error saving client:', err);
+      setSaveError(err?.message || 'Error inesperado al guardar.');
     }
     setSaving(false);
   };
@@ -238,6 +258,19 @@ export function ClientForm() {
           </div>
 
           <div>
+            <label className="label">Condición IVA</label>
+            <select
+              value={formData.condicionIva}
+              onChange={(e) => setFormData(prev => ({ ...prev, condicionIva: e.target.value }))}
+              className="select"
+            >
+              {IVA_CONDITIONS.map(opt => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
             <label className="label">Dirección</label>
             <input
               type="text"
@@ -315,6 +348,27 @@ export function ClientForm() {
           </div>
         </div>
 
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <label className="label">Logo URL</label>
+            <input
+              type="text"
+              value={formData.logoUrl}
+              onChange={(e) => setFormData(prev => ({ ...prev, logoUrl: e.target.value }))}
+              className="input"
+              placeholder="https://ejemplo.com/logo.png"
+            />
+            {formData.logoUrl && (
+              <img
+                src={formData.logoUrl}
+                alt="Preview"
+                className="mt-2 w-10 h-10 rounded-lg object-contain bg-white border border-gray-200 dark:border-gray-700"
+                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+              />
+            )}
+          </div>
+        </div>
+
         <div>
           <label className="label">Notas</label>
           <textarea
@@ -325,6 +379,12 @@ export function ClientForm() {
             placeholder="Información adicional sobre el cliente..."
           />
         </div>
+
+        {saveError && (
+          <div className="p-4 rounded-lg bg-danger-50 dark:bg-danger-500/10 border border-danger-200 dark:border-danger-800">
+            <p className="text-sm text-danger-600 dark:text-danger-400">{saveError}</p>
+          </div>
+        )}
 
         <div className="flex justify-end gap-3">
           <button

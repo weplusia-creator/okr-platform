@@ -39,7 +39,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   const { data: callerData } = await adminClient.from('users').select('role').eq('id', caller.id).single();
-  if (callerData?.role !== 'admin') {
+  if (callerData?.role !== 'admin' && callerData?.role !== 'super_admin') {
     return res.status(403).json({ error: 'Only admins can delete users' });
   }
 

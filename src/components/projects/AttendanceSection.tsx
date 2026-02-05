@@ -62,6 +62,7 @@ export function AttendanceSection({ projectId, participants }: AttendanceSection
     try {
       await createAttendanceSession({
         projectId,
+        moduleId: selectedModuleId && selectedModuleId !== '__custom__' ? selectedModuleId : null,
         sessionDate,
         sessionTitle: title,
         sessionDescription: sessionDescription.trim() || null,

@@ -11,9 +11,15 @@ import {
   Mail,
   Phone,
   X,
+  Shield,
 } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
+import { useArca } from '../../context/ArcaContext';
+import { ArcaInvoiceModal } from '../../components/arca/ArcaInvoiceModal';
+import { CaeDisplay } from '../../components/arca/CaeDisplay';
+import { ArcaStatusBadge } from '../../components/arca/ArcaStatusBadge';
 import type { InvoiceStatus } from '../../types/finance';
+import type { ArcaInvoiceStatus } from '../../types/arca';
 
 const STATUS_CONFIG: Record<InvoiceStatus, { label: string; class: string }> = {
   draft: { label: 'Borrador', class: 'badge-gray' },
@@ -27,11 +33,16 @@ export function InvoiceDetail() {
   const navigate = useNavigate();
   const { id } = useParams();
   const { invoices, clients, markInvoiceAsPaid, updateInvoice } = useFinance();
+  const { arcaInvoices, cuits, puntosVenta } = useArca();
   const [payModal, setPayModal] = useState(false);
   const [paidDate, setPaidDate] = useState(new Date().toISOString().split('T')[0]);
+  const [arcaModal, setArcaModal] = useState(false);
 
   const invoice = invoices.find(i => i.id === id);
   const client = invoice ? clients.find(c => c.id === invoice.clientId) : null;
+  const arcaInvoice = invoice ? arcaInvoices.find(ai => ai.invoiceId === invoice.id) : null;
+  const arcaCuit = arcaInvoice ? cuits.find(c => c.id === arcaInvoice.organizationCuitId) : null;
+  const arcaPv = arcaInvoice ? puntosVenta.find(pv => pv.id === arcaInvoice.puntoVentaId) : null;
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('es-AR', {
@@ -139,12 +150,30 @@ export function InvoiceDetail() {
               </button>
             </>
           )}
+          {/* ARCA emission button - show for issued/paid invoices without CAE */}
+          {(invoice.status === 'issued' || invoice.status === 'paid') && !invoice.cae && client && (
+            <button
+              onClick={() => setArcaModal(true)}
+              className="btn-secondary"
+            >
+              <Shield className="w-5 h-5" />
+              Emitir a ARCA
+            </button>
+          )}
           <button onClick={handlePrint} className="btn-secondary">
             <Printer className="w-5 h-5" />
             Imprimir
           </button>
         </div>
       </div>
+
+      {/* ARCA Status */}
+      {invoice.arcaStatus && (
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-gray-500 dark:text-gray-400">Estado ARCA:</span>
+          <ArcaStatusBadge status={invoice.arcaStatus as ArcaInvoiceStatus} />
+        </div>
+      )}
 
       {/* Invoice Content */}
       <div className="card p-8 print:shadow-none print:p-0">
@@ -182,7 +211,7 @@ export function InvoiceDetail() {
         {client && (
           <div className="mb-8">
             <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">Facturar a:</p>
-            <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+            <div className="p-4 bg-gray-50 dark:bg-[#3d3839] rounded-lg">
               <p className="font-semibold text-gray-900 dark:text-white text-lg">
                 <button onClick={() => navigate(`/projects/clients/${client.id}`)} className="hover:text-primary-600 transition-colors">
                   {client.name}
@@ -280,6 +309,33 @@ export function InvoiceDetail() {
           </div>
         )}
       </div>
+
+      {/* CAE Display */}
+      {invoice.cae && arcaInvoice && arcaCuit && arcaPv && (
+        <CaeDisplay
+          cae={invoice.cae}
+          caeVencimiento={invoice.caeVencimiento || ''}
+          cuit={arcaCuit.cuit}
+          puntoVenta={arcaPv.numero}
+          tipoComprobante={arcaInvoice.tipoComprobante}
+          numeroComprobante={arcaInvoice.numeroComprobante || 0}
+          total={invoice.total}
+          fecha={invoice.issueDate}
+        />
+      )}
+
+      {/* ARCA Invoice Modal */}
+      {arcaModal && client && (
+        <ArcaInvoiceModal
+          invoice={invoice}
+          client={client}
+          onClose={() => setArcaModal(false)}
+          onSuccess={() => {
+            setArcaModal(false);
+            // Refresh will happen via context
+          }}
+        />
+      )}
 
       {/* Pay Modal */}
       {payModal && (

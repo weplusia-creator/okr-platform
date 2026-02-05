@@ -4,18 +4,19 @@ import { ArrowLeft, Save, Loader2 } from 'lucide-react';
 import { useProjects } from '../../context/ProjectContext';
 import { useFinance } from '../../context/FinanceContext';
 import { useAuth } from '../../context/AuthContext';
-import type { ProjectStatus, ProjectPriority } from '../../types/projects';
-import { PROJECT_STATUS_CONFIG, PRIORITY_CONFIG } from '../../types/projects';
+import type { ProjectStatus } from '../../types/projects';
+import { PROJECT_STATUS_CONFIG } from '../../types/projects';
 
 export function ProjectForm() {
   const navigate = useNavigate();
   const { id } = useParams();
   const { projects, addProject, updateProject, getProject, products, applyProductToProject } = useProjects();
   const { clients } = useFinance();
-  const { appUser } = useAuth();
+  const { appUser, orgUsers } = useAuth();
   const isEditing = Boolean(id);
 
   const [loading, setLoading] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [initialLoading, setInitialLoading] = useState(isEditing);
   const [formData, setFormData] = useState({
     name: '',
@@ -23,7 +24,6 @@ export function ProjectForm() {
     clientId: '',
     product: '',
     status: 'proposal' as ProjectStatus,
-    priority: 'medium' as ProjectPriority,
     ownerId: appUser?.id || '',
     monthlyFee: '',
     startDate: '',
@@ -44,7 +44,6 @@ export function ProjectForm() {
             clientId: project.clientId || '',
             product: project.product || '',
             status: project.status,
-            priority: project.priority,
             ownerId: project.ownerId,
             monthlyFee: project.monthlyFee != null ? String(project.monthlyFee) : '',
             startDate: project.startDate || '',
@@ -62,7 +61,6 @@ export function ProjectForm() {
               clientId: fetched.clientId || '',
               product: fetched.product || '',
               status: fetched.status,
-              priority: fetched.priority,
               ownerId: fetched.ownerId,
               monthlyFee: fetched.monthlyFee != null ? String(fetched.monthlyFee) : '',
               budget: fetched.budget != null ? String(fetched.budget) : '',
@@ -84,6 +82,7 @@ export function ProjectForm() {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setSaveError(null);
 
     try {
       const payload = {
@@ -92,8 +91,7 @@ export function ProjectForm() {
         clientId: formData.clientId || null,
         product: formData.product || null,
         status: formData.status,
-        priority: formData.priority,
-        ownerId: formData.ownerId || appUser?.id || '',
+        ownerId: formData.ownerId || appUser?.id || null,
         monthlyFee: formData.monthlyFee ? parseFloat(formData.monthlyFee) : null,
         budget: null,
         estimatedCost: null,
@@ -121,12 +119,21 @@ export function ProjectForm() {
           if (payload.product) {
             const selectedProduct = products.find(p => p.name === payload.product);
             if (selectedProduct) {
-              await applyProductToProject(selectedProduct.id, newProject.id);
+              try {
+                await applyProductToProject(selectedProduct.id, newProject.id);
+              } catch (err) {
+                console.error('Error applying product template:', err);
+              }
             }
           }
           navigate(`/projects/${newProject.id}`);
+        } else {
+          setSaveError('Error al crear el proyecto. Revisá los datos e intentá de nuevo.');
         }
       }
+    } catch (err: any) {
+      console.error('Error saving project:', err);
+      setSaveError(err?.message || 'Error inesperado al guardar.');
     } finally {
       setLoading(false);
     }
@@ -141,7 +148,7 @@ export function ProjectForm() {
   }
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6">
+    <div className="max-w-3xl mx-auto space-y-6 pb-64">
       {/* Header */}
       <div className="flex items-center gap-4">
         <button
@@ -201,7 +208,7 @@ export function ProjectForm() {
           </div>
 
           <div>
-            <label className="label">Producto contratado</label>
+            <label className="label">Servicio contratado</label>
             <select
               value={formData.product}
               onChange={(e) => {
@@ -216,7 +223,7 @@ export function ProjectForm() {
               }}
               className="select"
             >
-              <option value="">Sin producto</option>
+              <option value="">Sin servicio</option>
               {products.map((p) => (
                 <option key={p.id} value={p.name}>{p.name}</option>
               ))}
@@ -224,19 +231,7 @@ export function ProjectForm() {
           </div>
         </div>
 
-        {/* Description */}
-        <div>
-          <label className="label">Descripcion</label>
-          <textarea
-            value={formData.description}
-            onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
-            className="input"
-            rows={3}
-            placeholder="Descripcion del proyecto..."
-          />
-        </div>
-
-        {/* Status, Priority, Owner */}
+        {/* Status, Owner */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div>
             <label className="label">Estado</label>
@@ -254,32 +249,34 @@ export function ProjectForm() {
           </div>
 
           <div>
-            <label className="label">Prioridad</label>
-            <select
-              value={formData.priority}
-              onChange={(e) => setFormData((prev) => ({ ...prev, priority: e.target.value as ProjectPriority }))}
-              className="select"
-            >
-              {(Object.keys(PRIORITY_CONFIG) as ProjectPriority[]).map((priority) => (
-                <option key={priority} value={priority}>
-                  {PRIORITY_CONFIG[priority].label}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
             <label className="label">Responsable</label>
             <select
               value={formData.ownerId}
               onChange={(e) => setFormData((prev) => ({ ...prev, ownerId: e.target.value }))}
               className="select"
             >
-              {appUser && (
-                <option value={appUser.id}>{appUser.fullName || appUser.email}</option>
-              )}
+              <option value="">Seleccionar...</option>
+              {orgUsers
+                .filter((u) => u.userType === 'consultant' && u.status === 'active')
+                .map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {u.fullName || u.email}
+                  </option>
+                ))}
             </select>
           </div>
+        </div>
+
+        {/* Description */}
+        <div>
+          <label className="label">Descripcion</label>
+          <textarea
+            value={formData.description}
+            onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
+            className="input"
+            rows={3}
+            placeholder="Descripcion del proyecto..."
+          />
         </div>
 
         {/* Monthly Fee */}
@@ -344,6 +341,12 @@ export function ProjectForm() {
             placeholder="Notas adicionales del proyecto..."
           />
         </div>
+
+        {saveError && (
+          <div className="p-4 rounded-lg bg-danger-50 dark:bg-danger-500/10 border border-danger-200 dark:border-danger-800">
+            <p className="text-sm text-danger-600 dark:text-danger-400">{saveError}</p>
+          </div>
+        )}
 
         {/* Actions */}
         <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">

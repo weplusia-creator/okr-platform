@@ -29,7 +29,22 @@
       "Bash(node scripts/load-data.mjs:*)",
       "Bash(git init:*)",
       "Bash(git add:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(lsof:*)",
+      "Bash(npx xlsx-cli:*)",
+      "Bash(python3:*)",
+      "Bash(xlsx2csv:*)",
+      "Bash(openssl genrsa:*)",
+      "Bash(openssl req:*)",
+      "Bash(done)",
+      "Bash(git -C /Users/mateohunicken/okr-platform status --short src/pages/Landing.tsx public/wau-icon.png)",
+      "Bash(git -C /Users/mateohunicken/okr-platform log --oneline -5)",
+      "Bash(git -C /Users/mateohunicken/okr-platform diff --stat src/pages/Landing.tsx)",
+      "Bash(git -C /Users/mateohunicken/okr-platform remote:*)",
+      "Bash(vercel:*)",
+      "Bash(wc -l:*)",
+      "Bash(npx netlify deploy:*)",
+      "Bash(npx netlify link)"
     ]
   }
 }

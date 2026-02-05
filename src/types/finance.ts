@@ -9,11 +9,14 @@ export interface Client {
   phone: string | null;
   address: string | null;
   cuit: string | null;
+  tipoDocumento: number | null;
+  condicionIva: string | null;
   industry: string | null;
   employeeCount: string | null;
   website: string | null;
   contactName: string | null;
   contactRole: string | null;
+  logoUrl: string | null;
   notes: string | null;
   createdAt: string;
   updatedAt: string;
@@ -45,6 +48,10 @@ export interface Invoice {
   total: number;
   notes: string | null;
   items: InvoiceItem[];
+  // ARCA fields
+  arcaStatus: string | null;
+  cae: string | null;
+  caeVencimiento: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -70,6 +77,11 @@ export interface CashFlowTransaction {
   description: string;
   date: string;
   invoiceId: string | null;
+  clientId: string | null;
+  projectId: string | null;
+  paymentId: string | null;
+  clientName?: string;
+  projectName?: string;
   createdAt: string;
 }
 

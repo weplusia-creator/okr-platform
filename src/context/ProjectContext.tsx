@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useCallback, useEffect, useMemo, type ReactNode } from 'react';
+import { createClient } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import { useAuth } from './AuthContext';
 import type {
@@ -6,6 +7,7 @@ import type {
   ProjectParticipant,
   ProjectDeliverable,
   ProjectModule,
+  ModuleSession,
   ModuleTimeEntry,
   ModuleComment,
   ProjectDocument,
@@ -59,10 +61,16 @@ interface ProjectContextType {
 
   // Modules
   fetchModules: (projectId: string) => Promise<void>;
-  addModule: (data: Omit<ProjectModule, 'id' | 'createdAt' | 'updatedAt' | 'totalHoursLogged'>) => Promise<ProjectModule | null>;
+  addModule: (data: Omit<ProjectModule, 'id' | 'createdAt' | 'updatedAt' | 'totalHoursLogged' | 'sessions'>) => Promise<ProjectModule | null>;
   updateModule: (id: string, updates: Partial<ProjectModule>) => Promise<void>;
   completeModule: (moduleId: string) => Promise<void>;
   deleteModule: (id: string) => Promise<void>;
+
+  // Module Sessions
+  addModuleSession: (data: Omit<ModuleSession, 'id' | 'createdAt' | 'updatedAt'>) => Promise<ModuleSession | null>;
+  updateModuleSession: (id: string, updates: Partial<ModuleSession>) => Promise<void>;
+  completeModuleSession: (id: string) => Promise<void>;
+  deleteModuleSession: (id: string) => Promise<void>;
 
   // Time Entries
   fetchTimeEntries: (moduleId: string) => Promise<ModuleTimeEntry[]>;
@@ -104,8 +112,10 @@ interface ProjectContextType {
   markPaymentPaid: (id: string, paidDate?: string) => Promise<void>;
   markPaymentPending: (id: string) => Promise<void>;
   updatePaymentPaidDate: (id: string, paidDate: string) => Promise<void>;
+  updatePaymentAmount: (id: string, amount: number) => Promise<void>;
+  deletePayment: (id: string) => Promise<void>;
   linkPaymentInvoice: (paymentId: string, invoiceId: string) => Promise<void>;
-  fetchAllPayments: () => Promise<(ProjectPayment & { projectName: string })[]>;
+  fetchAllPayments: () => Promise<(ProjectPayment & { projectName: string; clientId?: string })[]>;
 
   // NPS
   npsSurveys: NPSSurvey[];
@@ -198,17 +208,27 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     estimatedEndDate: string,
     monthlyFee: number,
   ) => {
-    const start = new Date(startDate + 'T00:00:00');
-    const end = new Date(estimatedEndDate + 'T00:00:00');
+    const start = new Date(startDate.substring(0, 10) + 'T00:00:00');
+    const end = new Date(estimatedEndDate.substring(0, 10) + 'T00:00:00');
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) return;
+    if (start > end) return;
+
+    // Calculate number of cuotas based on project duration in months
+    // A project from Feb 15 to Jun 15 = 4 months = 4 cuotas
+    const daysBetween = (end.getTime() - start.getTime()) / (24 * 60 * 60 * 1000);
+    const count = Math.max(1, Math.round(daysBetween / 30));
+
+    // Generate cuotas starting from the start month
     const months: string[] = [];
     const current = new Date(start.getFullYear(), start.getMonth(), 1);
-
-    while (current <= end) {
+    for (let i = 0; i < count; i++) {
       const yyyy = current.getFullYear();
       const mm = String(current.getMonth() + 1).padStart(2, '0');
       months.push(`${yyyy}-${mm}`);
       current.setMonth(current.getMonth() + 1);
     }
+
+    if (months.length === 0) return;
 
     const { data: existing } = await db
       .from('project_payments')
@@ -272,7 +292,6 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
         name: p.name,
         description: p.description,
         status: p.status,
-        priority: p.priority,
         ownerId: p.owner_id,
         product: p.product,
         monthlyFee: p.monthly_fee,
@@ -300,25 +319,25 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
         .from('projects')
         .insert({
           organization_id: organization.id,
-          client_id: data.clientId,
+          client_id: data.clientId || null,
           name: data.name,
-          description: data.description,
+          description: data.description || null,
           status: data.status,
-          priority: data.priority,
-          owner_id: data.ownerId,
-          product: data.product,
-          monthly_fee: data.monthlyFee,
-          budget: data.budget,
-          estimated_cost: data.estimatedCost,
-          start_date: data.startDate,
-          estimated_end_date: data.estimatedEndDate,
-          actual_end_date: data.actualEndDate,
-          notes: data.notes,
+          owner_id: data.ownerId || null,
+          product: data.product || null,
+          monthly_fee: data.monthlyFee || null,
+          budget: data.budget || null,
+          estimated_cost: data.estimatedCost || null,
+          start_date: data.startDate || null,
+          estimated_end_date: data.estimatedEndDate || null,
+          actual_end_date: data.actualEndDate || null,
+          notes: data.notes || null,
         })
         .select()
         .single();
 
       if (err) throw err;
+      if (!row) throw new Error('No se pudo crear el proyecto');
 
       const newProject: Project = {
         id: row.id,
@@ -328,7 +347,6 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
         name: row.name,
         description: row.description,
         status: row.status,
-        priority: row.priority,
         ownerId: row.owner_id,
         product: row.product,
         monthlyFee: row.monthly_fee,
@@ -344,11 +362,16 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
 
       setProjects(prev => [newProject, ...prev]);
 
-      // Auto-generate payments for approved/in_progress projects
-      const autoStatuses = ['approved', 'in_progress'];
-      if (autoStatuses.includes(newProject.status) && newProject.monthlyFee && newProject.startDate && newProject.estimatedEndDate) {
+      // Auto-generate payments for new projects (any non-cancelled status)
+      const endForNewPayments = (() => {
+        const est = newProject.estimatedEndDate || '';
+        const act = newProject.actualEndDate || '';
+        if (est && act) return est > act ? est : act;
+        return est || act;
+      })();
+      if (newProject.status !== 'cancelled' && newProject.monthlyFee && newProject.startDate && endForNewPayments) {
         try {
-          await generatePaymentsForProject(newProject.id, newProject.startDate, newProject.estimatedEndDate, newProject.monthlyFee);
+          await generatePaymentsForProject(newProject.id, newProject.startDate, endForNewPayments, newProject.monthlyFee);
         } catch (err) {
           console.error('Error auto-generating payments:', err);
         }
@@ -365,20 +388,19 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
   const updateProject = useCallback(async (id: string, updates: Partial<Project>) => {
     try {
       const dbUpdates: Record<string, unknown> = {};
-      if (updates.clientId !== undefined) dbUpdates.client_id = updates.clientId;
+      if (updates.clientId !== undefined) dbUpdates.client_id = updates.clientId || null;
       if (updates.name !== undefined) dbUpdates.name = updates.name;
-      if (updates.description !== undefined) dbUpdates.description = updates.description;
+      if (updates.description !== undefined) dbUpdates.description = updates.description || null;
       if (updates.status !== undefined) dbUpdates.status = updates.status;
-      if (updates.priority !== undefined) dbUpdates.priority = updates.priority;
-      if (updates.ownerId !== undefined) dbUpdates.owner_id = updates.ownerId;
-      if (updates.product !== undefined) dbUpdates.product = updates.product;
-      if (updates.monthlyFee !== undefined) dbUpdates.monthly_fee = updates.monthlyFee;
-      if (updates.budget !== undefined) dbUpdates.budget = updates.budget;
-      if (updates.estimatedCost !== undefined) dbUpdates.estimated_cost = updates.estimatedCost;
-      if (updates.startDate !== undefined) dbUpdates.start_date = updates.startDate;
-      if (updates.estimatedEndDate !== undefined) dbUpdates.estimated_end_date = updates.estimatedEndDate;
-      if (updates.actualEndDate !== undefined) dbUpdates.actual_end_date = updates.actualEndDate;
-      if (updates.notes !== undefined) dbUpdates.notes = updates.notes;
+      if (updates.ownerId !== undefined) dbUpdates.owner_id = updates.ownerId || null;
+      if (updates.product !== undefined) dbUpdates.product = updates.product || null;
+      if (updates.monthlyFee !== undefined) dbUpdates.monthly_fee = updates.monthlyFee || null;
+      if (updates.budget !== undefined) dbUpdates.budget = updates.budget || null;
+      if (updates.estimatedCost !== undefined) dbUpdates.estimated_cost = updates.estimatedCost || null;
+      if (updates.startDate !== undefined) dbUpdates.start_date = updates.startDate || null;
+      if (updates.estimatedEndDate !== undefined) dbUpdates.estimated_end_date = updates.estimatedEndDate || null;
+      if (updates.actualEndDate !== undefined) dbUpdates.actual_end_date = updates.actualEndDate || null;
+      if (updates.notes !== undefined) dbUpdates.notes = updates.notes || null;
 
       const { error: err } = await db
         .from('projects')
@@ -393,11 +415,36 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
         setCurrentProject(prev => prev ? { ...prev, ...updates } : prev);
       }
 
-      // Auto-generate payments when project becomes approved/in_progress or fee/dates change
-      const autoStatuses = ['approved', 'in_progress'];
-      if (autoStatuses.includes(updatedProject.status) && updatedProject.monthlyFee && updatedProject.startDate && updatedProject.estimatedEndDate) {
+      // Auto-generate payments when fee and dates are available (any non-cancelled status)
+      // Use the later of estimatedEndDate / actualEndDate so both fields work
+      const endForPayments = (() => {
+        const est = updatedProject.estimatedEndDate || '';
+        const act = updatedProject.actualEndDate || '';
+        if (est && act) return est > act ? est : act;
+        return est || act;
+      })();
+      if (updatedProject.status !== 'cancelled' && updatedProject.monthlyFee && updatedProject.startDate && endForPayments) {
         try {
-          await generatePaymentsForProject(id, updatedProject.startDate, updatedProject.estimatedEndDate, updatedProject.monthlyFee);
+          await generatePaymentsForProject(id, updatedProject.startDate, endForPayments, updatedProject.monthlyFee);
+          // Refresh payments state
+          const { data: payData } = await db
+            .from('project_payments')
+            .select('*')
+            .eq('project_id', id)
+            .order('month');
+          if (payData) {
+            setPayments(payData.map((p: any) => ({
+              id: p.id,
+              projectId: p.project_id,
+              month: p.month,
+              amount: p.amount,
+              status: p.status,
+              paidDate: p.paid_date,
+              invoiceId: p.invoice_id,
+              notes: p.notes,
+              createdAt: p.created_at,
+            })));
+          }
         } catch (err) {
           console.error('Error auto-generating payments:', err);
         }
@@ -428,6 +475,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
   }, [currentProject?.id]);
 
   const getProject = useCallback(async (id: string): Promise<Project | null> => {
+    setCurrentProject(null);
     try {
       const { data, error: err } = await db
         .from('projects')
@@ -455,7 +503,6 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
         name: data.name,
         description: data.description,
         status: data.status,
-        priority: data.priority,
         ownerId: data.owner_id,
         monthlyFee: data.monthly_fee,
         budget: data.budget,
@@ -494,12 +541,12 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       if (userIds.length > 0) {
         const { data: usersData, error: userErr } = await db
           .from('users')
-          .select('id, full_name, email')
+          .select('id, full_name, email, phone')
           .in('id', userIds);
 
         if (userErr) throw userErr;
-        userMap = (usersData || []).reduce((acc: Record<string, { name: string; email: string }>, u: any) => {
-          acc[u.id] = { name: u.full_name, email: u.email };
+        userMap = (usersData || []).reduce((acc: Record<string, { name: string; email: string; phone: string | null }>, u: any) => {
+          acc[u.id] = { name: u.full_name, email: u.email, phone: u.phone };
           return acc;
         }, {});
       }
@@ -510,6 +557,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
         userId: p.user_id,
         userName: userMap[p.user_id]?.name,
         userEmail: userMap[p.user_id]?.email,
+        userPhone: userMap[p.user_id]?.phone || undefined,
         role: p.role,
         hourlyRate: p.hourly_rate,
         allocatedHours: p.allocated_hours,
@@ -541,27 +589,66 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
           isNewUser = true;
           const defaultPassword = 'WAU2026';
 
-          // Call serverless function to create auth user (no rate limit)
+          // Try serverless function first, fallback to Supabase signUp
           const { data: sessionData } = await supabase.auth.getSession();
           const token = sessionData?.session?.access_token;
 
-          const res = await fetch('/api/create-user', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`,
-            },
-            body: JSON.stringify({
+          let created = false;
+          try {
+            const res = await fetch('/api/create-user', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`,
+              },
+              body: JSON.stringify({
+                email,
+                password: defaultPassword,
+                fullName: data.userName || email.split('@')[0],
+                organizationId: organization?.id,
+              }),
+            });
+
+            const text = await res.text();
+            if (text) {
+              const result = JSON.parse(text);
+              if (res.ok) {
+                userId = result.userId;
+                created = true;
+              }
+            }
+          } catch {
+            // API not available (local dev), fallback below
+          }
+
+          if (!created) {
+            // Fallback: use isolated Supabase client so we don't change current session
+            const tempClient = createClient(
+              import.meta.env.VITE_SUPABASE_URL,
+              import.meta.env.VITE_SUPABASE_ANON_KEY,
+              { auth: { autoRefreshToken: false, persistSession: false } }
+            );
+
+            const { data: signUpData, error: signUpErr } = await tempClient.auth.signUp({
               email,
               password: defaultPassword,
-              fullName: data.userName || email.split('@')[0],
-              organizationId: organization?.id,
-            }),
-          });
+              options: { data: { full_name: data.userName || email.split('@')[0] } },
+            });
+            if (signUpErr) throw new Error(signUpErr.message);
+            if (!signUpData.user) throw new Error('No se pudo crear el usuario');
+            userId = signUpData.user.id;
 
-          const result = await res.json();
-          if (!res.ok) throw new Error(result.error || 'Error creando usuario');
-          userId = result.userId;
+            // Wait for trigger, then upsert user row
+            await new Promise(r => setTimeout(r, 500));
+            await db.from('users').upsert({
+              id: userId,
+              email,
+              full_name: data.userName || email.split('@')[0],
+              organization_id: organization?.id,
+              role: 'member',
+              user_type: 'consultant',
+            }, { onConflict: 'id' });
+          }
         }
       }
 
@@ -707,6 +794,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
         .single();
 
       if (err) throw err;
+      if (!row) throw new Error('No se pudo crear el entregable');
 
       const newDeliverable: ProjectDeliverable = {
         id: row.id,
@@ -824,6 +912,40 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
         }, {});
       }
 
+      // Fetch sessions for all modules
+      let sessionsMap: Record<string, ModuleSession[]> = {};
+      if (moduleIds.length > 0) {
+        const { data: sessData, error: sessErr } = await db
+          .from('module_sessions')
+          .select('*, nps_surveys(token)')
+          .in('module_id', moduleIds)
+          .order('sort_order', { ascending: true });
+
+        if (!sessErr && sessData) {
+          for (const s of sessData as any[]) {
+            const session: ModuleSession = {
+              id: s.id,
+              moduleId: s.module_id,
+              title: s.title,
+              description: s.description,
+              sessionDate: s.session_date,
+              status: s.status,
+              presentationUrl: s.presentation_url,
+              videoUrl: s.video_url,
+              supportMaterialUrl: s.support_material_url,
+              npsSurveyId: s.nps_survey_id,
+              npsToken: s.nps_surveys?.token || undefined,
+              sortOrder: s.sort_order,
+              completedAt: s.completed_at,
+              createdAt: s.created_at,
+              updatedAt: s.updated_at,
+            };
+            if (!sessionsMap[s.module_id]) sessionsMap[s.module_id] = [];
+            sessionsMap[s.module_id].push(session);
+          }
+        }
+      }
+
       setModules((data || []).map((m: any) => ({
         id: m.id,
         projectId: m.project_id,
@@ -838,6 +960,11 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
         completedBy: m.completed_by,
         subtasks: m.subtasks || [],
         sortOrder: m.sort_order,
+        presentationUrl: m.presentation_url || null,
+        taskUrl: m.task_url || null,
+        videoUrl: m.video_url || null,
+        supportMaterialUrl: m.support_material_url || null,
+        sessions: sessionsMap[m.id] || [],
         createdAt: m.created_at,
         updatedAt: m.updated_at,
         totalHoursLogged: hoursMap[m.id] || 0,
@@ -864,11 +991,16 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
           completed_by: data.completedBy,
           subtasks: data.subtasks,
           sort_order: data.sortOrder,
+          presentation_url: data.presentationUrl,
+          task_url: data.taskUrl,
+          video_url: data.videoUrl,
+          support_material_url: data.supportMaterialUrl,
         })
         .select()
         .single();
 
       if (err) throw err;
+      if (!row) throw new Error('No se pudo crear el módulo');
 
       const newModule: ProjectModule = {
         id: row.id,
@@ -884,6 +1016,11 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
         completedBy: row.completed_by,
         subtasks: row.subtasks || [],
         sortOrder: row.sort_order,
+        presentationUrl: row.presentation_url || null,
+        taskUrl: row.task_url || null,
+        videoUrl: row.video_url || null,
+        supportMaterialUrl: row.support_material_url || null,
+        sessions: [],
         createdAt: row.created_at,
         updatedAt: row.updated_at,
       };
@@ -942,6 +1079,10 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       if (updates.completedBy !== undefined) dbUpdates.completed_by = updates.completedBy;
       if (updates.subtasks !== undefined) dbUpdates.subtasks = updates.subtasks;
       if (updates.sortOrder !== undefined) dbUpdates.sort_order = updates.sortOrder;
+      if (updates.presentationUrl !== undefined) dbUpdates.presentation_url = updates.presentationUrl;
+      if (updates.taskUrl !== undefined) dbUpdates.task_url = updates.taskUrl;
+      if (updates.videoUrl !== undefined) dbUpdates.video_url = updates.videoUrl;
+      if (updates.supportMaterialUrl !== undefined) dbUpdates.support_material_url = updates.supportMaterialUrl;
 
       const { error: err } = await db
         .from('project_modules')
@@ -998,6 +1139,138 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     } catch (err) {
       console.error('Error deleting module:', err);
       setError('Error al eliminar módulo');
+    }
+  }, []);
+
+  // ===== MODULE SESSIONS =====
+
+  const addModuleSession = useCallback(async (data: Omit<ModuleSession, 'id' | 'createdAt' | 'updatedAt'>): Promise<ModuleSession | null> => {
+    try {
+      const { data: row, error: err } = await db
+        .from('module_sessions')
+        .insert({
+          module_id: data.moduleId,
+          title: data.title,
+          description: data.description,
+          session_date: data.sessionDate,
+          status: data.status || 'pending',
+          presentation_url: data.presentationUrl,
+          video_url: data.videoUrl,
+          support_material_url: data.supportMaterialUrl,
+          nps_survey_id: data.npsSurveyId,
+          sort_order: data.sortOrder,
+          completed_at: data.completedAt,
+        })
+        .select('*, nps_surveys(token)')
+        .single();
+
+      if (err) throw err;
+      if (!row) throw new Error('No se pudo crear la sesión');
+
+      const newSession: ModuleSession = {
+        id: row.id,
+        moduleId: row.module_id,
+        title: row.title,
+        description: row.description,
+        sessionDate: row.session_date,
+        status: row.status,
+        presentationUrl: row.presentation_url,
+        videoUrl: row.video_url,
+        supportMaterialUrl: row.support_material_url,
+        npsSurveyId: row.nps_survey_id,
+        npsToken: row.nps_surveys?.token || undefined,
+        sortOrder: row.sort_order,
+        completedAt: row.completed_at,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+      };
+
+      setModules(prev => prev.map(m =>
+        m.id === data.moduleId
+          ? { ...m, sessions: [...(m.sessions || []), newSession] }
+          : m
+      ));
+
+      return newSession;
+    } catch (err) {
+      console.error('Error adding module session:', err);
+      setError('Error al crear sesión');
+      return null;
+    }
+  }, []);
+
+  const updateModuleSession = useCallback(async (id: string, updates: Partial<ModuleSession>) => {
+    try {
+      const dbUpdates: Record<string, any> = {};
+      if (updates.title !== undefined) dbUpdates.title = updates.title;
+      if (updates.description !== undefined) dbUpdates.description = updates.description;
+      if (updates.sessionDate !== undefined) dbUpdates.session_date = updates.sessionDate;
+      if (updates.status !== undefined) dbUpdates.status = updates.status;
+      if (updates.presentationUrl !== undefined) dbUpdates.presentation_url = updates.presentationUrl;
+      if (updates.videoUrl !== undefined) dbUpdates.video_url = updates.videoUrl;
+      if (updates.supportMaterialUrl !== undefined) dbUpdates.support_material_url = updates.supportMaterialUrl;
+      if (updates.npsSurveyId !== undefined) dbUpdates.nps_survey_id = updates.npsSurveyId;
+      if (updates.sortOrder !== undefined) dbUpdates.sort_order = updates.sortOrder;
+      if (updates.completedAt !== undefined) dbUpdates.completed_at = updates.completedAt;
+      dbUpdates.updated_at = new Date().toISOString();
+
+      const { error: err } = await db
+        .from('module_sessions')
+        .update(dbUpdates)
+        .eq('id', id);
+
+      if (err) throw err;
+
+      setModules(prev => prev.map(m => ({
+        ...m,
+        sessions: (m.sessions || []).map(s =>
+          s.id === id ? { ...s, ...updates, updatedAt: dbUpdates.updated_at } : s
+        ),
+      })));
+    } catch (err) {
+      console.error('Error updating module session:', err);
+      setError('Error al actualizar sesión');
+    }
+  }, []);
+
+  const completeModuleSession = useCallback(async (id: string) => {
+    const now = new Date().toISOString();
+    try {
+      const { error: err } = await db
+        .from('module_sessions')
+        .update({ status: 'completed', completed_at: now, updated_at: now })
+        .eq('id', id);
+
+      if (err) throw err;
+
+      setModules(prev => prev.map(m => ({
+        ...m,
+        sessions: (m.sessions || []).map(s =>
+          s.id === id ? { ...s, status: 'completed' as const, completedAt: now, updatedAt: now } : s
+        ),
+      })));
+    } catch (err) {
+      console.error('Error completing module session:', err);
+      setError('Error al completar sesión');
+    }
+  }, []);
+
+  const deleteModuleSession = useCallback(async (id: string) => {
+    try {
+      const { error: err } = await db
+        .from('module_sessions')
+        .delete()
+        .eq('id', id);
+
+      if (err) throw err;
+
+      setModules(prev => prev.map(m => ({
+        ...m,
+        sessions: (m.sessions || []).filter(s => s.id !== id),
+      })));
+    } catch (err) {
+      console.error('Error deleting module session:', err);
+      setError('Error al eliminar sesión');
     }
   }, []);
 
@@ -1060,6 +1333,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
         .single();
 
       if (err) throw err;
+      if (!row) throw new Error('No se pudo crear la entrada de tiempo');
 
       const newEntry: ModuleTimeEntry = {
         id: row.id,
@@ -1155,6 +1429,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
         .single();
 
       if (err) throw err;
+      if (!row) throw new Error('No se pudo crear el comentario');
 
       const newComment: ModuleComment = {
         id: row.id,
@@ -1224,6 +1499,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
         .single();
 
       if (err) throw err;
+      if (!row) throw new Error('No se pudo crear el documento');
 
       const newDocument: ProjectDocument = {
         id: row.id,
@@ -1401,6 +1677,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
         .single();
 
       if (err) throw err;
+      if (!row) throw new Error('No se pudo guardar el perfil');
 
       const profile = mapAlumniRow(row);
       setAlumniProfile(profile);
@@ -1443,6 +1720,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       setAttendanceSessions((data || []).map((s: any) => ({
         id: s.id,
         projectId: s.project_id,
+        moduleId: s.module_id || null,
         sessionDate: s.session_date,
         sessionTitle: s.session_title,
         sessionDescription: s.session_description,
@@ -1486,6 +1764,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
         .from('project_attendance_sessions')
         .insert({
           project_id: data.projectId,
+          module_id: data.moduleId || null,
           session_date: data.sessionDate,
           session_title: data.sessionTitle,
           session_description: data.sessionDescription,
@@ -1500,6 +1779,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       const session: AttendanceSession = {
         id: row.id,
         projectId: row.project_id,
+        moduleId: row.module_id || null,
         sessionDate: row.session_date,
         sessionTitle: row.session_title,
         sessionDescription: row.session_description,
@@ -1585,12 +1865,18 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
   const generatePayments = useCallback(async (projectId: string) => {
     try {
       const project = projects.find(p => p.id === projectId) || currentProject;
-      if (!project || !project.startDate || !project.estimatedEndDate || !project.monthlyFee) {
+      const endDate = (() => {
+        const est = project?.estimatedEndDate || '';
+        const act = project?.actualEndDate || '';
+        if (est && act) return est > act ? est : act;
+        return est || act;
+      })();
+      if (!project || !project.startDate || !endDate || !project.monthlyFee) {
         setError('El proyecto necesita fecha inicio, fecha fin y fee mensual para generar cuotas');
         return;
       }
 
-      await generatePaymentsForProject(projectId, project.startDate, project.estimatedEndDate, project.monthlyFee);
+      await generatePaymentsForProject(projectId, project.startDate, endDate, project.monthlyFee);
       await fetchPayments(projectId);
     } catch (err) {
       console.error('Error generating payments:', err);
@@ -1647,6 +1933,34 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const updatePaymentAmount = useCallback(async (id: string, amount: number) => {
+    try {
+      const { error: err } = await db
+        .from('project_payments')
+        .update({ amount })
+        .eq('id', id);
+      if (err) throw err;
+      setPayments(prev => prev.map(p => p.id === id ? { ...p, amount } : p));
+    } catch (err) {
+      console.error('Error updating payment amount:', err);
+      setError('Error al actualizar monto');
+    }
+  }, []);
+
+  const deletePayment = useCallback(async (id: string) => {
+    try {
+      const { error: err } = await db
+        .from('project_payments')
+        .delete()
+        .eq('id', id);
+      if (err) throw err;
+      setPayments(prev => prev.filter(p => p.id !== id));
+    } catch (err) {
+      console.error('Error deleting payment:', err);
+      setError('Error al eliminar cuota');
+    }
+  }, []);
+
   // ===== NPS =====
 
   const fetchNPSSurveys = useCallback(async (projectId: string) => {
@@ -1687,6 +2001,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
         .single();
 
       if (err) throw err;
+      if (!data) throw new Error('No se pudo crear la encuesta NPS');
 
       const survey: NPSSurvey = {
         id: data.id,
@@ -1761,7 +2076,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const fetchAllPayments = useCallback(async (): Promise<(ProjectPayment & { projectName: string })[]> => {
+  const fetchAllPayments = useCallback(async (): Promise<(ProjectPayment & { projectName: string; clientId?: string })[]> => {
     try {
       const { data, error: err } = await db
         .from('project_payments')
@@ -1779,6 +2094,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
         id: p.id,
         projectId: p.project_id,
         projectName: displayName,
+        clientId: p.projects?.client_id || undefined,
         month: p.month,
         amount: p.amount,
         status: p.status,
@@ -1844,6 +2160,12 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
             organizationId: p.organization_id,
             name: p.name,
             description: p.description,
+            basePrice: p.base_price ?? null,
+            estimatedDurationDays: p.estimated_duration_days ?? null,
+            status: p.status || 'active',
+            tools: p.tools || [],
+            sortOrder: p.sort_order ?? 0,
+            includesDiagnostic: p.includes_diagnostic ?? false,
             createdAt: p.created_at,
             updatedAt: p.updated_at,
           })));
@@ -1874,12 +2196,19 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
         .single();
 
       if (err) throw err;
+      if (!row) throw new Error('No se pudo crear el producto');
 
       const product: Product = {
         id: row.id,
         organizationId: row.organization_id,
         name: row.name,
         description: row.description,
+        basePrice: row.base_price ?? null,
+        estimatedDurationDays: row.estimated_duration_days ?? null,
+        status: row.status || 'active',
+        tools: row.tools || [],
+        sortOrder: row.sort_order ?? 0,
+        includesDiagnostic: row.includes_diagnostic ?? false,
         createdAt: row.created_at,
         updatedAt: row.updated_at,
       };
@@ -1888,23 +2217,33 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       return product;
     } catch (err) {
       console.error('Error adding product:', err);
-      setError('Error al crear producto');
+      setError('Error al crear servicio');
       return null;
     }
   }, [organization?.id]);
 
-  const updateProduct = useCallback(async (id: string, updates: Partial<Pick<Product, 'name' | 'description'>>) => {
+  const updateProduct = useCallback(async (id: string, updates: Partial<Pick<Product, 'name' | 'description' | 'basePrice' | 'estimatedDurationDays' | 'status' | 'tools' | 'sortOrder' | 'includesDiagnostic'>>) => {
     try {
+      const dbUpdates: Record<string, unknown> = {};
+      if (updates.name !== undefined) dbUpdates.name = updates.name;
+      if (updates.description !== undefined) dbUpdates.description = updates.description;
+      if (updates.basePrice !== undefined) dbUpdates.base_price = updates.basePrice;
+      if (updates.estimatedDurationDays !== undefined) dbUpdates.estimated_duration_days = updates.estimatedDurationDays;
+      if (updates.status !== undefined) dbUpdates.status = updates.status;
+      if (updates.tools !== undefined) dbUpdates.tools = updates.tools;
+      if (updates.sortOrder !== undefined) dbUpdates.sort_order = updates.sortOrder;
+      if (updates.includesDiagnostic !== undefined) dbUpdates.includes_diagnostic = updates.includesDiagnostic;
+
       const { error: err } = await db
         .from('products')
-        .update(updates)
+        .update(dbUpdates)
         .eq('id', id);
 
       if (err) throw err;
       setProducts(prev => prev.map(p => p.id === id ? { ...p, ...updates } : p));
     } catch (err) {
       console.error('Error updating product:', err);
-      setError('Error al actualizar producto');
+      setError('Error al actualizar servicio');
     }
   }, []);
 
@@ -1919,7 +2258,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       setProducts(prev => prev.filter(p => p.id !== id));
     } catch (err) {
       console.error('Error deleting product:', err);
-      setError('Error al eliminar producto');
+      setError('Error al eliminar servicio');
     }
   }, []);
 
@@ -1959,6 +2298,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
         .single();
 
       if (err) throw err;
+      if (!row) throw new Error('No se pudo crear el template');
 
       return {
         id: row.id,
@@ -2086,11 +2426,56 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
           }
         }
       }
+      // If product includes diagnostic, create 4 BMC diagnostic modules
+      const product = products.find(p => p.id === productId);
+      if (product?.includesDiagnostic) {
+        const diagnosticSessions = [
+          { title: 'Diagnóstico 1 — Clientes, Valor y Canales', description: 'Segmentos de clientes, propuesta de valor y canales de distribución.', sortOrder: -4 },
+          { title: 'Diagnóstico 2 — Relación e Ingresos', description: 'Relación con clientes y fuentes de ingresos.', sortOrder: -3 },
+          { title: 'Diagnóstico 3 — Recursos, Actividades y Socios', description: 'Recursos clave, actividades clave y socios estratégicos.', sortOrder: -2 },
+          { title: 'Diagnóstico 4 — Costos y Consolidación', description: 'Estructura de costos y consolidación final del canvas.', sortOrder: -1 },
+        ];
+
+        for (const session of diagnosticSessions) {
+          if (existingTitles.has(session.title)) continue;
+
+          const { data: row } = await db
+            .from('project_modules')
+            .insert({
+              project_id: projectId,
+              title: session.title,
+              description: session.description,
+              sort_order: session.sortOrder,
+              status: 'pending',
+            })
+            .select()
+            .single();
+
+          if (row) {
+            setModules(prev => [...prev, {
+              id: row.id,
+              projectId: row.project_id,
+              deliverableId: null,
+              title: row.title,
+              description: row.description,
+              startDate: null,
+              dueDate: null,
+              status: row.status,
+              completedAt: null,
+              completedBy: null,
+              subtasks: [],
+              sortOrder: row.sort_order,
+              createdAt: row.created_at,
+              updatedAt: row.updated_at,
+            }]);
+          }
+        }
+      }
     } catch (err) {
       console.error('Error applying product to project:', err);
-      setError('Error al aplicar producto al proyecto');
+      setError('Error al aplicar servicio al proyecto');
     }
-  }, [fetchProductTemplateModules, appUser?.id]);
+  }, [fetchProductTemplateModules, appUser?.id, products]);
 
   // ===== TEMPLATE DELIVERABLES =====
 
@@ -2128,6 +2513,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
         .single();
 
       if (err) throw err;
+      if (!row) throw new Error('No se pudo crear el entregable del template');
       return {
         id: row.id,
         templateModuleId: row.template_module_id,
@@ -2208,6 +2594,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
         .single();
 
       if (err) throw err;
+      if (!row) throw new Error('No se pudo crear el objetivo del template');
       return {
         id: row.id,
         templateModuleId: row.template_module_id,
@@ -2357,6 +2744,10 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     updateModule,
     completeModule,
     deleteModule,
+    addModuleSession,
+    updateModuleSession,
+    completeModuleSession,
+    deleteModuleSession,
     fetchTimeEntries,
     addTimeEntry,
     deleteTimeEntry,
@@ -2384,6 +2775,8 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     markPaymentPaid,
     markPaymentPending,
     updatePaymentPaidDate,
+    updatePaymentAmount,
+    deletePayment,
     linkPaymentInvoice,
     fetchAllPayments,
     npsSurveys,
@@ -2439,6 +2832,10 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     updateModule,
     completeModule,
     deleteModule,
+    addModuleSession,
+    updateModuleSession,
+    completeModuleSession,
+    deleteModuleSession,
     fetchTimeEntries,
     addTimeEntry,
     deleteTimeEntry,
@@ -2466,6 +2863,8 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     markPaymentPaid,
     markPaymentPending,
     updatePaymentPaidDate,
+    updatePaymentAmount,
+    deletePayment,
     linkPaymentInvoice,
     fetchAllPayments,
     npsSurveys,

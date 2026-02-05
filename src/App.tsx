@@ -46,6 +46,10 @@ import {
 import { BMCDashboard, BMCTemplates, BMCCanvasView, BMCRespond } from './pages/bmc';
 import { ProposalsDashboard, ProposalForm, ProposalDetail, ProposalPublicView } from './pages/proposals';
 import { ArcaConfig, ArcaPuntosVenta, ArcaInvoices } from './pages/finance/arca';
+import {
+  CheckinDashboard, CheckinDetail, CheckinPublicForm,
+  CheckinHistory, CheckinConfigPage, CheckinPlantillas,
+} from './pages/checkins';
 import { ToolsDashboard } from './pages/tools/ToolsDashboard';
 import { ROIDashboard } from './pages/tools/roi/ROIDashboard';
 import { ROICalculator } from './pages/tools/roi/ROICalculator';
@@ -93,6 +97,7 @@ function AppRoutes() {
       />
       <Route path="/nps/:token" element={<NPSSurveyForm />} />
       <Route path="/p/:token" element={<ProposalPublicView />} />
+      <Route path="/checkin/:token" element={<CheckinPublicForm />} />
       <Route
         element={
           <ProtectedRoute>
@@ -164,6 +169,12 @@ function AppRoutes() {
         <Route path="/tools/roi" element={<ROIDashboard />} />
         <Route path="/tools/roi/new" element={<ROICalculator />} />
         <Route path="/tools/roi/:id" element={<ROICalculator />} />
+        {/* Check-in Routes */}
+        <Route path="/checkins" element={<CheckinDashboard />} />
+        <Route path="/checkins/plantillas" element={<CheckinPlantillas />} />
+        <Route path="/checkins/config/:projectId" element={<CheckinConfigPage />} />
+        <Route path="/checkins/history/:projectId" element={<CheckinHistory />} />
+        <Route path="/checkins/:id" element={<CheckinDetail />} />
         {/* BMC Routes */}
         <Route path="/bmc" element={<BMCDashboard />} />
         <Route path="/bmc/templates" element={<BMCTemplates />} />

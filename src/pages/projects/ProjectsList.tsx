@@ -50,6 +50,21 @@ export function ProjectsList() {
     cancelled: 5,
   };
 
+  const clientWebsiteMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    clients.forEach((c) => {
+      if (c.website) {
+        try {
+          const url = c.website.startsWith('http') ? c.website : `https://${c.website}`;
+          map[c.id] = new URL(url).hostname;
+        } catch {
+          // ignore invalid URLs
+        }
+      }
+    });
+    return map;
+  }, [clients]);
+
   const filteredProjects = useMemo(() => {
     return projects
       .filter((project) => {
@@ -205,9 +220,24 @@ export function ProjectsList() {
                       className="hover:bg-gray-50 dark:hover:bg-gray-800/50 cursor-pointer transition-colors"
                     >
                       <td className="px-4 py-3">
-                        <span className="font-medium text-gray-900 dark:text-white">
-                          {project.clientName || '-'}
-                        </span>
+                        <div className="flex items-center gap-2.5">
+                          {project.clientId && clientWebsiteMap[project.clientId] ? (
+                            <img
+                              src={`https://www.google.com/s2/favicons?domain=${clientWebsiteMap[project.clientId]}&sz=64`}
+                              alt=""
+                              className="flex-shrink-0 w-8 h-8 rounded-full object-contain bg-white"
+                              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden'); }}
+                            />
+                          ) : null}
+                          <div className={`flex-shrink-0 w-8 h-8 rounded-full bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center ${project.clientId && clientWebsiteMap[project.clientId] ? 'hidden' : ''}`}>
+                            <span className="text-xs font-bold text-primary-600 dark:text-primary-400">
+                              {(project.clientName || '?').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()}
+                            </span>
+                          </div>
+                          <span className="font-medium text-gray-900 dark:text-white">
+                            {project.clientName || '-'}
+                          </span>
+                        </div>
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
                         {project.product || project.name || '-'}

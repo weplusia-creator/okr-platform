@@ -2,6 +2,7 @@ import { useState, useEffect, type FormEvent } from 'react';
 import { Plus, X } from 'lucide-react';
 import { Modal } from './Modal';
 import { useOKR } from '../context/OKRContext';
+import { useAuth } from '../context/AuthContext';
 import type { Objective, Quarter, OKRStatus, KeyResult } from '../types';
 import { QUARTER_LABELS, STATUS_CONFIG } from '../types';
 import { getCurrentQuarter, getCurrentYear, getQuarterDateRange, generateId } from '../utils/helpers';
@@ -23,6 +24,7 @@ interface KeyResultInput {
 
 export function ObjectiveForm({ isOpen, onClose, objective }: ObjectiveFormProps) {
   const { addObjective, updateObjective } = useOKR();
+  const { orgUsers } = useAuth();
   const isEditing = !!objective;
 
   const currentQuarter = getCurrentQuarter();
@@ -227,13 +229,20 @@ export function ObjectiveForm({ isOpen, onClose, objective }: ObjectiveFormProps
         {/* Owner */}
         <div>
           <label className="label">Responsable *</label>
-          <input
-            type="text"
+          <select
             value={formData.owner}
             onChange={(e) => setFormData({ ...formData, owner: e.target.value })}
-            className={`input ${errors.owner ? 'border-danger-500 focus:ring-danger-500' : ''}`}
-            placeholder="Nombre del responsable"
-          />
+            className={`select ${errors.owner ? 'border-danger-500 focus:ring-danger-500' : ''}`}
+          >
+            <option value="">Seleccionar...</option>
+            {orgUsers
+              .filter((u) => u.userType === 'consultant' && u.status === 'active')
+              .map((u) => (
+                <option key={u.id} value={u.fullName || u.email}>
+                  {u.fullName || u.email}
+                </option>
+              ))}
+          </select>
           {errors.owner && (
             <p className="mt-1 text-sm text-danger-600">{errors.owner}</p>
           )}

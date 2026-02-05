@@ -46,12 +46,12 @@ export function Modal({ isOpen, onClose, title, children, size = 'md' }: ModalPr
         aria-hidden="true"
       />
       <div
-        className={`relative w-full ${sizeClasses[size]} bg-white dark:bg-gray-800 rounded-2xl shadow-xl animate-scale-in max-h-[90vh] flex flex-col`}
+        className={`relative w-full ${sizeClasses[size]} bg-white dark:bg-[#363233] rounded-2xl shadow-xl animate-scale-in max-h-[90vh] flex flex-col`}
         role="dialog"
         aria-modal="true"
         aria-labelledby="modal-title"
       >
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-[#443f40]">
           <h2
             id="modal-title"
             className="text-xl font-semibold text-gray-900 dark:text-white"
@@ -60,7 +60,7 @@ export function Modal({ isOpen, onClose, title, children, size = 'md' }: ModalPr
           </h2>
           <button
             onClick={onClose}
-            className="p-2 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+            className="p-2 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-[#3d3839] transition-colors"
             aria-label="Cerrar modal"
           >
             <X className="w-5 h-5" />

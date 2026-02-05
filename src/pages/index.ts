@@ -12,3 +12,4 @@ export { OKRInitiatives } from './OKRInitiatives';
 export * from './portal';
 export * from './playbook';
 export * from './tasks';
+export * from './checkins';

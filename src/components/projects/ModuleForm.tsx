@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2, Presentation, ListTodo, Video, FileText } from 'lucide-react';
 import { Modal } from '../Modal';
 import { useProjects } from '../../context/ProjectContext';
 import type { ProjectModule, ChecklistItem } from '../../types/projects';
@@ -23,6 +23,10 @@ export function ModuleForm({ isOpen, onClose, onSaved, projectId, module, nextSo
   const [dueDate, setDueDate] = useState('');
   const [subtasks, setSubtasks] = useState<ChecklistItem[]>([]);
   const [sortOrder, setSortOrder] = useState(nextSortOrder);
+  const [presentationUrl, setPresentationUrl] = useState('');
+  const [taskUrl, setTaskUrl] = useState('');
+  const [videoUrl, setVideoUrl] = useState('');
+  const [supportMaterialUrl, setSupportMaterialUrl] = useState('');
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -33,6 +37,10 @@ export function ModuleForm({ isOpen, onClose, onSaved, projectId, module, nextSo
       setDueDate(module.dueDate || '');
       setSubtasks([...module.subtasks]);
       setSortOrder(module.sortOrder);
+      setPresentationUrl(module.presentationUrl || '');
+      setTaskUrl(module.taskUrl || '');
+      setVideoUrl(module.videoUrl || '');
+      setSupportMaterialUrl(module.supportMaterialUrl || '');
     } else {
       setTitle('');
       setDescription('');
@@ -40,6 +48,10 @@ export function ModuleForm({ isOpen, onClose, onSaved, projectId, module, nextSo
       setDueDate('');
       setSubtasks([]);
       setSortOrder(nextSortOrder);
+      setPresentationUrl('');
+      setTaskUrl('');
+      setVideoUrl('');
+      setSupportMaterialUrl('');
     }
   }, [module, isOpen, nextSortOrder]);
 
@@ -74,6 +86,10 @@ export function ModuleForm({ isOpen, onClose, onSaved, projectId, module, nextSo
           dueDate: dueDate || null,
           subtasks: filteredSubtasks,
           sortOrder,
+          presentationUrl: presentationUrl.trim() || null,
+          taskUrl: taskUrl.trim() || null,
+          videoUrl: videoUrl.trim() || null,
+          supportMaterialUrl: supportMaterialUrl.trim() || null,
         });
       } else {
         await addModule({
@@ -88,6 +104,10 @@ export function ModuleForm({ isOpen, onClose, onSaved, projectId, module, nextSo
           sortOrder,
           completedAt: null,
           completedBy: null,
+          presentationUrl: presentationUrl.trim() || null,
+          taskUrl: taskUrl.trim() || null,
+          videoUrl: videoUrl.trim() || null,
+          supportMaterialUrl: supportMaterialUrl.trim() || null,
         });
       }
       if (onSaved) {
@@ -151,6 +171,26 @@ export function ModuleForm({ isOpen, onClose, onSaved, projectId, module, nextSo
             onChange={(e) => setSortOrder(parseInt(e.target.value) || 0)}
             min="0"
           />
+        </div>
+
+        {/* Links */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className="label flex items-center gap-1.5"><Presentation className="w-3.5 h-3.5" /> Link presentación</label>
+            <input type="url" className="input" value={presentationUrl} onChange={(e) => setPresentationUrl(e.target.value)} placeholder="https://..." />
+          </div>
+          <div>
+            <label className="label flex items-center gap-1.5"><ListTodo className="w-3.5 h-3.5" /> Link tarea</label>
+            <input type="url" className="input" value={taskUrl} onChange={(e) => setTaskUrl(e.target.value)} placeholder="https://..." />
+          </div>
+          <div>
+            <label className="label flex items-center gap-1.5"><Video className="w-3.5 h-3.5" /> Link video <span className="text-gray-400 font-normal">(opcional)</span></label>
+            <input type="url" className="input" value={videoUrl} onChange={(e) => setVideoUrl(e.target.value)} placeholder="https://..." />
+          </div>
+          <div>
+            <label className="label flex items-center gap-1.5"><FileText className="w-3.5 h-3.5" /> Material de apoyo</label>
+            <input type="url" className="input" value={supportMaterialUrl} onChange={(e) => setSupportMaterialUrl(e.target.value)} placeholder="https://..." />
+          </div>
         </div>
 
         {/* Subtasks */}

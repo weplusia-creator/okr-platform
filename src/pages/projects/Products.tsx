@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
-  Package,
+  Sparkles,
   Plus,
   Trash2,
   Edit3,
@@ -84,6 +84,9 @@ export function Products() {
   const [editingProduct, setEditingProduct] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
   const [editDesc, setEditDesc] = useState('');
+  const [editPrice, setEditPrice] = useState('');
+  const [editDuration, setEditDuration] = useState('');
+  const [editDiagnostic, setEditDiagnostic] = useState(false);
 
   // New module
   const [addingModuleTo, setAddingModuleTo] = useState<string | null>(null);
@@ -168,7 +171,13 @@ export function Products() {
   };
 
   const handleUpdateProduct = async (id: string) => {
-    await updateProduct(id, { name: editName.trim(), description: editDesc.trim() || null });
+    await updateProduct(id, {
+      name: editName.trim(),
+      description: editDesc.trim() || null,
+      basePrice: editPrice ? Number(editPrice) : null,
+      estimatedDurationDays: editDuration ? Number(editDuration) : null,
+      includesDiagnostic: editDiagnostic,
+    });
     setEditingProduct(null);
   };
 
@@ -335,21 +344,21 @@ export function Products() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Productos</h1>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Servicios</h1>
           <p className="text-gray-600 dark:text-gray-400">
-            Administrá los productos, sus módulos, entregables y objetivos
+            Administrá los servicios, sus módulos, entregables y objetivos
           </p>
         </div>
         <button onClick={() => setShowNewProduct(true)} className="btn-primary">
           <Plus className="w-5 h-5" />
-          Nuevo producto
+          Nuevo servicio
         </button>
       </div>
 
       {/* New product form */}
       {showNewProduct && (
         <div className="card p-4 space-y-4">
-          <h3 className="font-semibold text-gray-900 dark:text-white">Nuevo producto</h3>
+          <h3 className="font-semibold text-gray-900 dark:text-white">Nuevo servicio</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="label">Nombre *</label>
@@ -357,7 +366,7 @@ export function Products() {
             </div>
             <div>
               <label className="label">Descripción</label>
-              <input type="text" value={newProductDesc} onChange={e => setNewProductDesc(e.target.value)} className="input" placeholder="Descripción del producto" />
+              <input type="text" value={newProductDesc} onChange={e => setNewProductDesc(e.target.value)} className="input" placeholder="Descripción del servicio" />
             </div>
           </div>
           <div className="flex justify-end gap-2">
@@ -373,9 +382,9 @@ export function Products() {
       {/* Products list */}
       {products.length === 0 && !showNewProduct ? (
         <div className="card p-12 text-center">
-          <Package className="w-16 h-16 mx-auto text-gray-300 dark:text-gray-600 mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No hay productos</h3>
-          <p className="text-gray-500 dark:text-gray-400">Creá tu primer producto para definir módulos plantilla</p>
+          <Sparkles className="w-16 h-16 mx-auto text-gray-300 dark:text-gray-600 mb-4" />
+          <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No hay servicios</h3>
+          <p className="text-gray-500 dark:text-gray-400">Creá tu primer servicio para definir módulos plantilla</p>
         </div>
       ) : (
         <div className="space-y-4">
@@ -391,30 +400,43 @@ export function Products() {
                 <div className="p-4 flex items-center justify-between">
                   <div className="flex-1">
                     {isEditing ? (
-                      <div className="flex items-center gap-3">
-                        <input type="text" value={editName} onChange={e => setEditName(e.target.value)} className="input text-sm" autoFocus />
-                        <input type="text" value={editDesc} onChange={e => setEditDesc(e.target.value)} className="input text-sm" placeholder="Descripción" />
-                        <button onClick={() => handleUpdateProduct(product.id)} className="p-1.5 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 rounded"><Save className="w-4 h-4" /></button>
-                        <button onClick={() => setEditingProduct(null)} className="p-1.5 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded"><X className="w-4 h-4" /></button>
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-3">
+                          <input type="text" value={editName} onChange={e => setEditName(e.target.value)} className="input text-sm" autoFocus placeholder="Nombre" />
+                          <input type="text" value={editDesc} onChange={e => setEditDesc(e.target.value)} className="input text-sm" placeholder="Descripción" />
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <input type="number" value={editPrice} onChange={e => setEditPrice(e.target.value)} className="input text-sm w-32" placeholder="Precio base" />
+                          <input type="number" value={editDuration} onChange={e => setEditDuration(e.target.value)} className="input text-sm w-32" placeholder="Duración (días)" />
+                          <label className="flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-400 whitespace-nowrap">
+                            <input type="checkbox" checked={editDiagnostic} onChange={e => setEditDiagnostic(e.target.checked)} className="rounded" />
+                            Incluye diagnóstico BMC
+                          </label>
+                          <button onClick={() => handleUpdateProduct(product.id)} className="p-1.5 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 rounded"><Save className="w-4 h-4" /></button>
+                          <button onClick={() => setEditingProduct(null)} className="p-1.5 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded"><X className="w-4 h-4" /></button>
+                        </div>
                       </div>
                     ) : (
                       <button onClick={() => handleToggleProduct(product.id, product.name)} className="text-left w-full">
                         <div className="flex items-center gap-3">
-                          <Package className="w-5 h-5 text-primary-600" />
+                          <Sparkles className="w-5 h-5 text-primary-600" />
                           <h4 className="font-semibold text-gray-900 dark:text-white">{product.name}</h4>
-                          {templateModules[product.id] && (
-                            <span className="text-xs text-gray-500 bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded-full">{modules.length} módulos</span>
-                          )}
+                          <span className="text-xs text-lime-700 bg-lime-100 dark:text-lime-300 dark:bg-lime-900/40 px-2 py-0.5 rounded-full">{(templateModules[product.id] || []).length} módulos</span>
                           {isExpanded ? <ChevronUp className="w-4 h-4 text-gray-400 ml-auto" /> : <ChevronDown className="w-4 h-4 text-gray-400 ml-auto" />}
                         </div>
                         {product.description && <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 ml-8">{product.description}</p>}
+                        <div className="flex items-center gap-3 mt-1 ml-8">
+                          {product.basePrice != null && <span className="text-xs text-gray-400">${product.basePrice.toLocaleString()}</span>}
+                          {product.estimatedDurationDays != null && <span className="text-xs text-gray-400">{product.estimatedDurationDays} días</span>}
+                          {product.includesDiagnostic && <span className="text-[10px] bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400 px-1.5 py-0.5 rounded-full">BMC</span>}
+                        </div>
                       </button>
                     )}
                   </div>
 
                   {!isEditing && (
                     <div className="flex items-center gap-1 ml-3">
-                      <button onClick={() => { setEditingProduct(product.id); setEditName(product.name); setEditDesc(product.description || ''); }} className="p-2 text-gray-400 hover:text-primary-600 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors" title="Editar"><Edit3 className="w-4 h-4" /></button>
+                      <button onClick={() => { setEditingProduct(product.id); setEditName(product.name); setEditDesc(product.description || ''); setEditPrice(product.basePrice?.toString() || ''); setEditDuration(product.estimatedDurationDays?.toString() || ''); setEditDiagnostic(product.includesDiagnostic); }} className="p-2 text-gray-400 hover:text-primary-600 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors" title="Editar"><Edit3 className="w-4 h-4" /></button>
                       {deleteConfirm === product.id ? (
                         <div className="flex items-center gap-1">
                           <button onClick={() => handleDeleteProduct(product.id)} className="px-2 py-1 text-xs bg-red-600 text-white rounded">Confirmar</button>
@@ -442,7 +464,7 @@ export function Products() {
                         </div>
 
                         {modules.length === 0 && addingModuleTo !== product.id && (
-                          <p className="text-sm text-gray-400 text-center py-4">Este producto no tiene módulos plantilla aún</p>
+                          <p className="text-sm text-gray-400 text-center py-4">Este servicio no tiene módulos plantilla aún</p>
                         )}
 
                         <DragDropContext onDragEnd={(result) => handleModuleDragEnd(result, product.id)}>

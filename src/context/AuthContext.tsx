@@ -14,11 +14,19 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
   isAdmin: boolean;
+  isSuperAdmin: boolean;
+  impersonating: boolean;
+  impersonateUser: (userId: string) => Promise<void>;
+  stopImpersonating: () => void;
+  allOrganizations: Organization[];
+  fetchAllOrganizations: () => Promise<void>;
+  allUsers: AppUser[];
+  fetchAllUsers: () => Promise<void>;
   refreshUser: () => Promise<void>;
   orgUsers: AppUser[];
   fetchOrgUsers: () => Promise<void>;
-  createOrgUser: (email: string, fullName: string, role: UserRole, jobTitle: string | null, userType?: UserType) => Promise<AppUser | null>;
-  updateOrgUser: (id: string, updates: Partial<Pick<AppUser, 'fullName' | 'role' | 'jobTitle' | 'status' | 'userType'>>) => Promise<void>;
+  createOrgUser: (email: string, fullName: string, role: UserRole, jobTitle: string | null, userType?: UserType, clientId?: string | null) => Promise<AppUser | null>;
+  updateOrgUser: (id: string, updates: Partial<Pick<AppUser, 'fullName' | 'role' | 'jobTitle' | 'status' | 'userType' | 'clientId'>>) => Promise<void>;
   deleteOrgUser: (id: string) => Promise<boolean>;
 }
 
@@ -31,6 +39,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [authError, setAuthError] = useState<string | null>(null);
+
+  // Super admin impersonation
+  const [realUser, setRealUser] = useState<AppUser | null>(null);
+  const [realOrganization, setRealOrganization] = useState<Organization | null>(null);
+  const [allOrganizations, setAllOrganizations] = useState<Organization[]>([]);
+  const [allUsers, setAllUsers] = useState<AppUser[]>([]);
 
   const fetchUserData = useCallback(async (userId: string, _retryCount = 0): Promise<boolean> => {
     try {
@@ -65,6 +79,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           jobTitle: userData.job_title || null,
           status: userData.status || 'active',
           userType: (userData.user_type as UserType) || 'consultant',
+          clientId: userData.client_id || null,
+          birthDate: userData.birth_date || null,
           createdAt: userData.created_at,
         });
 
@@ -252,7 +268,79 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAuthError(null);
   };
 
-  const isAdmin = appUser?.role === 'admin';
+  const currentRole = realUser ? realUser.role : appUser?.role;
+  const isSuperAdmin = currentRole === 'super_admin';
+  const isAdmin = appUser?.role === 'admin' || appUser?.role === 'super_admin';
+  const impersonating = !!realUser;
+
+  const mapUserRow = (u: any): AppUser => ({
+    id: u.id,
+    email: u.email,
+    fullName: u.full_name,
+    organizationId: u.organization_id,
+    role: u.role as UserRole,
+    jobTitle: u.job_title || null,
+    status: u.status || 'active',
+    userType: (u.user_type as UserType) || 'consultant',
+    phone: u.phone || null,
+    clientId: u.client_id || null,
+    birthDate: u.birth_date || null,
+    createdAt: u.created_at,
+  });
+
+  // ===== SUPER ADMIN =====
+  const fetchAllOrganizations = useCallback(async () => {
+    try {
+      const { data, error } = await supabase.from('organizations').select('*').order('name');
+      if (error) throw error;
+      setAllOrganizations((data || []).map((o: any) => ({ id: o.id, name: o.name, inviteCode: o.invite_code, createdAt: o.created_at })));
+    } catch (err) { console.error('Error fetching all organizations:', err); }
+  }, []);
+
+  const fetchAllUsers = useCallback(async () => {
+    try {
+      const { data, error } = await supabase.from('users').select('*').order('full_name');
+      if (error) throw error;
+      setAllUsers((data || []).map(mapUserRow));
+    } catch (err) { console.error('Error fetching all users:', err); }
+  }, []);
+
+  const impersonateUser = useCallback(async (userId: string) => {
+    if (!appUser) return;
+    try {
+      // Save real user if not already impersonating
+      if (!realUser) {
+        setRealUser(appUser);
+        setRealOrganization(organization);
+      }
+
+      // Fetch target user
+      const { data: userData, error } = await supabase.from('users').select('*').eq('id', userId).single();
+      if (error || !userData) throw error || new Error('User not found');
+
+      const targetUser = mapUserRow(userData);
+      setAppUser(targetUser);
+
+      // Fetch target user's organization
+      if (targetUser.organizationId) {
+        const { data: orgData } = await supabase.from('organizations').select('*').eq('id', targetUser.organizationId).single();
+        if (orgData) {
+          setOrganization({ id: orgData.id, name: orgData.name, inviteCode: orgData.invite_code, createdAt: orgData.created_at });
+        }
+      } else {
+        setOrganization(null);
+      }
+    } catch (err) { console.error('Error impersonating user:', err); }
+  }, [appUser, organization, realUser]);
+
+  const stopImpersonating = useCallback(() => {
+    if (realUser) {
+      setAppUser(realUser);
+      setOrganization(realOrganization);
+      setRealUser(null);
+      setRealOrganization(null);
+    }
+  }, [realUser, realOrganization]);
 
   // ===== ORG USER MANAGEMENT =====
   const [orgUsers, setOrgUsers] = useState<AppUser[]>([]);
@@ -267,24 +355,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .order('full_name');
 
       if (err) throw err;
-
-      setOrgUsers((data || []).map((u: any) => ({
-        id: u.id,
-        email: u.email,
-        fullName: u.full_name,
-        organizationId: u.organization_id,
-        role: u.role as UserRole,
-        jobTitle: u.job_title || null,
-        status: u.status || 'active',
-        userType: (u.user_type as UserType) || 'consultant',
-        createdAt: u.created_at,
-      })));
+      setOrgUsers((data || []).map(mapUserRow));
     } catch (err) {
       console.error('Error fetching org users:', err);
     }
   }, [appUser?.organizationId]);
 
-  const createOrgUser = useCallback(async (email: string, fullName: string, role: UserRole, jobTitle: string | null, userType: UserType = 'consultant'): Promise<AppUser | null> => {
+  useEffect(() => {
+    if (appUser?.organizationId) fetchOrgUsers();
+  }, [appUser?.organizationId, fetchOrgUsers]);
+
+  const createOrgUser = useCallback(async (email: string, fullName: string, role: UserRole, jobTitle: string | null, userType: UserType = 'consultant', clientId: string | null = null): Promise<AppUser | null> => {
     if (!appUser?.organizationId || !session?.access_token) return null;
     try {
       const res = await fetch('/api/create-user', {
@@ -301,6 +382,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           role,
           jobTitle,
           userType,
+          clientId,
         }),
       });
 
@@ -316,18 +398,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         jobTitle,
         status: 'active',
         userType,
+        clientId,
         createdAt: new Date().toISOString(),
       };
 
       setOrgUsers(prev => [...prev, newUser].sort((a, b) => (a.fullName || '').localeCompare(b.fullName || '')));
       return newUser;
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error creating user:', err);
-      return null;
+      throw err;
     }
   }, [appUser?.organizationId, session?.access_token]);
 
-  const updateOrgUser = useCallback(async (id: string, updates: Partial<Pick<AppUser, 'fullName' | 'role' | 'jobTitle' | 'status' | 'userType'>>) => {
+  const updateOrgUser = useCallback(async (id: string, updates: Partial<Pick<AppUser, 'fullName' | 'role' | 'jobTitle' | 'status' | 'userType' | 'clientId' | 'birthDate'>>) => {
     try {
       const dbUpdates: Record<string, unknown> = {};
       if (updates.fullName !== undefined) dbUpdates.full_name = updates.fullName;
@@ -335,6 +418,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (updates.jobTitle !== undefined) dbUpdates.job_title = updates.jobTitle;
       if (updates.status !== undefined) dbUpdates.status = updates.status;
       if (updates.userType !== undefined) dbUpdates.user_type = updates.userType;
+      if (updates.clientId !== undefined) dbUpdates.client_id = updates.clientId;
+      if (updates.birthDate !== undefined) dbUpdates.birth_date = updates.birthDate;
 
       const { error: err } = await supabase
         .from('users')
@@ -350,13 +435,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const deleteOrgUser = useCallback(async (id: string): Promise<boolean> => {
+    if (!session?.access_token) return false;
     try {
-      const { error: err } = await supabase
-        .from('users')
-        .delete()
-        .eq('id', id);
+      // Try serverless function first (works on Vercel)
+      const res = await fetch('/api/delete-user', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ userId: id }),
+      });
 
-      if (err) throw err;
+      if (!res.ok) {
+        // Fallback: soft-delete by setting status to inactive
+        const { error: delErr } = await supabase.from('users').update({ status: 'inactive' }).eq('id', id);
+        if (delErr) throw delErr;
+      }
 
       setOrgUsers(prev => prev.filter(u => u.id !== id));
       return true;
@@ -364,7 +459,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.error('Error deleting user:', err);
       return false;
     }
-  }, []);
+  }, [session?.access_token]);
 
   const value = {
     user,
@@ -377,6 +472,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     signIn,
     signOut,
     isAdmin,
+    isSuperAdmin,
+    impersonating,
+    impersonateUser,
+    stopImpersonating,
+    allOrganizations,
+    fetchAllOrganizations,
+    allUsers,
+    fetchAllUsers,
     refreshUser,
     orgUsers,
     fetchOrgUsers,

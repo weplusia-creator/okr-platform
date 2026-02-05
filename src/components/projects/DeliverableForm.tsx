@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Plus, Trash2, Link } from 'lucide-react';
 import { Modal } from '../Modal';
 import { useProjects } from '../../context/ProjectContext';
+import { useAuth } from '../../context/AuthContext';
 import {
   DELIVERABLE_STATUS_CONFIG,
   type ProjectDeliverable,
@@ -27,7 +28,9 @@ export function DeliverableForm({
   deliverable,
 }: DeliverableFormProps) {
   const { addDeliverable, updateDeliverable, deliverables } = useProjects();
+  const { orgUsers } = useAuth();
   const isEditing = !!deliverable;
+  const consultants = orgUsers.filter((u) => u.userType === 'consultant' && u.status === 'active');
 
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -98,7 +101,7 @@ export function DeliverableForm({
 
     const filteredAttachments = attachments.filter((a) => a.trim());
     const filteredCriteria = acceptanceCriteria.filter((c) => c.text.trim());
-    const selectedParticipant = participants.find((p) => p.userId === responsibleId);
+    const selectedConsultant = consultants.find((u) => u.id === responsibleId);
 
     try {
       if (isEditing && deliverable) {
@@ -108,7 +111,7 @@ export function DeliverableForm({
           dueDate: dueDate || null,
           status,
           responsibleId: responsibleId || null,
-          responsibleName: selectedParticipant?.userName,
+          responsibleName: selectedConsultant?.fullName || selectedConsultant?.email,
           invoiceAmount: invoiceAmount ? parseFloat(invoiceAmount) : null,
           attachments: filteredAttachments,
           acceptanceCriteria: filteredCriteria,
@@ -123,7 +126,7 @@ export function DeliverableForm({
           actualDeliveryDate: null,
           status,
           responsibleId: responsibleId || null,
-          responsibleName: selectedParticipant?.userName,
+          responsibleName: selectedConsultant?.fullName || selectedConsultant?.email,
           attachments: filteredAttachments,
           invoiceAmount: invoiceAmount ? parseFloat(invoiceAmount) : null,
           acceptanceCriteria: filteredCriteria,
@@ -195,9 +198,9 @@ export function DeliverableForm({
             <label className="label">Responsable</label>
             <select className="select" value={responsibleId} onChange={(e) => setResponsibleId(e.target.value)}>
               <option value="">Sin asignar</option>
-              {participants.map((p) => (
-                <option key={p.userId} value={p.userId}>
-                  {p.userName || p.userEmail || p.userId}
+              {consultants.map((u) => (
+                <option key={u.id} value={u.id}>
+                  {u.fullName || u.email}
                 </option>
               ))}
             </select>

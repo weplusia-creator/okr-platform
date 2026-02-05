@@ -2,14 +2,114 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ========================================
+   WAU Brand Fonts
+   ========================================
+   Para usar las tipografías propias de WAU, agregar los archivos de fuente
+   en /public/fonts/ y descomentar los @font-face correspondientes.
+*/
+
+/* Neue Haas Grotesk - Si tienen los archivos de fuente */
+/*
+@font-face {
+  font-family: 'Neue Haas Grotesk';
+  src: url('/fonts/NeueHaasGrotesk-Regular.woff2') format('woff2'),
+       url('/fonts/NeueHaasGrotesk-Regular.woff') format('woff');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Neue Haas Grotesk';
+  src: url('/fonts/NeueHaasGrotesk-Medium.woff2') format('woff2'),
+       url('/fonts/NeueHaasGrotesk-Medium.woff') format('woff');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Neue Haas Grotesk';
+  src: url('/fonts/NeueHaasGrotesk-Bold.woff2') format('woff2'),
+       url('/fonts/NeueHaasGrotesk-Bold.woff') format('woff');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+*/
+
+/* Liria - Si tienen los archivos de fuente */
+/*
+@font-face {
+  font-family: 'Liria';
+  src: url('/fonts/Liria-Regular.woff2') format('woff2'),
+       url('/fonts/Liria-Regular.woff') format('woff');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Liria';
+  src: url('/fonts/Liria-Bold.woff2') format('woff2'),
+       url('/fonts/Liria-Bold.woff') format('woff');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+*/
+
+/* Fallback to Space Grotesk (similar to Neue Haas Grotesk) */
+@font-face {
+  font-family: 'Neue Haas Grotesk';
+  src: local('Space Grotesk');
+  font-weight: 400 700;
+  font-display: swap;
+}
+
+/* Fallback to Libre Baskerville (similar to Liria) */
+@font-face {
+  font-family: 'Liria';
+  src: local('Libre Baskerville');
+  font-weight: 400 700;
+  font-display: swap;
+}
+
 @layer base {
+  :root {
+    /* WAU Brand Colors */
+    --wau-green: #D4FC59;
+    --wau-blue: #3100E2;
+    --wau-black: #231F1F;
+    --wau-orange: #FF4632;
+    --wau-sand: #FFFBE8;
+  }
+
   * {
-    @apply border-gray-200 dark:border-gray-700;
+    @apply border-gray-200 dark:border-[#443f40];
   }
 
   body {
-    @apply bg-gray-50 text-gray-900 dark:bg-gray-900 dark:text-gray-100;
+    font-family: 'Neue Haas Grotesk', 'Space Grotesk', system-ui, -apple-system, sans-serif;
+    background-color: #ffffff;
+    color: #231F1F;
     @apply antialiased;
+  }
+
+  .dark body {
+    background-color: #2e2a2b;
+    color: #f3f4f6;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Neue Haas Grotesk', 'Space Grotesk', system-ui, sans-serif;
+    @apply font-semibold tracking-tight;
+  }
+
+  /* Display/decorative headings can use Liria */
+  .font-display {
+    font-family: 'Liria', 'Libre Baskerville', Georgia, serif;
   }
 }
 
@@ -21,23 +121,28 @@
   }
 
   .btn-primary {
-    @apply btn bg-primary-600 text-white hover:bg-primary-700;
-    @apply focus:ring-primary-500;
+    @apply btn bg-primary-300 text-gray-900 font-semibold hover:bg-primary-400;
+    @apply focus:ring-primary-300;
   }
 
   .btn-secondary {
     @apply btn bg-gray-100 text-gray-700 hover:bg-gray-200;
-    @apply dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700;
+    @apply dark:bg-[#3d3839] dark:text-gray-300 dark:hover:bg-[#252525] dark:border dark:border-[#4d494a];
     @apply focus:ring-gray-500;
   }
 
   .btn-danger {
-    @apply btn bg-danger-600 text-white hover:bg-danger-700;
+    @apply btn bg-danger-500 text-white hover:bg-danger-600;
     @apply focus:ring-danger-500;
   }
 
+  .btn-success {
+    @apply btn bg-success-300 text-gray-900 hover:bg-success-400;
+    @apply focus:ring-success-300;
+  }
+
   .btn-ghost {
-    @apply btn bg-transparent hover:bg-gray-100 dark:hover:bg-gray-800;
+    @apply btn bg-transparent hover:bg-gray-100 dark:hover:bg-[#3d3839];
     @apply text-gray-600 dark:text-gray-400;
   }
 
@@ -50,7 +155,7 @@
   }
 
   .card {
-    @apply bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700;
+    @apply bg-white dark:bg-[#363233] rounded-xl shadow-sm border border-gray-200 dark:border-[#443f40];
     @apply transition-shadow duration-200;
   }
 
@@ -59,10 +164,10 @@
   }
 
   .input {
-    @apply w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600;
-    @apply bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100;
+    @apply w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-[#4d494a];
+    @apply bg-white dark:bg-[#363233] text-gray-900 dark:text-gray-100;
     @apply placeholder-gray-400 dark:placeholder-gray-500;
-    @apply focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent;
+    @apply focus:outline-none focus:ring-2 focus:ring-primary-400 focus:border-transparent;
     @apply transition-all duration-200;
   }
 
@@ -84,23 +189,47 @@
   }
 
   .badge-success {
-    @apply badge bg-success-100 text-success-800 dark:bg-success-900/30 dark:text-success-400;
+    @apply badge bg-success-300 text-gray-900;
   }
 
   .badge-warning {
-    @apply badge bg-warning-100 text-warning-800 dark:bg-warning-900/30 dark:text-warning-400;
+    @apply badge bg-warning-100 text-warning-800 dark:bg-warning-500/10 dark:text-warning-400;
   }
 
   .badge-danger {
-    @apply badge bg-danger-100 text-danger-800 dark:bg-danger-900/30 dark:text-danger-400;
+    @apply badge bg-danger-100 text-danger-600 dark:bg-danger-500/10 dark:text-danger-400;
   }
 
   .badge-gray {
-    @apply badge bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300;
+    @apply badge bg-gray-100 text-gray-800 dark:bg-[#3d3839] dark:text-gray-300;
   }
 
   .badge-primary {
-    @apply badge bg-primary-100 text-primary-800 dark:bg-primary-900/30 dark:text-primary-400;
+    @apply badge bg-primary-100 text-primary-700 dark:bg-primary-300/20 dark:text-primary-300;
+  }
+
+  /* WAU specific accent classes */
+  .bg-wau-gradient {
+    background: linear-gradient(135deg, var(--wau-green) 0%, #a8d91a 100%);
+  }
+
+  .bg-wau-gradient-green {
+    background: linear-gradient(135deg, var(--wau-green) 0%, #a8d91a 100%);
+  }
+
+  .text-wau-gradient {
+    background: linear-gradient(135deg, var(--wau-green) 0%, var(--wau-blue) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .border-wau {
+    border-color: var(--wau-green);
+  }
+
+  .ring-wau {
+    --tw-ring-color: var(--wau-green);
   }
 }
 
@@ -125,11 +254,11 @@
   }
 
   .dark .scrollbar-thin {
-    scrollbar-color: theme('colors.gray.600') transparent;
+    scrollbar-color: #4d494a transparent;
   }
 
   .dark .scrollbar-thin::-webkit-scrollbar-thumb {
-    background-color: theme('colors.gray.600');
+    background-color: #4d494a;
   }
 }
 
@@ -140,7 +269,7 @@
 
 /* Modal backdrop */
 .modal-backdrop {
-  @apply fixed inset-0 bg-black/50 dark:bg-black/70;
+  @apply fixed inset-0 bg-black/50 dark:bg-black/80;
   @apply backdrop-blur-sm;
 }
 
@@ -153,4 +282,39 @@
 
 .tooltip-trigger:hover .tooltip {
   @apply opacity-100 visible;
+}
+
+/* WAU Brand Accents */
+.wau-accent-bar {
+  height: 4px;
+  background: linear-gradient(90deg, var(--wau-blue) 0%, var(--wau-green) 50%, var(--wau-orange) 100%);
+}
+
+/* Selected/Active states with WAU green */
+.wau-selected {
+  @apply bg-success-300/20 border-success-300;
+}
+
+/* WAU Button hover effect */
+.btn-wau {
+  @apply btn bg-primary-300 text-gray-900 font-semibold;
+  @apply hover:shadow-lg hover:shadow-primary-300/25;
+  @apply transition-all duration-300;
+}
+
+.btn-wau:hover {
+  transform: translateY(-1px);
+}
+
+/* Focus ring with WAU green */
+.focus-wau:focus {
+  @apply ring-2 ring-success-300 ring-offset-2;
+}
+
+/* Sidebar active item: black text in light mode */
+.nav-active-light {
+  color: #000 !important;
+}
+.dark .nav-active-light {
+  color: inherit !important;
 }

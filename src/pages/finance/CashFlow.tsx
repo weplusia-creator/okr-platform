@@ -13,6 +13,10 @@ import {
   X,
   Loader2,
   CalendarDays,
+  ChevronLeft,
+  ChevronRight,
+  Info,
+  RefreshCw,
 } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
 import { useProjects } from '../../context/ProjectContext';
@@ -32,12 +36,13 @@ export function CashFlow() {
     deleteTransaction,
     addCategory,
     deleteCategory,
+    clients,
   } = useFinance();
   const { isAdmin } = useAuth();
   const { fetchAllPayments, projects } = useProjects();
   const navigate = useNavigate();
 
-  const [allPayments, setAllPayments] = useState<(ProjectPayment & { projectName: string })[]>([]);
+  const [allPayments, setAllPayments] = useState<(ProjectPayment & { projectName: string; clientId?: string })[]>([]);
   const [projectionView, setProjectionView] = useState<'bars' | 'chart'>('chart');
   const [period, setPeriod] = useState<Period>('month');
   const [typeFilter, setTypeFilter] = useState<TransactionType | 'all'>('all');
@@ -45,6 +50,7 @@ export function CashFlow() {
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<CashFlowTransaction | null>(null);
   const [loading, setLoading] = useState(false);
+  const [chartYear, setChartYear] = useState(new Date().getFullYear());
 
   const [transactionForm, setTransactionForm] = useState({
     type: 'income' as TransactionType,
@@ -52,6 +58,8 @@ export function CashFlow() {
     amount: '',
     description: '',
     date: new Date().toISOString().split('T')[0],
+    clientId: '',
+    projectId: '',
   });
 
   const [categoryForm, setCategoryForm] = useState({
@@ -112,6 +120,14 @@ export function CashFlow() {
     return { income, expenses, balance: income - expenses };
   }, [filteredTransactions]);
 
+  // Summary that follows the chart year selector
+  const chartSummary = useMemo(() => {
+    const yearTx = transactions.filter(t => new Date(t.date).getFullYear() === chartYear);
+    const income = yearTx.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
+    const expenses = yearTx.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
+    return { income, expenses, balance: income - expenses };
+  }, [transactions, chartYear]);
+
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('es-AR', {
       style: 'currency',
@@ -137,6 +153,8 @@ export function CashFlow() {
       amount: '',
       description: '',
       date: new Date().toISOString().split('T')[0],
+      clientId: '',
+      projectId: '',
     });
     setShowTransactionModal(true);
   };
@@ -149,6 +167,8 @@ export function CashFlow() {
       amount: transaction.amount.toString(),
       description: transaction.description,
       date: transaction.date,
+      clientId: transaction.clientId || '',
+      projectId: transaction.projectId || '',
     });
     setShowTransactionModal(true);
   };
@@ -168,6 +188,8 @@ export function CashFlow() {
           amount: parseFloat(transactionForm.amount),
           description: transactionForm.description,
           date: transactionForm.date,
+          clientId: transactionForm.clientId || null,
+          projectId: transactionForm.projectId || null,
         });
       } else {
         await addTransaction({
@@ -177,6 +199,8 @@ export function CashFlow() {
           description: transactionForm.description,
           date: transactionForm.date,
           invoiceId: null,
+          clientId: transactionForm.clientId || null,
+          projectId: transactionForm.projectId || null,
         });
       }
       setShowTransactionModal(false);
@@ -212,6 +236,84 @@ export function CashFlow() {
   useEffect(() => {
     fetchAllPayments().then(setAllPayments);
   }, [fetchAllPayments]);
+
+  const [syncing, setSyncing] = useState(false);
+
+  const handleSyncPaidCuotas = async () => {
+    if (syncing) return;
+    setSyncing(true);
+
+    try {
+      // Refresh payments from DB to get the latest data
+      const freshPayments = await fetchAllPayments();
+      setAllPayments(freshPayments);
+
+      const paidPayments = freshPayments.filter(p => p.status === 'paid');
+      if (paidPayments.length === 0) {
+        alert('No hay cuotas marcadas como cobradas.');
+        return;
+      }
+
+      const incomeCategory = categories.find(c => c.type === 'income');
+      if (!incomeCategory) {
+        alert('Necesitás crear al menos una categoría de tipo "Ingreso" primero.');
+        return;
+      }
+
+      const formatMonthLabel = (month: string) => {
+        const [yyyy, mm] = month.split('-');
+        const d = new Date(Number(yyyy), Number(mm) - 1, 1);
+        return d.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' });
+      };
+
+      // Detect existing: match by paymentId or by description+amount
+      const existingPaymentIds = new Set(
+        transactions.filter(t => t.paymentId).map(t => t.paymentId)
+      );
+      const existingDescAmounts = new Set(
+        transactions.map(t => `${t.description}|${t.amount}`)
+      );
+
+      const missing = paidPayments.filter(p => {
+        if (existingPaymentIds.has(p.id)) return false;
+        const desc = `Cuota ${formatMonthLabel(p.month)} — ${p.projectName}`;
+        if (existingDescAmounts.has(`${desc}|${p.amount}`)) return false;
+        return true;
+      });
+
+      if (missing.length === 0) {
+        alert(`Todas las cuotas cobradas (${paidPayments.length}) ya están sincronizadas.`);
+        return;
+      }
+
+      if (!window.confirm(`Se encontraron ${paidPayments.length} cuotas cobradas, de las cuales ${missing.length} no tienen transacción en flujo de caja. ¿Crear las ${missing.length} transacciones faltantes?`)) return;
+
+      let created = 0;
+      for (const payment of missing) {
+        // Use the 1st of the cuota month as the date (reflects when the income corresponds to)
+        const txDate = payment.paidDate || `${payment.month}-01`;
+        const result = await addTransaction({
+          type: 'income',
+          categoryId: incomeCategory.id,
+          amount: payment.amount,
+          description: `Cuota ${formatMonthLabel(payment.month)} — ${payment.projectName}`,
+          date: txDate,
+          invoiceId: null,
+          clientId: payment.clientId || null,
+          projectId: payment.projectId,
+          paymentId: payment.id,
+        });
+        if (result) created++;
+      }
+
+      alert(`Se crearon ${created} transacciones de ingreso.`);
+    } catch (err) {
+      console.error('Error syncing payments:', err);
+      alert('Error al sincronizar. Revisá la consola.');
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   // Gantt timeline data: group payments by month, then by project
   const ganttData = useMemo(() => {
@@ -327,6 +429,15 @@ export function CashFlow() {
         </div>
         <div className="flex gap-2">
           <button
+            onClick={handleSyncPaidCuotas}
+            disabled={syncing || allPayments.length === 0}
+            className="btn-secondary"
+            title="Crear transacciones para cuotas cobradas que no estén en flujo de caja"
+          >
+            {syncing ? <Loader2 className="w-5 h-5 animate-spin" /> : <RefreshCw className="w-5 h-5" />}
+            Sincronizar cobros
+          </button>
+          <button
             onClick={() => setShowCategoryModal(true)}
             className="btn-secondary"
           >
@@ -353,43 +464,67 @@ export function CashFlow() {
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="card p-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-success-100 dark:bg-success-900/30">
-              <TrendingUp className="w-5 h-5 text-success-600" />
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-success-100 dark:bg-success-900/30">
+                <TrendingUp className="w-5 h-5 text-success-600" />
+              </div>
+              <div>
+                <p className="text-sm text-gray-500 dark:text-gray-400">Ingresos {chartYear}</p>
+                <p className="text-xl font-bold text-success-600">
+                  {formatCurrency(chartSummary.income)}
+                </p>
+              </div>
             </div>
-            <div>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Ingresos</p>
-              <p className="text-xl font-bold text-success-600">
-                {formatCurrency(summary.income)}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="card p-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-danger-100 dark:bg-danger-900/30">
-              <TrendingDown className="w-5 h-5 text-danger-600" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Egresos</p>
-              <p className="text-xl font-bold text-danger-600">
-                {formatCurrency(summary.expenses)}
-              </p>
+            <div className="relative group">
+              <Info className="w-4 h-4 text-gray-400 cursor-help" />
+              <div className="absolute right-0 top-6 z-10 w-56 p-2 bg-gray-900 dark:bg-gray-700 text-white text-xs rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-opacity shadow-lg">
+                Suma de todas las transacciones de tipo ingreso registradas en {chartYear}.
+              </div>
             </div>
           </div>
         </div>
 
         <div className="card p-4">
-          <div className="flex items-center gap-3">
-            <div className={`p-2 rounded-lg ${summary.balance >= 0 ? 'bg-success-100 dark:bg-success-900/30' : 'bg-danger-100 dark:bg-danger-900/30'}`}>
-              <DollarSign className={`w-5 h-5 ${summary.balance >= 0 ? 'text-success-600' : 'text-danger-600'}`} />
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-danger-100 dark:bg-danger-900/30">
+                <TrendingDown className="w-5 h-5 text-danger-600" />
+              </div>
+              <div>
+                <p className="text-sm text-gray-500 dark:text-gray-400">Egresos {chartYear}</p>
+                <p className="text-xl font-bold text-danger-600">
+                  {formatCurrency(chartSummary.expenses)}
+                </p>
+              </div>
             </div>
-            <div>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Balance</p>
-              <p className={`text-xl font-bold ${summary.balance >= 0 ? 'text-success-600' : 'text-danger-600'}`}>
-                {formatCurrency(summary.balance)}
-              </p>
+            <div className="relative group">
+              <Info className="w-4 h-4 text-gray-400 cursor-help" />
+              <div className="absolute right-0 top-6 z-10 w-56 p-2 bg-gray-900 dark:bg-gray-700 text-white text-xs rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-opacity shadow-lg">
+                Suma de todas las transacciones de tipo egreso registradas en {chartYear}.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="card p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className={`p-2 rounded-lg ${chartSummary.balance >= 0 ? 'bg-success-100 dark:bg-success-900/30' : 'bg-danger-100 dark:bg-danger-900/30'}`}>
+                <DollarSign className={`w-5 h-5 ${chartSummary.balance >= 0 ? 'text-success-600' : 'text-danger-600'}`} />
+              </div>
+              <div>
+                <p className="text-sm text-gray-500 dark:text-gray-400">Balance {chartYear}</p>
+                <p className={`text-xl font-bold ${chartSummary.balance >= 0 ? 'text-success-600' : 'text-danger-600'}`}>
+                  {formatCurrency(chartSummary.balance)}
+                </p>
+              </div>
+            </div>
+            <div className="relative group">
+              <Info className="w-4 h-4 text-gray-400 cursor-help" />
+              <div className="absolute right-0 top-6 z-10 w-56 p-2 bg-gray-900 dark:bg-gray-700 text-white text-xs rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-opacity shadow-lg">
+                Diferencia entre ingresos y egresos de {chartYear}. Resultado neto del flujo de caja.
+              </div>
             </div>
           </div>
         </div>
@@ -397,14 +532,13 @@ export function CashFlow() {
 
       {/* Monthly Income vs Expenses Chart */}
       {(() => {
-        const currentYear = new Date().getFullYear();
         const months = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
         const monthlyIncome = new Array(12).fill(0);
         const monthlyExpense = new Array(12).fill(0);
 
         transactions.forEach(t => {
           const d = new Date(t.date);
-          if (d.getFullYear() !== currentYear) return;
+          if (d.getFullYear() !== chartYear) return;
           const m = d.getMonth();
           if (t.type === 'income') monthlyIncome[m] += t.amount;
           else monthlyExpense[m] += t.amount;
@@ -415,7 +549,7 @@ export function CashFlow() {
         allPayments.forEach(p => {
           if (p.status !== 'pending') return;
           const [yyyy, mm] = p.month.split('-');
-          if (Number(yyyy) !== currentYear) return;
+          if (Number(yyyy) !== chartYear) return;
           monthlyProjected[Number(mm) - 1] += p.amount;
         });
 
@@ -423,37 +557,55 @@ export function CashFlow() {
 
         return (
           <div className="card p-6">
-            <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-4">
-              Flujo de caja {currentYear}
-            </h3>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-base font-semibold text-gray-900 dark:text-white">
+                Flujo de caja {chartYear}
+              </h3>
+              <div className="flex items-center gap-1">
+                <button onClick={() => setChartYear(y => y - 1)} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">
+                  <ChevronLeft className="w-5 h-5" />
+                </button>
+                <button onClick={() => setChartYear(y => y + 1)} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">
+                  <ChevronRight className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
             <div className="h-64">
               <div className="flex items-end justify-between h-full gap-2">
-                {months.map((month, i) => (
-                  <div key={month} className="flex-1 flex flex-col items-center gap-1">
-                    <div className="w-full flex gap-0.5 h-48 items-end">
-                      <div className="flex-1 flex flex-col items-end justify-end h-full">
-                        {monthlyProjected[i] > 0 && (
+                {months.map((month, i) => {
+                  const total = monthlyIncome[i] + monthlyProjected[i] + monthlyExpense[i];
+                  return (
+                    <div key={month} className="flex-1 flex flex-col items-center gap-1 group relative">
+                      {/* Tooltip on hover */}
+                      {total > 0 && (
+                        <div className="absolute bottom-full mb-1 hidden group-hover:block z-10 bg-gray-900 text-white text-[10px] px-2 py-1.5 rounded shadow-lg whitespace-nowrap">
+                          {monthlyIncome[i] > 0 && <div>Ingresos: {formatCurrency(monthlyIncome[i])}</div>}
+                          {monthlyProjected[i] > 0 && <div>Proyectado: {formatCurrency(monthlyProjected[i])}</div>}
+                          {monthlyExpense[i] > 0 && <div>Egresos: {formatCurrency(monthlyExpense[i])}</div>}
+                        </div>
+                      )}
+                      <div className="w-full flex gap-0.5 h-48 items-end">
+                        <div className="flex-1 flex flex-col items-end justify-end h-full">
+                          {monthlyProjected[i] > 0 && (
+                            <div
+                              className="w-full bg-purple-400 dark:bg-purple-500 rounded-t transition-all opacity-60"
+                              style={{ height: `${(monthlyProjected[i] / maxVal) * 100}%` }}
+                            />
+                          )}
                           <div
-                            className="w-full bg-purple-400 dark:bg-purple-500 rounded-t transition-all opacity-60"
-                            style={{ height: `${(monthlyProjected[i] / maxVal) * 100}%` }}
-                            title={`Proyectado: ${formatCurrency(monthlyProjected[i])}`}
+                            className="w-full bg-success-500 rounded-t transition-all"
+                            style={{ height: `${(monthlyIncome[i] / maxVal) * 100}%`, minHeight: monthlyIncome[i] > 0 ? '2px' : '0' }}
                           />
-                        )}
+                        </div>
                         <div
-                          className="w-full bg-success-500 rounded-t transition-all"
-                          style={{ height: `${(monthlyIncome[i] / maxVal) * 100}%`, minHeight: monthlyIncome[i] > 0 ? '2px' : '0' }}
-                          title={`Ingresos: ${formatCurrency(monthlyIncome[i])}`}
+                          className="flex-1 bg-danger-500 rounded-t transition-all"
+                          style={{ height: `${(monthlyExpense[i] / maxVal) * 100}%`, minHeight: monthlyExpense[i] > 0 ? '2px' : '0' }}
                         />
                       </div>
-                      <div
-                        className="flex-1 bg-danger-500 rounded-t transition-all"
-                        style={{ height: `${(monthlyExpense[i] / maxVal) * 100}%`, minHeight: monthlyExpense[i] > 0 ? '2px' : '0' }}
-                        title={`Egresos: ${formatCurrency(monthlyExpense[i])}`}
-                      />
+                      <span className="text-xs text-gray-500 dark:text-gray-400">{month}</span>
                     </div>
-                    <span className="text-xs text-gray-500 dark:text-gray-400">{month}</span>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
             <div className="flex items-center justify-center gap-6 mt-4">
@@ -984,10 +1136,17 @@ export function CashFlow() {
                     )}
                   </div>
                   <div>
-                    <p className="font-medium text-gray-900 dark:text-white">
-                      {transaction.description}
-                    </p>
-                    <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+                    <div className="flex items-center gap-2">
+                      <p className="font-medium text-gray-900 dark:text-white">
+                        {transaction.description}
+                      </p>
+                      {transaction.clientName && (
+                        <span className="text-sm font-medium text-blue-600 dark:text-blue-400">
+                          {transaction.clientName}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 flex-wrap">
                       <span
                         className="px-2 py-0.5 rounded-full text-xs"
                         style={{ backgroundColor: `${transaction.category?.color}20`, color: transaction.category?.color }}
@@ -995,6 +1154,11 @@ export function CashFlow() {
                         {transaction.category?.name}
                       </span>
                       <span>{formatDate(transaction.date)}</span>
+                      {transaction.projectName && (
+                        <span className="px-2 py-0.5 rounded-full text-xs bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400">
+                          {transaction.projectName}
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -1087,6 +1251,34 @@ export function CashFlow() {
                   <option value="">Seleccionar categoría</option>
                   {(transactionForm.type === 'income' ? incomeCategories : expenseCategories).map(cat => (
                     <option key={cat.id} value={cat.id}>{cat.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="label">Cliente <span className="text-gray-400 font-normal">(opcional)</span></label>
+                <select
+                  value={transactionForm.clientId}
+                  onChange={(e) => setTransactionForm(prev => ({ ...prev, clientId: e.target.value }))}
+                  className="input"
+                >
+                  <option value="">Sin cliente</option>
+                  {clients.map(c => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="label">Proyecto <span className="text-gray-400 font-normal">(opcional)</span></label>
+                <select
+                  value={transactionForm.projectId}
+                  onChange={(e) => setTransactionForm(prev => ({ ...prev, projectId: e.target.value }))}
+                  className="input"
+                >
+                  <option value="">Sin proyecto</option>
+                  {projects.map(p => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
                   ))}
                 </select>
               </div>

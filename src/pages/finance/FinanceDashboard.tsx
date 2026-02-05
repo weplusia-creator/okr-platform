@@ -9,6 +9,7 @@ import {
   Users,
   ArrowRight,
   CalendarDays,
+  Info,
 } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
 import { useProjects } from '../../context/ProjectContext';
@@ -35,9 +36,11 @@ export function FinanceDashboard() {
   const currentYear = new Date().getFullYear();
   const monthlyData = getMonthlyData(currentYear);
 
-  // Top clients by total billing (invoices + project payments)
+  // Top clients by total billing (invoices + all project payments/cuotas)
   const topClients = useMemo(() => {
     const clientMap = new Map<string, { name: string; paid: number; pending: number }>();
+
+    const getClientName = (client: typeof clients[0]) => client.company || client.name;
 
     const getOrCreate = (clientId: string, clientName: string) => {
       if (!clientMap.has(clientId)) clientMap.set(clientId, { name: clientName, paid: 0, pending: 0 });
@@ -49,7 +52,7 @@ export function FinanceDashboard() {
       if (!inv.clientId) return;
       const client = clients.find(c => c.id === inv.clientId);
       if (!client) return;
-      const entry = getOrCreate(client.id, client.company || client.name);
+      const entry = getOrCreate(client.id, getClientName(client));
       if (inv.status === 'paid') {
         entry.paid += inv.total || 0;
       } else if (inv.status !== 'cancelled') {
@@ -57,14 +60,13 @@ export function FinanceDashboard() {
       }
     });
 
-    // Project payments (cuotas) — only if not already linked to an invoice
+    // All project payments (cuotas)
     allPayments.forEach(p => {
-      if (p.invoiceId) return; // already counted via invoices
       const project = projects.find(pr => pr.id === p.projectId);
       if (!project?.clientId) return;
       const client = clients.find(c => c.id === project.clientId);
       if (!client) return;
-      const entry = getOrCreate(client.id, client.company || client.name);
+      const entry = getOrCreate(client.id, getClientName(client));
       if (p.status === 'paid') {
         entry.paid += p.amount;
       } else {
@@ -141,79 +143,99 @@ export function FinanceDashboard() {
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         <div className="card p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Balance</p>
-              <p className={`text-2xl font-bold ${summary.balance >= 0 ? 'text-success-600' : 'text-danger-600'}`}>
-                {formatCurrency(summary.balance)}
-              </p>
-            </div>
-            <div className={`p-3 rounded-lg shrink-0 ${summary.balance >= 0 ? 'bg-success-100 dark:bg-success-900/30' : 'bg-danger-100 dark:bg-danger-900/30'}`}>
-              <DollarSign className={`w-6 h-6 ${summary.balance >= 0 ? 'text-success-600' : 'text-danger-600'}`} />
+          <div className="flex justify-between mb-3">
+            <p className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-1.5">
+              Balance
+              <span className="group relative">
+                <Info className="w-3.5 h-3.5 text-gray-400 cursor-help" />
+                <span className="invisible group-hover:visible absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-48 p-2 text-xs text-white bg-gray-900 rounded-lg shadow-lg z-50">Ingresos totales menos egresos totales registrados</span>
+              </span>
+            </p>
+            <div className={`p-2 rounded-lg ${summary.balance >= 0 ? 'bg-success-100 dark:bg-success-900/30' : 'bg-danger-100 dark:bg-danger-900/30'}`}>
+              <DollarSign className={`w-5 h-5 ${summary.balance >= 0 ? 'text-success-600' : 'text-danger-600'}`} />
             </div>
           </div>
+          <p className={`text-2xl font-bold ${summary.balance >= 0 ? 'text-success-600' : 'text-danger-600'}`}>
+            {formatCurrency(summary.balance)}
+          </p>
         </div>
 
         <div className="card p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Ingresos</p>
-              <p className="text-2xl font-bold text-success-600">
-                {formatCurrency(summary.totalIncome)}
-              </p>
-            </div>
-            <div className="p-3 rounded-lg shrink-0 bg-success-100 dark:bg-success-900/30">
-              <TrendingUp className="w-6 h-6 text-success-600" />
+          <div className="flex justify-between mb-3">
+            <p className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-1.5">
+              Ingresos
+              <span className="group relative">
+                <Info className="w-3.5 h-3.5 text-gray-400 cursor-help" />
+                <span className="invisible group-hover:visible absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-48 p-2 text-xs text-white bg-gray-900 rounded-lg shadow-lg z-50">Suma de facturas cobradas y cuotas de proyecto pagadas</span>
+              </span>
+            </p>
+            <div className="p-2 rounded-lg bg-success-100 dark:bg-success-900/30">
+              <TrendingUp className="w-5 h-5 text-success-600" />
             </div>
           </div>
+          <p className="text-2xl font-bold text-success-600">
+            {formatCurrency(summary.totalIncome)}
+          </p>
         </div>
 
         <div className="card p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Egresos</p>
-              <p className="text-2xl font-bold text-danger-600">
-                {formatCurrency(summary.totalExpenses)}
-              </p>
-            </div>
-            <div className="p-3 rounded-lg shrink-0 bg-danger-100 dark:bg-danger-900/30">
-              <TrendingDown className="w-6 h-6 text-danger-600" />
+          <div className="flex justify-between mb-3">
+            <p className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-1.5">
+              Egresos
+              <span className="group relative">
+                <Info className="w-3.5 h-3.5 text-gray-400 cursor-help" />
+                <span className="invisible group-hover:visible absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-48 p-2 text-xs text-white bg-gray-900 rounded-lg shadow-lg z-50">Suma de transacciones de tipo egreso registradas</span>
+              </span>
+            </p>
+            <div className="p-2 rounded-lg bg-danger-100 dark:bg-danger-900/30">
+              <TrendingDown className="w-5 h-5 text-danger-600" />
             </div>
           </div>
+          <p className="text-2xl font-bold text-danger-600">
+            {formatCurrency(summary.totalExpenses)}
+          </p>
         </div>
 
         <div className="card p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Por cobrar</p>
-              <p className="text-2xl font-bold text-primary-600">
-                {formatCurrency(summary.pendingAmount)}
-              </p>
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                {summary.pendingInvoices} facturas
-              </p>
-            </div>
-            <div className="p-3 rounded-lg shrink-0 bg-primary-100 dark:bg-primary-900/30">
-              <FileText className="w-6 h-6 text-primary-600" />
+          <div className="flex justify-between mb-3">
+            <p className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-1.5">
+              Por cobrar
+              <span className="group relative">
+                <Info className="w-3.5 h-3.5 text-gray-400 cursor-help" />
+                <span className="invisible group-hover:visible absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-48 p-2 text-xs text-white bg-gray-900 rounded-lg shadow-lg z-50">Facturas emitidas o vencidas pendientes de cobro</span>
+              </span>
+            </p>
+            <div className="p-2 rounded-lg bg-primary-100 dark:bg-primary-900/30">
+              <FileText className="w-5 h-5 text-primary-600" />
             </div>
           </div>
+          <p className="text-2xl font-bold text-primary-600">
+            {formatCurrency(summary.pendingAmount)}
+          </p>
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            {summary.pendingInvoices} facturas
+          </p>
         </div>
 
         <div className="card p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Cuotas futuras</p>
-              <p className="text-2xl font-bold text-purple-600">
-                {formatCurrency(futurePayments.total)}
-              </p>
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                {futurePayments.count} cuotas pendientes
-              </p>
-            </div>
-            <div className="p-3 rounded-lg shrink-0 bg-purple-100 dark:bg-purple-900/30">
-              <CalendarDays className="w-6 h-6 text-purple-600" />
+          <div className="flex justify-between mb-3">
+            <p className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-1.5">
+              Cuotas futuras
+              <span className="group relative">
+                <Info className="w-3.5 h-3.5 text-gray-400 cursor-help" />
+                <span className="invisible group-hover:visible absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-48 p-2 text-xs text-white bg-gray-900 rounded-lg shadow-lg z-50">Cuotas de proyectos pendientes de cobro generadas automáticamente</span>
+              </span>
+            </p>
+            <div className="p-2 rounded-lg bg-purple-100 dark:bg-purple-900/30">
+              <CalendarDays className="w-5 h-5 text-purple-600" />
             </div>
           </div>
+          <p className="text-2xl font-bold text-purple-600">
+            {formatCurrency(futurePayments.total)}
+          </p>
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            {futurePayments.count} cuotas pendientes
+          </p>
         </div>
       </div>
 
@@ -322,7 +344,7 @@ export function FinanceDashboard() {
                 <Link
                   key={client.id}
                   to={`/projects/clients/${client.id}`}
-                  className="block p-3 rounded-lg bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                  className="block p-3 rounded-lg bg-gray-50 dark:bg-[#3d3839] hover:bg-gray-100 dark:hover:bg-[#252525] transition-colors"
                 >
                   <div className="flex items-center justify-between mb-1">
                     <div className="flex items-center gap-3">

@@ -18,6 +18,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { useFinance } from '../../context/FinanceContext';
 import { supabase } from '../../lib/supabase';
 import type { AppUser, UserRole, UserType } from '../../types';
 import { USER_ROLE_CONFIG } from '../../types';
@@ -36,6 +37,7 @@ export function Users() {
   const isClientView = userType === 'client';
 
   const { orgUsers, fetchOrgUsers, createOrgUser, updateOrgUser, deleteOrgUser } = useAuth();
+  const { clients } = useFinance();
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -49,6 +51,7 @@ export function Users() {
   const [newName, setNewName] = useState('');
   const [newRole, setNewRole] = useState<UserRole>('member');
   const [newJobTitle, setNewJobTitle] = useState('');
+  const [newClientId, setNewClientId] = useState('');
   const [saving, setSaving] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
 
@@ -59,9 +62,11 @@ export function Users() {
   const [editJobTitle, setEditJobTitle] = useState('');
   const [editStatus, setEditStatus] = useState<'active' | 'inactive'>('active');
   const [editUserType, setEditUserType] = useState<UserType>('consultant');
+  const [editClientId, setEditClientId] = useState('');
+  const [editBirthDate, setEditBirthDate] = useState('');
 
   const filteredUsers = useMemo(
-    () => orgUsers.filter(u => u.userType === userType),
+    () => orgUsers.filter(u => u.userType === userType && u.status !== 'inactive'),
     [orgUsers, userType],
   );
 
@@ -153,15 +158,20 @@ export function Users() {
     if (!newEmail.trim() || !newName.trim()) return;
     setSaving(true);
     setCreateError(null);
-    const result = await createOrgUser(newEmail.trim(), newName.trim(), newRole, newJobTitle.trim() || null, userType);
-    if (result) {
-      setShowNew(false);
-      setNewEmail('');
-      setNewName('');
-      setNewRole('member');
-      setNewJobTitle('');
-    } else {
-      setCreateError('Error al crear usuario. Verificá que el email no esté en uso.');
+    try {
+      const result = await createOrgUser(newEmail.trim(), newName.trim(), newRole, newJobTitle.trim() || null, userType, newClientId || null);
+      if (result) {
+        setShowNew(false);
+        setNewEmail('');
+        setNewName('');
+        setNewRole('member');
+        setNewJobTitle('');
+        setNewClientId('');
+      } else {
+        setCreateError('Error al crear usuario.');
+      }
+    } catch (err: any) {
+      setCreateError(err?.message || 'Error al crear usuario.');
     }
     setSaving(false);
   };
@@ -173,6 +183,8 @@ export function Users() {
       jobTitle: editJobTitle.trim() || null,
       status: editStatus,
       userType: editUserType,
+      clientId: editClientId || null,
+      birthDate: editBirthDate || null,
     });
     setEditingUser(null);
   };
@@ -186,11 +198,14 @@ export function Users() {
 
   const startEdit = (u: AppUser) => {
     setEditingUser(u.id);
+    setExpandedUser(u.id);
     setEditName(u.fullName || '');
     setEditRole(u.role);
     setEditJobTitle(u.jobTitle || '');
     setEditStatus(u.status);
     setEditUserType(u.userType);
+    setEditClientId(u.clientId || '');
+    setEditBirthDate(u.birthDate || '');
   };
 
   if (loading) {
@@ -254,6 +269,17 @@ export function Users() {
               <label className="label">Puesto</label>
               <input type="text" value={newJobTitle} onChange={e => setNewJobTitle(e.target.value)} className="input" placeholder="Product Manager" />
             </div>
+            {isClientView && (
+              <div>
+                <label className="label">Empresa cliente</label>
+                <select value={newClientId} onChange={e => setNewClientId(e.target.value)} className="select">
+                  <option value="">Sin vincular</option>
+                  {clients.map(c => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
           <p className="text-xs text-gray-500">La contraseña por defecto es <strong>WAU2026</strong></p>
           <div className="flex justify-end gap-2">
@@ -372,6 +398,21 @@ export function Users() {
                               <option value="inactive">Inactivo</option>
                             </select>
                           </div>
+                          <div>
+                            <label className="label">Fecha de nacimiento</label>
+                            <input type="date" value={editBirthDate} onChange={e => setEditBirthDate(e.target.value)} className="input text-sm" />
+                          </div>
+                          {isClientView && (
+                            <div>
+                              <label className="label">Empresa cliente</label>
+                              <select value={editClientId} onChange={e => setEditClientId(e.target.value)} className="select text-sm">
+                                <option value="">Sin vincular</option>
+                                {clients.map(c => (
+                                  <option key={c.id} value={c.id}>{c.name}</option>
+                                ))}
+                              </select>
+                            </div>
+                          )}
                         </div>
                         <div className="flex justify-end gap-2">
                           <button onClick={() => setEditingUser(null)} className="btn-secondary text-sm">Cancelar</button>

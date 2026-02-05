@@ -6,6 +6,15 @@ import { OKRProvider } from './context/OKRContext';
 import { FinanceProvider } from './context/FinanceContext';
 import { ProjectProvider } from './context/ProjectContext';
 import { KPIProvider } from './context/KPIContext';
+import { MeetingProvider } from './context/MeetingContext';
+import { BMCProvider } from './context/BMCContext';
+import { PlaybookProvider } from './context/PlaybookContext';
+import { CRMProvider } from './context/CRMContext';
+import { ProposalProvider } from './context/ProposalContext';
+import { ArcaProvider } from './context/ArcaContext';
+import { ToolsProvider } from './context/ToolsContext';
+import { TaskProvider } from './context/TaskContext';
+import { CheckinProvider } from './context/CheckinContext';
 import './index.css';
 import App from './App';
 
@@ -43,7 +52,25 @@ createRoot(document.getElementById('root')!).render(
         <FinanceProvider>
           <ProjectProvider>
             <KPIProvider>
-              <App />
+              <MeetingProvider>
+                <BMCProvider>
+                  <PlaybookProvider>
+                    <CRMProvider>
+                      <ProposalProvider>
+                        <ArcaProvider>
+                          <ToolsProvider>
+                            <TaskProvider>
+                              <CheckinProvider>
+                                <App />
+                              </CheckinProvider>
+                            </TaskProvider>
+                          </ToolsProvider>
+                        </ArcaProvider>
+                      </ProposalProvider>
+                    </CRMProvider>
+                  </PlaybookProvider>
+                </BMCProvider>
+              </MeetingProvider>
             </KPIProvider>
           </ProjectProvider>
         </FinanceProvider>

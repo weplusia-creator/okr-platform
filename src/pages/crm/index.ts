@@ -1,0 +1,9 @@
+export { CRMDashboard } from './CRMDashboard';
+export { CRMControlPanel } from './CRMControlPanel';
+export { LeadsList } from './LeadsList';
+export { LeadDetail } from './LeadDetail';
+export { LeadForm } from './LeadForm';
+export { DealPipeline } from './DealPipeline';
+export { DealDetail } from './DealDetail';
+export { DealForm } from './DealForm';
+export { ActivityList } from './ActivityList';

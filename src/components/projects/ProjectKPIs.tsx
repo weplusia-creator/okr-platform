@@ -1,10 +1,12 @@
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import {
   Calendar,
   AlertTriangle,
   BarChart3,
   Percent,
+  SmilePlus,
 } from 'lucide-react';
+import { supabase } from '../../lib/supabase';
 import type {
   Project,
   ProjectModule,
@@ -28,14 +30,51 @@ interface KPICardData {
 }
 
 export function ProjectKPIs({ project, modules, deliverables: _deliverables, participants }: ProjectKPIsProps) {
+  const [npsScore, setNpsScore] = useState<number | null>(null);
+  const [npsTotal, setNpsTotal] = useState(0);
+
+  useEffect(() => {
+    async function fetchNPS() {
+      const { data: surveys } = await supabase
+        .from('nps_surveys')
+        .select('id')
+        .eq('project_id', project.id);
+      if (!surveys || surveys.length === 0) { setNpsScore(null); return; }
+      const surveyIds = surveys.map((s) => s.id);
+      const { data: responses } = await supabase
+        .from('nps_responses')
+        .select('score')
+        .in('survey_id', surveyIds);
+      if (!responses || responses.length === 0) { setNpsScore(null); return; }
+      const promoters = responses.filter((r) => r.score >= 9).length;
+      const detractors = responses.filter((r) => r.score <= 6).length;
+      const total = responses.length;
+      const score = Math.round(((promoters - detractors) / total) * 100);
+      setNpsScore(score);
+      setNpsTotal(total);
+    }
+    fetchNPS();
+  }, [project.id]);
+
   const kpis = useMemo(() => {
     const totalModules = modules.length;
     const completedModules = modules.filter((m) => m.status === 'completed').length;
     const progressPercent = totalModules > 0 ? (completedModules / totalModules) * 100 : 0;
 
-    // Days
-    const startDate = project.startDate ? new Date(project.startDate + 'T00:00:00') : null;
-    const endDate = project.estimatedEndDate ? new Date(project.estimatedEndDate + 'T00:00:00') : null;
+    // Days — parse date robustly (handles "YYYY-MM-DD", ISO timestamps, etc.)
+    const parseDate = (d: string | null | undefined): Date | null => {
+      if (!d) return null;
+      const dateStr = d.substring(0, 10); // take "YYYY-MM-DD" portion
+      const parsed = new Date(dateStr + 'T00:00:00');
+      return isNaN(parsed.getTime()) ? null : parsed;
+    };
+    const startDate = parseDate(project.startDate);
+    // Use the later of estimatedEndDate / actualEndDate
+    const estEnd = parseDate(project.estimatedEndDate);
+    const actEnd = parseDate(project.actualEndDate);
+    const endDate = estEnd && actEnd
+      ? (estEnd > actEnd ? estEnd : actEnd)
+      : estEnd || actEnd;
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
@@ -99,6 +138,13 @@ export function ProjectKPIs({ project, modules, deliverables: _deliverables, par
       subtitle: kpis.spi >= 1 ? 'Adelantado' : kpis.spi >= 0.8 ? 'En tiempo' : 'Atrasado',
       icon: <BarChart3 className="w-5 h-5" />,
       color: kpis.spi >= 1 ? 'green' : kpis.spi >= 0.8 ? 'yellow' : 'red',
+    },
+    {
+      label: 'NPS',
+      value: npsScore !== null ? `${npsScore}` : '--',
+      subtitle: npsScore !== null ? `${npsTotal} respuestas` : 'Sin encuestas',
+      icon: <SmilePlus className="w-5 h-5" />,
+      color: npsScore === null ? 'gray' : npsScore >= 50 ? 'green' : npsScore >= 0 ? 'yellow' : 'red',
     },
   ];
 

@@ -53,6 +53,13 @@ import {
 import { ToolsDashboard } from './pages/tools/ToolsDashboard';
 import { ROIDashboard } from './pages/tools/roi/ROIDashboard';
 import { ROICalculator } from './pages/tools/roi/ROICalculator';
+import { ProspectorDashboard } from './pages/tools/prospector/ProspectorDashboard';
+import { ProspectorList } from './pages/tools/prospector/ProspectorList';
+import { ProspectorForm } from './pages/tools/prospector/ProspectorForm';
+import { ProspectorDetail } from './pages/tools/prospector/ProspectorDetail';
+import { ProspectorSettings } from './pages/tools/prospector/ProspectorSettings';
+import { ProspectorScraper } from './pages/tools/prospector/ProspectorScraper';
+import { ProspectorScrapeHistory } from './pages/tools/prospector/ProspectorScrapeHistory';
 import { Organizations, SuperUsers } from './pages/super';
 import { HomeDashboard } from './pages/HomeDashboard';
 import { Layout, ProtectedRoute } from './components';
@@ -169,6 +176,15 @@ function AppRoutes() {
         <Route path="/tools/roi" element={<ROIDashboard />} />
         <Route path="/tools/roi/new" element={<ROICalculator />} />
         <Route path="/tools/roi/:id" element={<ROICalculator />} />
+        {/* Prospector B2B */}
+        <Route path="/tools/prospector" element={<ProspectorDashboard />} />
+        <Route path="/tools/prospector/list" element={<ProspectorList />} />
+        <Route path="/tools/prospector/new" element={<ProspectorForm />} />
+        <Route path="/tools/prospector/scrape" element={<ProspectorScraper />} />
+        <Route path="/tools/prospector/history" element={<ProspectorScrapeHistory />} />
+        <Route path="/tools/prospector/settings" element={<ProspectorSettings />} />
+        <Route path="/tools/prospector/:id" element={<ProspectorDetail />} />
+        <Route path="/tools/prospector/:id/edit" element={<ProspectorForm />} />
         {/* Check-in Routes */}
         <Route path="/checkins" element={<CheckinDashboard />} />
         <Route path="/checkins/plantillas" element={<CheckinPlantillas />} />

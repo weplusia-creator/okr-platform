@@ -26,21 +26,18 @@ export async function authenticateCaller(req: VercelRequest): Promise<{ userId: 
 
   const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
   const anonKey = process.env.VITE_SUPABASE_ANON_KEY || '';
+  const token = authHeader.replace('Bearer ', '');
 
+  // Use the user's own token to authenticate and query (respects RLS)
   const client = createClient(supabaseUrl, anonKey, {
     auth: { autoRefreshToken: false, persistSession: false },
+    global: { headers: { Authorization: `Bearer ${token}` } },
   });
 
-  const token = authHeader.replace('Bearer ', '');
   const { data: { user }, error } = await client.auth.getUser(token);
   if (error || !user) throw new Error('Invalid token');
 
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
-  const adminClient = createClient(supabaseUrl, serviceKey, {
-    auth: { autoRefreshToken: false, persistSession: false },
-  });
-
-  const { data: userData } = await adminClient.from('users').select('organization_id').eq('id', user.id).single();
+  const { data: userData } = await client.from('users').select('organization_id').eq('id', user.id).single();
   if (!userData?.organization_id) throw new Error('User has no organization');
 
   return { userId: user.id, organizationId: userData.organization_id };

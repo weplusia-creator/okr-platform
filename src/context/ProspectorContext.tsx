@@ -36,6 +36,67 @@ async function apiCall<T>(path: string, body: Record<string, unknown>): Promise<
   return data as T;
 }
 
+// ===== Client-side Claude extraction (avoids Vercel 10s timeout) =====
+
+async function extractProspectsWithClaude(text: string, hint?: string): Promise<ExtractedProspect[]> {
+  const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY || '';
+  if (!apiKey) throw new Error('VITE_ANTHROPIC_API_KEY not configured');
+
+  const prompt = `Eres un experto en extraccion de datos B2B. Analiza el siguiente texto y extrae TODOS los prospectos/empresas/contactos que encuentres.
+
+${hint ? `CONTEXTO DEL USUARIO: ${hint}\n` : ''}
+TEXTO A ANALIZAR:
+${text.slice(0, 60000)}
+
+Extrae: companyName (obligatorio), contactName (obligatorio, si no hay usa "N/A"), contactTitle, email, phone, linkedinUrl, website, industry, companySize (1-9, 10-49, 50-99, 100-499, 500-999, 1000+), country, city, notes
+
+Responde UNICAMENTE con un JSON array. Si no encuentras prospectos, responde con [].`;
+
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true',
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-5-20250929',
+      max_tokens: 4096,
+      messages: [{ role: 'user', content: prompt }],
+    }),
+  });
+
+  if (!response.ok) throw new Error(`Claude API error: ${response.status}`);
+  const result = await response.json();
+  const content = result.content?.[0]?.text || '[]';
+  const jsonMatch = content.match(/\[[\s\S]*\]/);
+  if (!jsonMatch) return [];
+
+  try {
+    const parsed = JSON.parse(jsonMatch[0]);
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter((p: any) => p.companyName)
+      .map((p: any): ExtractedProspect => ({
+        companyName: String(p.companyName || ''),
+        contactName: String(p.contactName || 'N/A'),
+        contactTitle: p.contactTitle || null,
+        email: p.email || null,
+        phone: p.phone || null,
+        linkedinUrl: p.linkedinUrl || null,
+        website: p.website || null,
+        industry: p.industry || null,
+        companySize: p.companySize || null,
+        country: p.country || null,
+        city: p.city || null,
+        notes: p.notes || null,
+      }));
+  } catch {
+    return [];
+  }
+}
+
 // ===== Context type =====
 
 interface ProspectorStats {
@@ -548,13 +609,12 @@ export function ProspectorProvider({ children }: { children: ReactNode }) {
     }
   }, [prospects, fetchInteractions]);
 
-  // ---- Scraping: URL ----
+  // ---- Scraping: URL (server fetches HTML, client calls Claude) ----
   const scrapeUrl = useCallback(async (url: string, extractionHint?: string): Promise<ExtractedProspect[]> => {
-    const result = await apiCall<{ prospects: ExtractedProspect[] }>('/api/prospector/scrape-url', {
-      url,
-      extractionHint,
-    });
-    return result.prospects;
+    // Step 1: Server-side fetch + strip HTML (fast, within 10s limit)
+    const result = await apiCall<{ text: string }>('/api/prospector/scrape-url', { url });
+    // Step 2: Client-side Claude extraction (no timeout limit)
+    return extractProspectsWithClaude(result.text, extractionHint);
   }, []);
 
   // ---- Scraping: Web Search ----
@@ -579,6 +639,11 @@ export function ProspectorProvider({ children }: { children: ReactNode }) {
     searchQuery?: string;
     rawText?: string;
   }): Promise<ExtractedProspect[]> => {
+    // Raw text mode: extract directly client-side (no server needed)
+    if (opts.rawText) {
+      return extractProspectsWithClaude(opts.rawText, 'This is raw text copied from LinkedIn profile(s). Extract all contact/company data.');
+    }
+    // URL/search modes: use server API
     const result = await apiCall<{ prospects: ExtractedProspect[] }>('/api/prospector/scrape-linkedin', opts);
     return result.prospects;
   }, []);

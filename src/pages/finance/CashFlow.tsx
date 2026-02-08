@@ -17,12 +17,22 @@ import {
   ChevronRight,
   Info,
   RefreshCw,
+  Users,
+  Repeat,
+  ToggleLeft,
+  ToggleRight,
+  Check,
 } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
 import { useProjects } from '../../context/ProjectContext';
 import { useAuth } from '../../context/AuthContext';
-import type { TransactionType, CashFlowTransaction } from '../../types/finance';
+import type { TransactionType, CashFlowTransaction, RecurringExpense } from '../../types/finance';
 import type { ProjectPayment } from '../../types/projects';
+
+const SOCIOS = [
+  { id: 'mateo', name: 'Mateo', email: 'mateo@wauconsultora.com' },
+  { id: 'dionisio', name: 'Dionisio', email: 'dionisio@wauconsultora.com' },
+];
 
 type Period = 'week' | 'month' | 'year' | 'all' | string; // string for specific year like '2025'
 
@@ -37,6 +47,11 @@ export function CashFlow() {
     addCategory,
     deleteCategory,
     clients,
+    recurringExpenses,
+    addRecurringExpense,
+    updateRecurringExpense,
+    deleteRecurringExpense,
+    generateMonthlyExpenses,
   } = useFinance();
   const { isAdmin } = useAuth();
   const { fetchAllPayments, projects } = useProjects();
@@ -60,12 +75,22 @@ export function CashFlow() {
     date: new Date().toISOString().split('T')[0],
     clientId: '',
     projectId: '',
+    paidBy: '',
   });
 
   const [categoryForm, setCategoryForm] = useState({
     name: '',
     type: 'expense' as TransactionType,
     color: '#6366F1',
+  });
+
+  const [showRecurringModal, setShowRecurringModal] = useState(false);
+  const [editingRecurring, setEditingRecurring] = useState<RecurringExpense | null>(null);
+  const [recurringForm, setRecurringForm] = useState({
+    description: '',
+    amount: '',
+    categoryId: '',
+    paidBy: '',
   });
 
   // Available years from transactions
@@ -128,6 +153,47 @@ export function CashFlow() {
     return { income, expenses, balance: income - expenses };
   }, [transactions, chartYear]);
 
+  // Balance entre socios
+  const sociosBalance = useMemo(() => {
+    const data: Record<string, { expenses: number; income: number }> = {};
+    SOCIOS.forEach(s => { data[s.name] = { expenses: 0, income: 0 }; });
+
+    // Filter transactions by chartYear to match the visible summary
+    const yearTx = transactions.filter(t => new Date(t.date).getFullYear() === chartYear);
+
+    let totalExpensesWithSocio = 0;
+    let totalIncomeWithSocio = 0;
+
+    yearTx.forEach(t => {
+      if (!t.paidBy) return;
+      const socio = SOCIOS.find(s => s.name === t.paidBy);
+      if (!socio) return;
+      if (t.type === 'expense') {
+        data[socio.name].expenses += t.amount;
+        totalExpensesWithSocio += t.amount;
+      } else {
+        data[socio.name].income += t.amount;
+        totalIncomeWithSocio += t.amount;
+      }
+    });
+
+    // Each person's net = income collected - expenses paid
+    // Fair share = (totalIncome - totalExpenses) / 2
+    // If net > fair_share → owes the difference
+    const fairShare = (totalIncomeWithSocio - totalExpensesWithSocio) / 2;
+    const balances = SOCIOS.map(s => {
+      const net = data[s.name].income - data[s.name].expenses;
+      return { name: s.name, expenses: data[s.name].expenses, income: data[s.name].income, net, diff: net - fairShare };
+    });
+
+    // diff > 0 means this person has more than fair → owes the other
+    const debtor = balances.find(b => b.diff > 0);
+    const creditor = balances.find(b => b.diff < 0);
+    const amount = debtor ? debtor.diff : 0;
+
+    return { balances, debtor, creditor, amount, hasData: totalExpensesWithSocio > 0 || totalIncomeWithSocio > 0 };
+  }, [transactions, chartYear]);
+
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('es-AR', {
       style: 'currency',
@@ -155,6 +221,7 @@ export function CashFlow() {
       date: new Date().toISOString().split('T')[0],
       clientId: '',
       projectId: '',
+      paidBy: '',
     });
     setShowTransactionModal(true);
   };
@@ -169,6 +236,7 @@ export function CashFlow() {
       date: transaction.date,
       clientId: transaction.clientId || '',
       projectId: transaction.projectId || '',
+      paidBy: transaction.paidBy || '',
     });
     setShowTransactionModal(true);
   };
@@ -190,6 +258,7 @@ export function CashFlow() {
           date: transactionForm.date,
           clientId: transactionForm.clientId || null,
           projectId: transactionForm.projectId || null,
+          paidBy: transactionForm.paidBy || null,
         });
       } else {
         await addTransaction({
@@ -201,6 +270,7 @@ export function CashFlow() {
           invoiceId: null,
           clientId: transactionForm.clientId || null,
           projectId: transactionForm.projectId || null,
+          paidBy: transactionForm.paidBy || null,
         });
       }
       setShowTransactionModal(false);
@@ -230,6 +300,113 @@ export function CashFlow() {
   const handleDeleteTransaction = async (id: string) => {
     if (window.confirm('¿Estás seguro de que deseas eliminar esta transacción?')) {
       await deleteTransaction(id);
+    }
+  };
+
+  // Recurring expenses handlers
+  const openNewRecurring = () => {
+    setEditingRecurring(null);
+    const defaultCategory = categories.find(c => c.type === 'expense');
+    setRecurringForm({ description: '', amount: '', categoryId: defaultCategory?.id || '', paidBy: SOCIOS[0].name });
+    setShowRecurringModal(true);
+  };
+
+  const openEditRecurring = (r: RecurringExpense) => {
+    setEditingRecurring(r);
+    setRecurringForm({ description: r.description, amount: r.amount.toString(), categoryId: r.categoryId || '', paidBy: r.paidBy });
+    setShowRecurringModal(true);
+  };
+
+  const handleSaveRecurring = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!recurringForm.description || !recurringForm.amount || !recurringForm.paidBy) return;
+    setLoading(true);
+    try {
+      if (editingRecurring) {
+        await updateRecurringExpense(editingRecurring.id, {
+          description: recurringForm.description,
+          amount: parseFloat(recurringForm.amount),
+          categoryId: recurringForm.categoryId || null,
+          paidBy: recurringForm.paidBy,
+        });
+      } else {
+        await addRecurringExpense({
+          description: recurringForm.description,
+          amount: parseFloat(recurringForm.amount),
+          categoryId: recurringForm.categoryId || null,
+          paidBy: recurringForm.paidBy,
+          active: true,
+        });
+      }
+      setShowRecurringModal(false);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleToggleRecurring = async (r: RecurringExpense) => {
+    await updateRecurringExpense(r.id, { active: !r.active });
+  };
+
+  const handleDeleteRecurring = async (id: string) => {
+    if (window.confirm('¿Eliminar este costo fijo?')) {
+      await deleteRecurringExpense(id);
+    }
+  };
+
+  const recurringTotal = useMemo(() => {
+    return recurringExpenses.filter(r => r.active).reduce((sum, r) => sum + r.amount, 0);
+  }, [recurringExpenses]);
+
+  // Which recurring expenses are already paid this month
+  const currentMonth = useMemo(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  }, []);
+
+  const paidThisMonth = useMemo(() => {
+    const ids = new Set<string>();
+    const monthTx = transactions.filter(t => t.type === 'expense' && t.date >= `${currentMonth}-01` && t.date <= `${currentMonth}-31`);
+    monthTx.forEach(t => {
+      if (t.recurringExpenseId) {
+        ids.add(t.recurringExpenseId);
+      }
+    });
+    // Fallback: match by description + amount for transactions without recurring_expense_id
+    recurringExpenses.forEach(r => {
+      if (!ids.has(r.id)) {
+        const match = monthTx.find(t => t.description === r.description && t.amount === r.amount);
+        if (match) ids.add(r.id);
+      }
+    });
+    return ids;
+  }, [transactions, currentMonth, recurringExpenses]);
+
+  const [payingId, setPayingId] = useState<string | null>(null);
+
+  const handlePayRecurring = async (recurringId: string) => {
+    const expense = recurringExpenses.find(r => r.id === recurringId);
+    if (!expense) return;
+
+    setPayingId(recurringId);
+    try {
+      await addTransaction({
+        type: 'expense',
+        categoryId: expense.categoryId || '',
+        amount: expense.amount,
+        description: expense.description,
+        date: `${currentMonth}-01`,
+        invoiceId: null,
+        clientId: null,
+        projectId: null,
+        paidBy: expense.paidBy,
+        paymentId: null,
+        recurringExpenseId: expense.id,
+      });
+    } catch (err) {
+      console.error('Error paying recurring expense:', err);
+    } finally {
+      setPayingId(null);
     }
   };
 
@@ -530,6 +707,134 @@ export function CashFlow() {
         </div>
       </div>
 
+      {/* Balance entre socios */}
+      {sociosBalance.hasData && (
+        <div className="card p-5">
+          <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+            <Users className="w-5 h-5 text-blue-500" />
+            Balance entre socios — {chartYear}
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Per-partner breakdown */}
+            {sociosBalance.balances.map(b => (
+              <div key={b.name} className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
+                <p className="font-semibold text-gray-900 dark:text-white mb-2">{b.name}</p>
+                <div className="space-y-1 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-500 dark:text-gray-400">Gastos pagados</span>
+                    <span className="text-danger-600 font-medium">{formatCurrency(b.expenses)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500 dark:text-gray-400">Ingresos cobrados</span>
+                    <span className="text-success-600 font-medium">{formatCurrency(b.income)}</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+            {/* Result */}
+            <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 flex flex-col items-center justify-center">
+              {sociosBalance.amount > 0 && sociosBalance.debtor && sociosBalance.creditor ? (
+                <>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">
+                    {sociosBalance.debtor.name} le debe a {sociosBalance.creditor.name}
+                  </p>
+                  <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                    {formatCurrency(sociosBalance.amount)}
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Están al día</p>
+                  <p className="text-2xl font-bold text-success-600">$0</p>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Costos Fijos */}
+      <div className="card p-5">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="text-base font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+              <Repeat className="w-5 h-5 text-orange-500" />
+              Costos fijos mensuales
+            </h3>
+            {recurringTotal > 0 && (
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+                Total activo: <span className="font-semibold text-danger-600">{formatCurrency(recurringTotal)}</span>/mes
+              </p>
+            )}
+          </div>
+          <button onClick={openNewRecurring} className="btn-primary text-sm">
+            <Plus className="w-4 h-4" />
+            Agregar
+          </button>
+        </div>
+
+        {recurringExpenses.length === 0 ? (
+          <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-4">
+            No hay costos fijos definidos. Agregá uno y marcalo como pagado cada mes.
+          </p>
+        ) : (
+          <div className="divide-y divide-gray-100 dark:divide-gray-700">
+            {recurringExpenses.map(r => {
+              const cat = categories.find(c => c.id === r.categoryId);
+              const isPaid = paidThisMonth.has(r.id);
+              return (
+                <div key={r.id} className={`flex items-center justify-between py-3 ${!r.active ? 'opacity-50' : ''}`}>
+                  <div className="flex items-center gap-3">
+                    <button onClick={() => handleToggleRecurring(r)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300" title={r.active ? 'Desactivar' : 'Activar'}>
+                      {r.active ? <ToggleRight className="w-5 h-5 text-success-500" /> : <ToggleLeft className="w-5 h-5" />}
+                    </button>
+                    <div>
+                      <p className="font-medium text-gray-900 dark:text-white text-sm">{r.description}</p>
+                      <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                        {cat && (
+                          <span className="px-1.5 py-0.5 rounded-full" style={{ backgroundColor: `${cat.color}20`, color: cat.color }}>
+                            {cat.name}
+                          </span>
+                        )}
+                        <span>Paga: {r.paidBy}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="font-semibold text-danger-600">{formatCurrency(r.amount)}</span>
+                    {r.active && (
+                      isPaid ? (
+                        <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-success-100 text-success-700 dark:bg-success-900/30 dark:text-success-400 flex items-center gap-1">
+                          <Check className="w-3 h-3" />
+                          Pagado
+                        </span>
+                      ) : (
+                        <button
+                          onClick={() => handlePayRecurring(r.id)}
+                          disabled={payingId === r.id}
+                          className="px-2.5 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 hover:bg-orange-200 dark:hover:bg-orange-900/50 transition-colors flex items-center gap-1"
+                        >
+                          {payingId === r.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <DollarSign className="w-3 h-3" />}
+                          Pagar
+                        </button>
+                      )
+                    )}
+                    <button onClick={() => openEditRecurring(r)} className="p-1.5 text-gray-400 hover:text-primary-600 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
+                      <Edit2 className="w-3.5 h-3.5" />
+                    </button>
+                    {isAdmin && (
+                      <button onClick={() => handleDeleteRecurring(r.id)} className="p-1.5 text-gray-400 hover:text-danger-600 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
       {/* Monthly Income vs Expenses Chart */}
       {(() => {
         const months = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
@@ -655,11 +960,15 @@ export function CashFlow() {
           else cuotasPaidByMonth[p.month] = (cuotasPaidByMonth[p.month] || 0) + p.amount;
         });
 
-        // Average monthly expense (from last 6 months of data) for future projection
-        const last6 = forecastMonths.filter(m => m < currentMonth).slice(-6);
-        const avgExpense = last6.length > 0
-          ? last6.reduce((s, m) => s + (txExpenseByMonth[m] || 0), 0) / last6.length
-          : 0;
+        // Use recurring expenses total for future projection (fallback to avg if none defined)
+        const recurringMonthlyTotal = recurringExpenses.filter(r => r.active).reduce((s, r) => s + r.amount, 0);
+        let projectedExpense = recurringMonthlyTotal;
+        if (projectedExpense === 0) {
+          const last6 = forecastMonths.filter(m => m < currentMonth).slice(-6);
+          projectedExpense = last6.length > 0
+            ? last6.reduce((s, m) => s + (txExpenseByMonth[m] || 0), 0) / last6.length
+            : 0;
+        }
 
         // Build rows
         type FundRow = { month: string; label: string; incomeReal: number; cuotasPaid: number; cuotasPending: number; expenseReal: number; expenseProjected: number; net: number; cumulative: number; isPast: boolean };
@@ -681,7 +990,7 @@ export function CashFlow() {
           const cpaid = cuotasPaidByMonth[m] || 0;
           const cpending = cuotasByMonth[m] || 0;
           const expenseReal = txExpenseByMonth[m] || 0;
-          const expenseProjected = (!isPast && !isCurrent && avgExpense > 0) ? avgExpense : 0;
+          const expenseProjected = (!isPast && !isCurrent && projectedExpense > 0) ? projectedExpense : 0;
 
           const totalIncome = isPast || isCurrent ? incomeReal : cpending;
           const totalExpense = isPast || isCurrent ? expenseReal : expenseProjected;
@@ -1140,6 +1449,11 @@ export function CashFlow() {
                       <p className="font-medium text-gray-900 dark:text-white">
                         {transaction.description}
                       </p>
+                      {transaction.paidBy && (
+                        <span className="px-2 py-0.5 rounded-full text-xs bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
+                          {transaction.type === 'expense' ? 'Pagó' : 'Cobró'}: {transaction.paidBy}
+                        </span>
+                      )}
                       {transaction.clientName && (
                         <span className="text-sm font-medium text-blue-600 dark:text-blue-400">
                           {transaction.clientName}
@@ -1279,6 +1593,22 @@ export function CashFlow() {
                   <option value="">Sin proyecto</option>
                   {projects.map(p => (
                     <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="label">
+                  {transactionForm.type === 'expense' ? 'Pagado por' : 'Cobrado por'}
+                </label>
+                <select
+                  value={transactionForm.paidBy}
+                  onChange={(e) => setTransactionForm(prev => ({ ...prev, paidBy: e.target.value }))}
+                  className="input"
+                >
+                  <option value="">Sin asignar</option>
+                  {SOCIOS.map(s => (
+                    <option key={s.id} value={s.name}>{s.name}</option>
                   ))}
                 </select>
               </div>
@@ -1436,6 +1766,87 @@ export function CashFlow() {
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Recurring Expense Modal */}
+      {showRecurringModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="card p-6 max-w-md w-full">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                {editingRecurring ? 'Editar costo fijo' : 'Nuevo costo fijo'}
+              </h3>
+              <button onClick={() => setShowRecurringModal(false)} className="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded">
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveRecurring} className="space-y-4">
+              <div>
+                <label className="label">Descripción</label>
+                <input
+                  type="text"
+                  value={recurringForm.description}
+                  onChange={(e) => setRecurringForm(prev => ({ ...prev, description: e.target.value }))}
+                  className="input"
+                  placeholder="Ej: Alquiler oficina"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="label">Monto mensual</label>
+                <input
+                  type="number"
+                  value={recurringForm.amount}
+                  onChange={(e) => setRecurringForm(prev => ({ ...prev, amount: e.target.value }))}
+                  className="input"
+                  placeholder="0.00"
+                  min="0"
+                  step="0.01"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="label">Categoría</label>
+                <select
+                  value={recurringForm.categoryId}
+                  onChange={(e) => setRecurringForm(prev => ({ ...prev, categoryId: e.target.value }))}
+                  className="input"
+                >
+                  <option value="">Sin categoría</option>
+                  {expenseCategories.map(cat => (
+                    <option key={cat.id} value={cat.id}>{cat.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="label">Pagado por</label>
+                <select
+                  value={recurringForm.paidBy}
+                  onChange={(e) => setRecurringForm(prev => ({ ...prev, paidBy: e.target.value }))}
+                  className="input"
+                  required
+                >
+                  {SOCIOS.map(s => (
+                    <option key={s.id} value={s.name}>{s.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4">
+                <button type="button" onClick={() => setShowRecurringModal(false)} className="btn-secondary">
+                  Cancelar
+                </button>
+                <button type="submit" disabled={loading} className="btn-primary">
+                  {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Guardar'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

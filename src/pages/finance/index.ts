@@ -6,3 +6,4 @@ export { Invoices } from './Invoices';
 export { InvoiceForm } from './InvoiceForm';
 export { InvoiceDetail } from './InvoiceDetail';
 export { CashFlow } from './CashFlow';
+export { Saldos } from './Saldos';

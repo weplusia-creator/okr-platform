@@ -11,6 +11,7 @@ import {
   InvoiceForm,
   InvoiceDetail,
   CashFlow,
+  Saldos,
   ProjectsDashboard,
   ProjectsList,
   ProjectForm,
@@ -129,6 +130,7 @@ function AppRoutes() {
         <Route path="/finance/invoices/:id" element={<InvoiceDetail />} />
         <Route path="/finance/invoices/:id/edit" element={<InvoiceForm />} />
         <Route path="/finance/cash-flow" element={<CashFlow />} />
+        <Route path="/finance/saldos" element={<Saldos />} />
         {/* ARCA Routes */}
         <Route path="/finance/arca" element={<ArcaConfig />} />
         <Route path="/finance/arca/puntos-venta" element={<ArcaPuntosVenta />} />

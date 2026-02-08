@@ -80,8 +80,21 @@ export interface CashFlowTransaction {
   clientId: string | null;
   projectId: string | null;
   paymentId: string | null;
+  paidBy: string | null;
+  recurringExpenseId?: string | null;
   clientName?: string;
   projectName?: string;
+  createdAt: string;
+}
+
+export interface RecurringExpense {
+  id: string;
+  organizationId: string;
+  description: string;
+  amount: number;
+  categoryId: string | null;
+  paidBy: string;
+  active: boolean;
   createdAt: string;
 }
 

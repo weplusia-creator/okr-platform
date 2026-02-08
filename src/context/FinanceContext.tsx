@@ -11,6 +11,7 @@ import type {
   TransactionType,
   FinanceSummary,
   MonthlyData,
+  RecurringExpense,
 } from '../types/finance';
 
 interface FinanceContextType {
@@ -44,6 +45,14 @@ interface FinanceContextType {
   updateTransaction: (id: string, updates: Partial<CashFlowTransaction>) => Promise<void>;
   deleteTransaction: (id: string) => Promise<void>;
 
+  // Recurring Expenses
+  recurringExpenses: RecurringExpense[];
+  fetchRecurringExpenses: () => Promise<void>;
+  addRecurringExpense: (expense: Omit<RecurringExpense, 'id' | 'organizationId' | 'createdAt'>) => Promise<RecurringExpense | null>;
+  updateRecurringExpense: (id: string, updates: Partial<RecurringExpense>) => Promise<void>;
+  deleteRecurringExpense: (id: string) => Promise<void>;
+  generateMonthlyExpenses: (month: string, recurringExpenseId?: string) => Promise<number>;
+
   // Reports
   getFinanceSummary: () => FinanceSummary;
   getMonthlyData: (year: number) => MonthlyData[];
@@ -72,6 +81,7 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [categories, setCategories] = useState<CashFlowCategory[]>([]);
   const [transactions, setTransactions] = useState<CashFlowTransaction[]>([]);
+  const [recurringExpenses, setRecurringExpenses] = useState<RecurringExpense[]>([]);
   const [loadingClients, setLoadingClients] = useState(false);
   const [loadingInvoices, setLoadingInvoices] = useState(false);
   const [loadingCashFlow, setLoadingCashFlow] = useState(false);
@@ -295,61 +305,68 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
     invoice: Omit<Invoice, 'id' | 'organizationId' | 'invoiceNumber' | 'createdAt' | 'updatedAt' | 'items'>,
     items: Omit<InvoiceItem, 'id' | 'invoiceId'>[]
   ): Promise<Invoice | null> => {
-    if (!organization?.id) return null;
-    try {
-      // Generate invoice number
-      const year = new Date().getFullYear();
-      const { count } = await supabase
-        .from('invoices')
-        .select('*', { count: 'exact', head: true })
-        .eq('organization_id', organization.id)
-        .gte('created_at', `${year}-01-01`);
-
-      const invoiceNumber = `FAC-${year}-${String((count || 0) + 1).padStart(4, '0')}`;
-
-      const { data: invData, error: invErr } = await supabase
-        .from('invoices')
-        .insert({
-          organization_id: organization.id,
-          client_id: invoice.clientId,
-          invoice_number: invoiceNumber,
-          status: invoice.status,
-          issue_date: invoice.issueDate,
-          due_date: invoice.dueDate,
-          paid_date: invoice.paidDate,
-          subtotal: invoice.subtotal,
-          tax: invoice.tax,
-          total: invoice.total,
-          notes: invoice.notes,
-        })
-        .select()
-        .single();
-
-      if (invErr) throw invErr;
-      if (!invData) throw new Error('No se pudo crear la factura');
-
-      // Insert items
-      if (items.length > 0) {
-        const { error: itemsErr } = await supabase
-          .from('invoice_items')
-          .insert(items.map(item => ({
-            invoice_id: invData.id,
-            description: item.description,
-            quantity: item.quantity,
-            unit_price: item.unitPrice,
-            total: item.total,
-          })));
-
-        if (itemsErr) throw itemsErr;
-      }
-
-      await fetchInvoices();
-      return invoices.find(i => i.id === invData.id) || null;
-    } catch (err) {
-      console.error('Error adding invoice:', err);
-      setError('Error al crear factura');
-      return null;
+    if (!organization?.id) {
+      throw new Error('No se encontró la organización. Recargá la página.');
     }
+    // Generate invoice number
+    const year = new Date().getFullYear();
+    const { count, error: countErr } = await supabase
+      .from('invoices')
+      .select('*', { count: 'exact', head: true })
+      .eq('organization_id', organization.id)
+      .gte('created_at', `${year}-01-01`);
+
+    if (countErr) {
+      console.error('Error counting invoices:', countErr);
+      throw new Error(countErr.message || 'Error al generar número de factura.');
+    }
+
+    const invoiceNumber = `FAC-${year}-${String((count || 0) + 1).padStart(4, '0')}`;
+
+    const { data: invData, error: invErr } = await supabase
+      .from('invoices')
+      .insert({
+        organization_id: organization.id,
+        client_id: invoice.clientId,
+        invoice_number: invoiceNumber,
+        status: invoice.status,
+        issue_date: invoice.issueDate,
+        due_date: invoice.dueDate,
+        paid_date: invoice.paidDate,
+        subtotal: invoice.subtotal,
+        tax: invoice.tax,
+        total: invoice.total,
+        notes: invoice.notes,
+      })
+      .select()
+      .single();
+
+    if (invErr) {
+      console.error('Error inserting invoice:', invErr);
+      throw new Error(invErr.message || 'Error al crear la factura.');
+    }
+    if (!invData) throw new Error('No se pudo crear la factura');
+
+    // Insert items
+    if (items.length > 0) {
+      const { error: itemsErr } = await supabase
+        .from('invoice_items')
+        .insert(items.map(item => ({
+          invoice_id: invData.id,
+          description: item.description,
+          quantity: item.quantity,
+          unit_price: item.unitPrice,
+          total: item.total,
+        })));
+
+      if (itemsErr) {
+        console.error('Error inserting invoice items:', itemsErr);
+        throw new Error(itemsErr.message || 'Error al guardar los items de la factura.');
+      }
+    }
+
+    await fetchInvoices();
+    return invoices.find(i => i.id === invData.id) || null;
   }, [organization?.id, fetchInvoices, invoices]);
 
   const updateInvoice = useCallback(async (
@@ -564,6 +581,8 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
         clientId: t.client_id || null,
         projectId: t.project_id || null,
         paymentId: t.payment_id || null,
+        paidBy: t.paid_by || null,
+        recurringExpenseId: t.recurring_expense_id || null,
         clientName: usedFullQuery ? ((t as any).clients?.name || undefined) : undefined,
         projectName: usedFullQuery ? ((t as any).projects?.name || (t as any).projects?.client_name || undefined) : undefined,
         createdAt: t.created_at,
@@ -644,12 +663,14 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
 
       // Try with extended columns first; fall back to base-only if columns don't exist
       try {
-        const fullPayload = {
+        const fullPayload: Record<string, unknown> = {
           ...basePayload,
           client_id: transaction.clientId || null,
           project_id: transaction.projectId || null,
           payment_id: transaction.paymentId || null,
+          paid_by: transaction.paidBy || null,
         };
+        if (transaction.recurringExpenseId) fullPayload.recurring_expense_id = transaction.recurringExpenseId;
         const res = await supabase
           .from('cash_flow_transactions')
           .insert(fullPayload)
@@ -690,6 +711,7 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
         clientId: data.client_id || null,
         projectId: data.project_id || null,
         paymentId: data.payment_id || null,
+        paidBy: data.paid_by || null,
         createdAt: data.created_at,
       };
 
@@ -710,6 +732,8 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
       if (updates.amount !== undefined) dbUpdates.amount = updates.amount;
       if (updates.description !== undefined) dbUpdates.description = updates.description;
       if (updates.date !== undefined) dbUpdates.date = updates.date;
+
+      if (updates.paidBy !== undefined) dbUpdates.paid_by = updates.paidBy;
 
       // Try with optional FK columns; fall back without them
       const optionalUpdates: Record<string, unknown> = {};
@@ -755,6 +779,180 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
       setError('Error al eliminar transacción');
     }
   }, []);
+
+  // ===== RECURRING EXPENSES =====
+  const fetchRecurringExpenses = useCallback(async () => {
+    if (!organization?.id) return;
+    try {
+      const { data, error: err } = await supabase
+        .from('recurring_expenses')
+        .select('*')
+        .eq('organization_id', organization.id)
+        .order('description');
+
+      if (err) throw err;
+
+      setRecurringExpenses((data || []).map((r: any) => ({
+        id: r.id,
+        organizationId: r.organization_id,
+        description: r.description,
+        amount: Number(r.amount),
+        categoryId: r.category_id,
+        paidBy: r.paid_by,
+        active: r.active,
+        createdAt: r.created_at,
+      })));
+    } catch (err) {
+      console.error('Error fetching recurring expenses:', err);
+    }
+  }, [organization?.id]);
+
+  const addRecurringExpense = useCallback(async (expense: Omit<RecurringExpense, 'id' | 'organizationId' | 'createdAt'>): Promise<RecurringExpense | null> => {
+    if (!organization?.id) return null;
+    try {
+      const { data, error: err } = await supabase
+        .from('recurring_expenses')
+        .insert({
+          organization_id: organization.id,
+          description: expense.description,
+          amount: expense.amount,
+          category_id: expense.categoryId,
+          paid_by: expense.paidBy,
+          active: expense.active,
+        })
+        .select()
+        .single();
+
+      if (err) throw err;
+      if (!data) throw new Error('No se pudo crear el costo fijo');
+
+      const newExpense: RecurringExpense = {
+        id: data.id,
+        organizationId: data.organization_id,
+        description: data.description,
+        amount: Number(data.amount),
+        categoryId: data.category_id,
+        paidBy: data.paid_by,
+        active: data.active,
+        createdAt: data.created_at,
+      };
+
+      setRecurringExpenses(prev => [...prev, newExpense]);
+      return newExpense;
+    } catch (err) {
+      console.error('Error adding recurring expense:', err);
+      setError('Error al crear costo fijo');
+      return null;
+    }
+  }, [organization?.id]);
+
+  const updateRecurringExpense = useCallback(async (id: string, updates: Partial<RecurringExpense>) => {
+    try {
+      const dbUpdates: Record<string, unknown> = {};
+      if (updates.description !== undefined) dbUpdates.description = updates.description;
+      if (updates.amount !== undefined) dbUpdates.amount = updates.amount;
+      if (updates.categoryId !== undefined) dbUpdates.category_id = updates.categoryId;
+      if (updates.paidBy !== undefined) dbUpdates.paid_by = updates.paidBy;
+      if (updates.active !== undefined) dbUpdates.active = updates.active;
+
+      if (Object.keys(dbUpdates).length === 0) return;
+
+      const { error: err } = await supabase
+        .from('recurring_expenses')
+        .update(dbUpdates)
+        .eq('id', id);
+
+      if (err) throw err;
+
+      setRecurringExpenses(prev => prev.map(r => r.id === id ? { ...r, ...updates } : r));
+    } catch (err) {
+      console.error('Error updating recurring expense:', err);
+      setError('Error al actualizar costo fijo');
+    }
+  }, []);
+
+  const deleteRecurringExpense = useCallback(async (id: string) => {
+    try {
+      const { error: err } = await supabase
+        .from('recurring_expenses')
+        .delete()
+        .eq('id', id);
+
+      if (err) throw err;
+
+      setRecurringExpenses(prev => prev.filter(r => r.id !== id));
+    } catch (err) {
+      console.error('Error deleting recurring expense:', err);
+      setError('Error al eliminar costo fijo');
+    }
+  }, []);
+
+  const generateMonthlyExpenses = useCallback(async (month: string, recurringExpenseId?: string): Promise<number> => {
+    if (!organization?.id) return 0;
+    try {
+      const targetExpenses = recurringExpenseId
+        ? recurringExpenses.filter(r => r.id === recurringExpenseId)
+        : recurringExpenses.filter(r => r.active);
+      if (targetExpenses.length === 0) return 0;
+
+      // Check which recurring expenses already have transactions for this month
+      const monthStart = `${month}-01`;
+      const monthEnd = `${month}-31`;
+
+      const { data: existing, error: existErr } = await supabase
+        .from('cash_flow_transactions')
+        .select('recurring_expense_id')
+        .eq('organization_id', organization.id)
+        .not('recurring_expense_id', 'is', null)
+        .gte('date', monthStart)
+        .lte('date', monthEnd);
+
+      if (existErr) throw existErr;
+
+      const existingIds = new Set((existing || []).map((t: any) => t.recurring_expense_id));
+
+      const missing = targetExpenses.filter(r => !existingIds.has(r.id));
+      if (missing.length === 0) return 0;
+
+      let created = 0;
+      for (const expense of missing) {
+        // Try with recurring_expense_id first, fallback without it
+        const basePayload: Record<string, unknown> = {
+          organization_id: organization.id,
+          category_id: expense.categoryId,
+          type: 'expense',
+          amount: expense.amount,
+          description: expense.description,
+          date: monthStart,
+          paid_by: expense.paidBy,
+        };
+
+        let success = false;
+        try {
+          const { error: insertErr } = await supabase
+            .from('cash_flow_transactions')
+            .insert({ ...basePayload, recurring_expense_id: expense.id });
+          if (insertErr) throw insertErr;
+          success = true;
+        } catch {
+          // Fallback: insert without recurring_expense_id column
+          const { error: insertErr2 } = await supabase
+            .from('cash_flow_transactions')
+            .insert(basePayload);
+          if (!insertErr2) success = true;
+          else console.error('Error inserting recurring transaction:', insertErr2);
+        }
+
+        if (success) created++;
+      }
+
+      if (created > 0) await fetchTransactions();
+      return created;
+    } catch (err) {
+      console.error('Error generating monthly expenses:', err);
+      return 0;
+    }
+  }, [organization?.id, recurringExpenses, fetchTransactions]);
 
   // ===== REPORTS =====
   const getFinanceSummary = useCallback((): FinanceSummary => {
@@ -837,8 +1035,9 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
       fetchInvoices();
       fetchCategories();
       fetchTransactions();
+      fetchRecurringExpenses();
     }
-  }, [organization?.id, fetchClients, fetchInvoices, fetchCategories, fetchTransactions]);
+  }, [organization?.id, fetchClients, fetchInvoices, fetchCategories, fetchTransactions, fetchRecurringExpenses]);
 
   // Check for overdue invoices periodically
   useEffect(() => {
@@ -886,6 +1085,12 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
     addTransaction,
     updateTransaction,
     deleteTransaction,
+    recurringExpenses,
+    fetchRecurringExpenses,
+    addRecurringExpense,
+    updateRecurringExpense,
+    deleteRecurringExpense,
+    generateMonthlyExpenses,
     getFinanceSummary,
     getMonthlyData,
     getTopClients,

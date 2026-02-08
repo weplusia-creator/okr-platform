@@ -81,6 +81,7 @@ const ADMIN_NAV: NavItem[] = [
       { label: 'Dashboard', path: '/finance', icon: LayoutDashboard },
       { label: 'Facturas', path: '/finance/invoices', icon: FileText },
       { label: 'Flujo de caja', path: '/finance/cash-flow', icon: TrendingUp },
+      { label: 'Saldos', path: '/finance/saldos', icon: ArrowLeftRight },
       { label: 'ARCA', path: '/finance/arca', icon: Shield },
     ],
   },
@@ -107,6 +108,7 @@ const ADMIN_NAV: NavItem[] = [
     icon: Wrench,
     children: [
       { label: 'Todas', path: '/tools', icon: Wrench },
+      { label: 'Prospector B2B', path: '/tools/prospector', icon: Target },
       { label: 'Calculadora ROI', path: '/tools/roi', icon: Calculator },
     ],
   },

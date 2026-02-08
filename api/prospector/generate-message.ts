@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { authenticateCaller } from './_lib';
+import { authenticateCaller } from '../../lib/prospector';
 
 type MessageTone = 'formal' | 'casual' | 'consultive';
 type MessageType = 'first_contact' | 'follow_up' | 'proposal' | 'closing';

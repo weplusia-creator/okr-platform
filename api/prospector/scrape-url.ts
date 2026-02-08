@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { authenticateCaller, stripHtmlToText, extractProspectsWithClaude } from './_lib';
+import { authenticateCaller, stripHtmlToText, extractProspectsWithClaude } from '../../lib/prospector';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {

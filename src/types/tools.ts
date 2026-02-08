@@ -23,6 +23,15 @@ export const TOOL_CATEGORIES: { value: ToolCategory; label: string; icon: string
 
 export const TOOLS_CATALOG: ToolDefinition[] = [
   {
+    id: 'b2b-prospector',
+    name: 'Prospector B2B',
+    description: 'Prospecci\u00F3n masiva con scoring configurable, seguimiento de interacciones y generaci\u00F3n de mensajes con IA.',
+    category: 'ventas',
+    icon: 'Target',
+    path: '/tools/prospector',
+    available: true,
+  },
+  {
     id: 'roi-calculator',
     name: 'Calculadora de ROI',
     description: 'Calcula el retorno de inversi\u00F3n para justificar el precio de tu servicio o producto.',

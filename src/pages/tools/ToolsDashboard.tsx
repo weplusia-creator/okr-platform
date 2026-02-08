@@ -14,6 +14,7 @@ import {
   Megaphone,
   Search,
   Wrench,
+  Target,
 } from 'lucide-react';
 import { TOOLS_CATALOG, TOOL_CATEGORIES, type ToolCategory } from '../../types/tools';
 
@@ -31,6 +32,7 @@ const ICON_MAP: Record<string, React.ElementType> = {
   Megaphone,
   Search,
   Wrench,
+  Target,
 };
 
 const CATEGORY_LABELS: Record<ToolCategory, string> = {

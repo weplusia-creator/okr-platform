@@ -13,6 +13,7 @@ import { CRMProvider } from './context/CRMContext';
 import { ProposalProvider } from './context/ProposalContext';
 import { ArcaProvider } from './context/ArcaContext';
 import { ToolsProvider } from './context/ToolsContext';
+import { ProspectorProvider } from './context/ProspectorContext';
 import { TaskProvider } from './context/TaskContext';
 import { CheckinProvider } from './context/CheckinContext';
 import './index.css';
@@ -59,11 +60,13 @@ createRoot(document.getElementById('root')!).render(
                       <ProposalProvider>
                         <ArcaProvider>
                           <ToolsProvider>
-                            <TaskProvider>
-                              <CheckinProvider>
-                                <App />
-                              </CheckinProvider>
-                            </TaskProvider>
+                            <ProspectorProvider>
+                              <TaskProvider>
+                                <CheckinProvider>
+                                  <App />
+                                </CheckinProvider>
+                              </TaskProvider>
+                            </ProspectorProvider>
                           </ToolsProvider>
                         </ArcaProvider>
                       </ProposalProvider>

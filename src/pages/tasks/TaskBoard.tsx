@@ -1,9 +1,22 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { DragDropContext, Droppable, Draggable, type DropResult } from '@hello-pangea/dnd';
-import { Calendar, User, Trash2, X, Edit2, Check, Filter, Plus, MessageCircle, Send } from 'lucide-react';
+import { Calendar, User, Trash2, X, Filter, Plus, MessageCircle } from 'lucide-react';
 import { useTask } from '../../context/TaskContext';
 import { useAuth } from '../../context/AuthContext';
+import { TaskDetail } from './TaskDetail';
 import type { Task, TaskStatus } from '../../types';
+
+const AVATAR_COLORS = [
+  '#EF4444', '#F59E0B', '#10B981', '#3B82F6',
+  '#8B5CF6', '#EC4899', '#14B8A6', '#F97316',
+  '#6366F1', '#84CC16', '#06B6D4', '#E11D48',
+];
+
+function avatarColor(id: string): string {
+  let hash = 0;
+  for (let i = 0; i < id.length; i++) hash = ((hash << 5) - hash + id.charCodeAt(i)) | 0;
+  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
+}
 
 const COLUMNS: { id: TaskStatus; label: string; color: string }[] = [
   { id: 'todo', label: 'Pendiente', color: 'border-gray-300 dark:border-gray-600' },
@@ -12,21 +25,21 @@ const COLUMNS: { id: TaskStatus; label: string; color: string }[] = [
 ];
 
 export function TaskBoard() {
-  const { tasks, updateTask, deleteTask, addTask, taskComments, fetchTaskComments, addTaskComment, deleteTaskComment } = useTask();
-  const { orgUsers, appUser } = useAuth();
+  const {
+    tasks, updateTask, deleteTask, addTask,
+    taskComments, fetchTaskComments,
+    taskLabels, fetchTaskLabels,
+    taskAssignees, fetchAssignees,
+  } = useTask();
+  const { orgUsers } = useAuth();
 
   const [filterResponsible, setFilterResponsible] = useState('');
   const [filterText, setFilterText] = useState('');
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editTitle, setEditTitle] = useState('');
-  const [editDescription, setEditDescription] = useState('');
-  const [editResponsible, setEditResponsible] = useState('');
-  const [editDueDate, setEditDueDate] = useState('');
+  const [filterStatus, setFilterStatus] = useState<TaskStatus | ''>('');
+  const [filterDateFrom, setFilterDateFrom] = useState('');
+  const [filterDateTo, setFilterDateTo] = useState('');
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
-
-  // Comments
-  const [commentsOpenId, setCommentsOpenId] = useState<string | null>(null);
-  const [commentText, setCommentText] = useState('');
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
 
   // New task form
   const [showNewForm, setShowNewForm] = useState(false);
@@ -36,21 +49,35 @@ export function TaskBoard() {
   const [newDueDate, setNewDueDate] = useState('');
   const [newSaving, setNewSaving] = useState(false);
 
+  // Prefetch labels and assignees for all tasks
+  useEffect(() => {
+    for (const t of tasks) {
+      if (!taskLabels[t.id]) fetchTaskLabels(t.id);
+      if (!taskAssignees[t.id]) fetchAssignees(t.id);
+      if (!taskComments[t.id]) fetchTaskComments(t.id);
+    }
+  }, [tasks, taskLabels, taskAssignees, taskComments, fetchTaskLabels, fetchAssignees, fetchTaskComments]);
+
   const handleCreateTask = async () => {
     if (!newTitle.trim()) return;
     setNewSaving(true);
-    await addTask({
-      title: newTitle.trim(),
-      description: newDescription.trim() || null,
-      responsibleId: newResponsible || null,
-      dueDate: newDueDate || null,
-    });
-    setNewTitle('');
-    setNewDescription('');
-    setNewResponsible('');
-    setNewDueDate('');
-    setShowNewForm(false);
-    setNewSaving(false);
+    try {
+      await addTask({
+        title: newTitle.trim(),
+        description: newDescription.trim() || null,
+        responsibleId: newResponsible || null,
+        dueDate: newDueDate || null,
+      });
+      setNewTitle('');
+      setNewDescription('');
+      setNewResponsible('');
+      setNewDueDate('');
+      setShowNewForm(false);
+    } catch (err: any) {
+      alert('Error al crear tarea: ' + (err?.message || 'Error desconocido'));
+    } finally {
+      setNewSaving(false);
+    }
   };
 
   // Filter
@@ -58,9 +85,12 @@ export function TaskBoard() {
     return tasks.filter(t => {
       if (filterResponsible && t.responsibleId !== filterResponsible) return false;
       if (filterText && !t.title.toLowerCase().includes(filterText.toLowerCase())) return false;
+      if (filterStatus && t.status !== filterStatus) return false;
+      if (filterDateFrom && (!t.dueDate || t.dueDate < filterDateFrom)) return false;
+      if (filterDateTo && (!t.dueDate || t.dueDate > filterDateTo)) return false;
       return true;
     });
-  }, [tasks, filterResponsible, filterText]);
+  }, [tasks, filterResponsible, filterText, filterStatus, filterDateFrom, filterDateTo]);
 
   const columnData = useMemo(() => {
     const map: Record<TaskStatus, Task[]> = { todo: [], in_progress: [], done: [] };
@@ -79,50 +109,16 @@ export function TaskBoard() {
     }
   }, [updateTask]);
 
-  const startEdit = (task: Task) => {
-    setEditingId(task.id);
-    setEditTitle(task.title);
-    setEditDescription(task.description || '');
-    setEditResponsible(task.responsibleId || '');
-    setEditDueDate(task.dueDate || '');
-  };
-
-  const saveEdit = async () => {
-    if (!editingId || !editTitle.trim()) return;
-    await updateTask(editingId, {
-      title: editTitle.trim(),
-      description: editDescription.trim() || null,
-      responsibleId: editResponsible || null,
-      dueDate: editDueDate || null,
-    });
-    setEditingId(null);
-  };
-
-  const toggleComments = (taskId: string) => {
-    if (commentsOpenId === taskId) {
-      setCommentsOpenId(null);
-    } else {
-      setCommentsOpenId(taskId);
-      if (!taskComments[taskId]) {
-        fetchTaskComments(taskId);
-      }
-    }
-    setCommentText('');
-  };
-
-  const handleAddComment = async (taskId: string) => {
-    if (!commentText.trim()) return;
-    await addTaskComment(taskId, commentText.trim());
-    setCommentText('');
-  };
-
   const activeUsers = orgUsers.filter(u => u.status === 'active' && u.userType !== 'client');
   const today = new Date();
+  const hasFilters = filterResponsible || filterText || filterStatus || filterDateFrom || filterDateTo;
+
+  const selectedTask = selectedTaskId ? tasks.find(t => t.id === selectedTaskId) : null;
 
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Gestión</h1>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Tareas</h1>
         <p className="text-gray-500 dark:text-gray-400">
           {tasks.length} tarea{tasks.length !== 1 ? 's' : ''} en total
         </p>
@@ -135,26 +131,42 @@ export function TaskBoard() {
         </button>
         <div className="w-px h-6 bg-gray-200 dark:bg-gray-700" />
         <Filter className="w-4 h-4 text-gray-400" />
+        <input
+          type="text"
+          value={filterText}
+          onChange={e => setFilterText(e.target.value)}
+          placeholder="Buscar..."
+          className="input text-sm py-1.5 w-40"
+        />
         <select
           value={filterResponsible}
           onChange={e => setFilterResponsible(e.target.value)}
           className="select text-sm py-1.5 w-auto"
         >
-          <option value="">Todos los responsables</option>
+          <option value="">Responsable</option>
           {activeUsers.map(u => (
             <option key={u.id} value={u.id}>{u.fullName || u.email}</option>
           ))}
         </select>
-        <input
-          type="text"
-          value={filterText}
-          onChange={e => setFilterText(e.target.value)}
-          placeholder="Buscar tarea..."
-          className="input text-sm py-1.5 w-48"
-        />
-        {(filterResponsible || filterText) && (
-          <button onClick={() => { setFilterResponsible(''); setFilterText(''); }} className="text-xs text-gray-500 hover:text-primary-600">
-            Limpiar filtros
+        <select
+          value={filterStatus}
+          onChange={e => setFilterStatus(e.target.value as TaskStatus | '')}
+          className="select text-sm py-1.5 w-auto"
+        >
+          <option value="">Estado</option>
+          {COLUMNS.map(c => (
+            <option key={c.id} value={c.id}>{c.label}</option>
+          ))}
+        </select>
+        <div className="flex items-center gap-1 text-xs text-gray-500">
+          <Calendar className="w-3.5 h-3.5" />
+          <input type="date" value={filterDateFrom} onChange={e => setFilterDateFrom(e.target.value)} className="input text-xs py-1 w-auto" />
+          <span>—</span>
+          <input type="date" value={filterDateTo} onChange={e => setFilterDateTo(e.target.value)} className="input text-xs py-1 w-auto" />
+        </div>
+        {hasFilters && (
+          <button onClick={() => { setFilterResponsible(''); setFilterText(''); setFilterStatus(''); setFilterDateFrom(''); setFilterDateTo(''); }} className="text-xs text-gray-500 hover:text-primary-600">
+            Limpiar
           </button>
         )}
       </div>
@@ -235,11 +247,11 @@ export function TaskBoard() {
                   >
                     {columnData[col.id].map((task, index) => {
                       const isOverdue = task.dueDate && new Date(task.dueDate) < today && task.status !== 'done';
-                      const isEditingThis = editingId === task.id;
+                      const tLabels = taskLabels[task.id] || [];
+                      const tAssignees = taskAssignees[task.id] || [];
+                      const comments = taskComments[task.id] || [];
                       const responsibleUser = task.responsibleId ? orgUsers.find(u => u.id === task.responsibleId) : null;
                       const responsibleName = responsibleUser?.fullName || responsibleUser?.email || task.responsibleName;
-                      const isCommentsOpen = commentsOpenId === task.id;
-                      const comments = taskComments[task.id] || [];
 
                       return (
                         <Draggable key={task.id} draggableId={task.id} index={index}>
@@ -248,120 +260,73 @@ export function TaskBoard() {
                               ref={provided.innerRef}
                               {...provided.draggableProps}
                               {...provided.dragHandleProps}
-                              className={`bg-white dark:bg-gray-800 rounded-lg p-3 shadow-sm border border-gray-200 dark:border-gray-700 ${snapshot.isDragging ? 'shadow-lg ring-2 ring-primary-300' : 'hover:shadow-md'} transition-shadow`}
+                              className={`bg-white dark:bg-gray-800 rounded-lg p-3 shadow-sm border border-gray-200 dark:border-gray-700 cursor-pointer ${snapshot.isDragging ? 'shadow-lg ring-2 ring-primary-300' : 'hover:shadow-md'} transition-shadow`}
+                              onClick={() => setSelectedTaskId(task.id)}
                             >
-                              {isEditingThis ? (
-                                <div className="space-y-2">
-                                  <input
-                                    type="text"
-                                    value={editTitle}
-                                    onChange={e => setEditTitle(e.target.value)}
-                                    className="input text-xs py-1.5"
-                                    autoFocus
-                                  />
-                                  <textarea
-                                    value={editDescription}
-                                    onChange={e => setEditDescription(e.target.value)}
-                                    className="input text-xs py-1.5"
-                                    rows={2}
-                                    placeholder="Descripción..."
-                                  />
-                                  <select value={editResponsible} onChange={e => setEditResponsible(e.target.value)} className="select text-xs py-1.5">
-                                    <option value="">Sin responsable</option>
-                                    {activeUsers.map(u => (
-                                      <option key={u.id} value={u.id}>{u.fullName || u.email}</option>
-                                    ))}
-                                  </select>
-                                  <input type="date" value={editDueDate} onChange={e => setEditDueDate(e.target.value)} className="input text-xs py-1.5" />
-                                  <div className="flex justify-end gap-1">
-                                    <button onClick={() => setEditingId(null)} className="p-1 text-gray-400 hover:text-gray-600"><X className="w-3.5 h-3.5" /></button>
-                                    <button onClick={saveEdit} className="p-1 text-green-600 hover:text-green-700"><Check className="w-3.5 h-3.5" /></button>
-                                  </div>
+                              {/* Labels */}
+                              {tLabels.length > 0 && (
+                                <div className="flex flex-wrap gap-1 mb-2">
+                                  {tLabels.map(l => (
+                                    <span key={l.id} className="inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold text-white" style={{ backgroundColor: l.color }}>
+                                      {l.name}
+                                    </span>
+                                  ))}
                                 </div>
-                              ) : (
-                                <>
-                                  <div className="flex items-start justify-between gap-2 mb-1">
-                                    <p className="text-sm font-medium text-gray-900 dark:text-white">{task.title}</p>
-                                    <div className="flex gap-0.5 flex-shrink-0">
-                                      <button onClick={() => toggleComments(task.id)} className={`p-1 ${isCommentsOpen ? 'text-primary-500' : 'text-gray-300 hover:text-primary-500'}`}>
-                                        <MessageCircle className="w-3 h-3" />
-                                      </button>
-                                      <button onClick={() => startEdit(task)} className="p-1 text-gray-300 hover:text-primary-500"><Edit2 className="w-3 h-3" /></button>
-                                      <button onClick={() => setConfirmDelete(task.id)} className="p-1 text-gray-300 hover:text-danger-500"><Trash2 className="w-3 h-3" /></button>
-                                    </div>
-                                  </div>
-                                  {task.description && (
-                                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-2 line-clamp-2">{task.description}</p>
-                                  )}
-                                  <div className="flex items-center gap-3 text-xs text-gray-500">
-                                    {responsibleName && (
-                                      <span className="flex items-center gap-1">
-                                        <User className="w-3 h-3" />
-                                        {responsibleName}
-                                      </span>
-                                    )}
-                                    {task.dueDate && (
-                                      <span className={`flex items-center gap-1 ${isOverdue ? 'text-danger-600 font-medium' : ''}`}>
-                                        <Calendar className="w-3 h-3" />
-                                        {new Date(task.dueDate).toLocaleDateString('es-AR', { day: '2-digit', month: 'short' })}
-                                      </span>
-                                    )}
-                                    {comments.length > 0 && !isCommentsOpen && (
-                                      <span className="flex items-center gap-1 text-gray-400">
-                                        <MessageCircle className="w-3 h-3" />
-                                        {comments.length}
-                                      </span>
-                                    )}
-                                  </div>
-
-                                  {/* Comments section */}
-                                  {isCommentsOpen && (
-                                    <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700 space-y-2">
-                                      {comments.length > 0 ? (
-                                        <div className="space-y-2 max-h-48 overflow-y-auto">
-                                          {comments.map(c => (
-                                            <div key={c.id} className="text-xs">
-                                              <div className="flex items-center justify-between">
-                                                <span className="font-medium text-gray-700 dark:text-gray-300">{c.userName || 'Usuario'}</span>
-                                                <div className="flex items-center gap-1">
-                                                  <span className="text-gray-400">
-                                                    {new Date(c.createdAt).toLocaleDateString('es-AR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
-                                                  </span>
-                                                  {c.userId === appUser?.id && (
-                                                    <button onClick={() => deleteTaskComment(c.id, task.id)} className="text-gray-300 hover:text-danger-500">
-                                                      <X className="w-3 h-3" />
-                                                    </button>
-                                                  )}
-                                                </div>
-                                              </div>
-                                              <p className="text-gray-600 dark:text-gray-400 mt-0.5">{c.text}</p>
-                                            </div>
-                                          ))}
-                                        </div>
-                                      ) : (
-                                        <p className="text-xs text-gray-400">Sin comentarios</p>
-                                      )}
-                                      <div className="flex gap-1">
-                                        <input
-                                          type="text"
-                                          value={commentText}
-                                          onChange={e => setCommentText(e.target.value)}
-                                          onKeyDown={e => { if (e.key === 'Enter') handleAddComment(task.id); }}
-                                          placeholder="Escribir comentario..."
-                                          className="input text-xs py-1 flex-1"
-                                        />
-                                        <button
-                                          onClick={() => handleAddComment(task.id)}
-                                          disabled={!commentText.trim()}
-                                          className="p-1.5 text-primary-500 hover:text-primary-600 disabled:text-gray-300"
-                                        >
-                                          <Send className="w-3.5 h-3.5" />
-                                        </button>
-                                      </div>
-                                    </div>
-                                  )}
-                                </>
                               )}
+
+                              <p className="text-sm font-medium text-gray-900 dark:text-white mb-1">{task.title}</p>
+
+                              {task.description && (
+                                <p className="text-xs text-gray-500 dark:text-gray-400 mb-2 line-clamp-2">{task.description}</p>
+                              )}
+
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2 text-xs text-gray-500">
+                                  {task.dueDate && (
+                                    <span className={`flex items-center gap-1 ${isOverdue ? 'text-danger-600 font-medium' : ''}`}>
+                                      <Calendar className="w-3 h-3" />
+                                      {new Date(task.dueDate).toLocaleDateString('es-AR', { day: '2-digit', month: 'short' })}
+                                    </span>
+                                  )}
+                                  {comments.length > 0 && (
+                                    <span className="flex items-center gap-0.5 text-gray-400">
+                                      <MessageCircle className="w-3 h-3" />
+                                      {comments.length}
+                                    </span>
+                                  )}
+                                </div>
+
+                                {/* Responsible + Assignee avatars */}
+                                <div className="flex items-center gap-1.5">
+                                {responsibleName && (
+                                  <span className="text-xs text-gray-500 flex items-center gap-1">
+                                    <span className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold text-white" style={{ backgroundColor: avatarColor(task.responsibleId || task.id) }}>
+                                      {responsibleName.charAt(0)}
+                                    </span>
+                                    <span className="hidden sm:inline truncate max-w-[80px]">{responsibleName}</span>
+                                  </span>
+                                )}
+                                {tAssignees.length > 0 && (
+                                  <div className="flex -space-x-1.5">
+                                    {tAssignees.slice(0, 3).map(a => (
+                                      <span
+                                        key={a.id}
+                                        title={a.userName || 'Usuario'}
+                                        className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold text-white border-2 border-white dark:border-gray-800"
+                                        style={{ backgroundColor: avatarColor(a.userId) }}
+                                      >
+                                        {(a.userName || '?').charAt(0)}
+                                      </span>
+                                    ))}
+                                    {tAssignees.length > 3 && (
+                                      <span className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-300 border-2 border-white dark:border-gray-800">
+                                        +{tAssignees.length - 3}
+                                      </span>
+                                    )}
+                                  </div>
+                                )}
+                                </div>
+                              </div>
                             </div>
                           )}
                         </Draggable>
@@ -381,13 +346,18 @@ export function TaskBoard() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="card p-6 max-w-sm w-full">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Eliminar tarea</h3>
-            <p className="text-gray-600 dark:text-gray-400 mb-4">¿Estás seguro? Esta acción no se puede deshacer.</p>
+            <p className="text-gray-600 dark:text-gray-400 mb-4">Esta acción no se puede deshacer.</p>
             <div className="flex justify-end gap-3">
               <button onClick={() => setConfirmDelete(null)} className="btn-secondary">Cancelar</button>
               <button onClick={() => { deleteTask(confirmDelete); setConfirmDelete(null); }} className="btn-danger">Eliminar</button>
             </div>
           </div>
         </div>
+      )}
+
+      {/* Task detail modal */}
+      {selectedTask && (
+        <TaskDetail task={selectedTask} onClose={() => setSelectedTaskId(null)} />
       )}
     </div>
   );

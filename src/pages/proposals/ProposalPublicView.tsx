@@ -88,6 +88,9 @@ export function ProposalPublicView() {
           clientEmail: p.client_email,
           clientPhone: p.client_phone,
           introduction: p.introduction,
+          objective: p.objective,
+          specificObjectives: p.specific_objectives || [],
+          centralGap: p.central_gap,
           termsAndConditions: p.terms_and_conditions,
           validityDays: p.validity_days,
           subtotal: parseFloat(p.subtotal) || 0,
@@ -322,6 +325,38 @@ export function ProposalPublicView() {
           <div className="bg-white rounded-xl shadow-sm p-6 mb-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-3">Introducción</h2>
             <p className="text-gray-700 whitespace-pre-wrap">{proposal.introduction}</p>
+          </div>
+        )}
+
+        {/* Diagnostico y Objetivos */}
+        {(proposal.objective || (proposal.specificObjectives && proposal.specificObjectives.length > 0) || proposal.centralGap) && (
+          <div className="bg-white rounded-xl shadow-sm p-6 mb-6 space-y-4">
+            <h2 className="text-lg font-semibold text-gray-900">Diagnóstico y Objetivos</h2>
+            {proposal.objective && (
+              <div>
+                <h3 className="font-medium text-gray-900 mb-2">Objetivo de la propuesta</h3>
+                <p className="text-gray-700 whitespace-pre-wrap">{proposal.objective}</p>
+              </div>
+            )}
+            {proposal.specificObjectives && proposal.specificObjectives.length > 0 && (
+              <div>
+                <h3 className="font-medium text-gray-900 mb-2">Objetivos específicos</h3>
+                <ul className="space-y-1">
+                  {proposal.specificObjectives.map((obj, idx) => (
+                    <li key={idx} className="flex items-start gap-2 text-gray-700">
+                      <Check className="w-4 h-4 text-primary-600 mt-0.5 flex-shrink-0" />
+                      {obj}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {proposal.centralGap && (
+              <div>
+                <h3 className="font-medium text-gray-900 mb-2">GAP central encontrado</h3>
+                <p className="text-gray-700 whitespace-pre-wrap">{proposal.centralGap}</p>
+              </div>
+            )}
           </div>
         )}
 

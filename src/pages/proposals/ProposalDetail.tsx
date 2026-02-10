@@ -357,6 +357,49 @@ export function ProposalDetail() {
             </div>
           )}
 
+          {/* Diagnostico y Objetivos */}
+          {(proposal.objective || (proposal.specificObjectives && proposal.specificObjectives.length > 0) || proposal.centralGap) && (
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 space-y-4">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                Diagnostico y Objetivos
+              </h2>
+              {proposal.objective && (
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                    Objetivo de la propuesta
+                  </h3>
+                  <p className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
+                    {proposal.objective}
+                  </p>
+                </div>
+              )}
+              {proposal.specificObjectives && proposal.specificObjectives.length > 0 && (
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                    Objetivos especificos
+                  </h3>
+                  <ul className="list-disc list-inside space-y-1">
+                    {proposal.specificObjectives.map((obj, idx) => (
+                      <li key={idx} className="text-gray-700 dark:text-gray-300">
+                        {obj}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {proposal.centralGap && (
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                    GAP central encontrado
+                  </h3>
+                  <p className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
+                    {proposal.centralGap}
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Services List */}
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">

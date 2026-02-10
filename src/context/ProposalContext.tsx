@@ -109,6 +109,9 @@ export function ProposalProvider({ children }: { children: ReactNode }) {
           clientEmail: p.client_email,
           clientPhone: p.client_phone,
           introduction: p.introduction,
+          objective: p.objective,
+          specificObjectives: p.specific_objectives || [],
+          centralGap: p.central_gap,
           termsAndConditions: p.terms_and_conditions,
           validityDays: p.validity_days,
           subtotal: parseFloat(p.subtotal) || 0,
@@ -174,6 +177,9 @@ export function ProposalProvider({ children }: { children: ReactNode }) {
         clientEmail: data.client_email,
         clientPhone: data.client_phone,
         introduction: data.introduction,
+        objective: data.objective,
+        specificObjectives: data.specific_objectives || [],
+        centralGap: data.central_gap,
         termsAndConditions: data.terms_and_conditions,
         validityDays: data.validity_days,
         subtotal: parseFloat(data.subtotal) || 0,
@@ -224,6 +230,9 @@ export function ProposalProvider({ children }: { children: ReactNode }) {
             client_email: data.clientEmail || null,
             client_phone: data.clientPhone || null,
             introduction: data.introduction || null,
+            objective: data.objective || null,
+            specific_objectives: data.specificObjectives || [],
+            central_gap: data.centralGap || null,
             terms_and_conditions: data.termsAndConditions || null,
             validity_days: data.validityDays || 30,
             discount_percent: data.discountPercent || 0,
@@ -250,6 +259,9 @@ export function ProposalProvider({ children }: { children: ReactNode }) {
           clientEmail: created.client_email,
           clientPhone: created.client_phone,
           introduction: created.introduction,
+          objective: created.objective,
+          specificObjectives: created.specific_objectives || [],
+          centralGap: created.central_gap,
           termsAndConditions: created.terms_and_conditions,
           validityDays: created.validity_days,
           subtotal: 0,
@@ -295,6 +307,9 @@ export function ProposalProvider({ children }: { children: ReactNode }) {
         if (updates.clientEmail !== undefined) dbUpdates.client_email = updates.clientEmail;
         if (updates.clientPhone !== undefined) dbUpdates.client_phone = updates.clientPhone;
         if (updates.introduction !== undefined) dbUpdates.introduction = updates.introduction;
+        if (updates.objective !== undefined) dbUpdates.objective = updates.objective;
+        if (updates.specificObjectives !== undefined) dbUpdates.specific_objectives = updates.specificObjectives;
+        if (updates.centralGap !== undefined) dbUpdates.central_gap = updates.centralGap;
         if (updates.termsAndConditions !== undefined) dbUpdates.terms_and_conditions = updates.termsAndConditions;
         if (updates.validityDays !== undefined) dbUpdates.validity_days = updates.validityDays;
         if (updates.discountPercent !== undefined) dbUpdates.discount_percent = updates.discountPercent;
@@ -347,6 +362,9 @@ export function ProposalProvider({ children }: { children: ReactNode }) {
         clientEmail: original.clientEmail || undefined,
         clientPhone: original.clientPhone || undefined,
         introduction: original.introduction || undefined,
+        objective: original.objective || undefined,
+        specificObjectives: original.specificObjectives || [],
+        centralGap: original.centralGap || undefined,
         termsAndConditions: original.termsAndConditions || undefined,
         validityDays: original.validityDays,
         discountPercent: original.discountPercent,
@@ -728,6 +746,9 @@ export function ProposalProvider({ children }: { children: ReactNode }) {
           clientEmail: p.client_email,
           clientPhone: p.client_phone,
           introduction: p.introduction,
+          objective: p.objective,
+          specificObjectives: p.specific_objectives || [],
+          centralGap: p.central_gap,
           termsAndConditions: p.terms_and_conditions,
           validityDays: p.validity_days,
           subtotal: parseFloat(p.subtotal) || 0,

@@ -14,7 +14,7 @@ import { useProposals } from '../../context/ProposalContext';
 import { useProjects } from '../../context/ProjectContext';
 import { useCRM } from '../../context/CRMContext';
 import { useAuth } from '../../context/AuthContext';
-import type { ProposalItem, ProposalItemDeliverable } from '../../types/proposals';
+import type { ProposalItem, ProposalItemDeliverable, ProposalItemFAQ } from '../../types/proposals';
 import type { Product } from '../../types/projects';
 
 interface ServiceItemForm {
@@ -28,6 +28,10 @@ interface ServiceItemForm {
   methodology: string;
   deliverables: ProposalItemDeliverable[];
   requirements: string;
+  scope: string;
+  outOfScope: string;
+  faqs: ProposalItemFAQ[];
+  estimatedDurationDays: number | null;
   isExpanded: boolean;
 }
 
@@ -65,6 +69,9 @@ export function ProposalForm() {
   // Proposal info
   const [title, setTitle] = useState('');
   const [introduction, setIntroduction] = useState('');
+  const [objective, setObjective] = useState('');
+  const [specificObjectives, setSpecificObjectives] = useState<string[]>([]);
+  const [centralGap, setCentralGap] = useState('');
   const [validityDays, setValidityDays] = useState(30);
 
   // Service items
@@ -110,6 +117,9 @@ export function ProposalForm() {
           setClientPhone(proposal.clientPhone || '');
           setTitle(proposal.title);
           setIntroduction(proposal.introduction || '');
+          setObjective(proposal.objective || '');
+          setSpecificObjectives(proposal.specificObjectives || []);
+          setCentralGap(proposal.centralGap || '');
           setValidityDays(proposal.validityDays);
           setDiscountPercent(proposal.discountPercent);
           setTermsAndConditions(proposal.termsAndConditions || '');
@@ -132,6 +142,10 @@ export function ProposalForm() {
               methodology: item.methodology || '',
               deliverables: item.deliverables || [],
               requirements: item.requirements || '',
+              scope: item.scope || '',
+              outOfScope: item.outOfScope || '',
+              faqs: item.faqs || [],
+              estimatedDurationDays: item.estimatedDurationDays,
               isExpanded: false,
             }))
           );
@@ -171,13 +185,17 @@ export function ProposalForm() {
         productId: product.id,
         name: product.name,
         description: product.description || '',
-        unitPrice: 0,
+        unitPrice: product.basePrice || 0,
         quantity: 1,
-        benefits: [],
-        methodology: '',
+        benefits: product.benefits || [],
+        methodology: product.methodology || '',
         deliverables: [],
-        requirements: '',
-        isExpanded: false,
+        requirements: product.requirements || '',
+        scope: product.scope || '',
+        outOfScope: product.outOfScope || '',
+        faqs: product.faqs || [],
+        estimatedDurationDays: product.estimatedDurationDays,
+        isExpanded: true,
       },
     ]);
     setShowProductModal(false);
@@ -297,6 +315,9 @@ export function ProposalForm() {
           clientEmail: clientEmail || undefined,
           clientPhone: clientPhone || undefined,
           introduction: introduction || undefined,
+          objective: objective || undefined,
+          specificObjectives: specificObjectives.filter(Boolean),
+          centralGap: centralGap || undefined,
           validityDays,
           discountPercent,
           termsAndConditions: termsAndConditions || undefined,
@@ -322,6 +343,10 @@ export function ProposalForm() {
               methodology: item.methodology || undefined,
               deliverables: item.deliverables.filter((d) => d.name),
               requirements: item.requirements || undefined,
+              scope: item.scope || undefined,
+              outOfScope: item.outOfScope || undefined,
+              faqs: item.faqs.filter((f) => f.question),
+              estimatedDurationDays: item.estimatedDurationDays || undefined,
               sortOrder: i,
             });
           } else {
@@ -337,6 +362,10 @@ export function ProposalForm() {
               methodology: item.methodology || undefined,
               deliverables: item.deliverables.filter((d) => d.name),
               requirements: item.requirements || undefined,
+              scope: item.scope || undefined,
+              outOfScope: item.outOfScope || undefined,
+              faqs: item.faqs.filter((f) => f.question),
+              estimatedDurationDays: item.estimatedDurationDays || undefined,
               sortOrder: i,
             });
           }
@@ -353,6 +382,9 @@ export function ProposalForm() {
           clientEmail: clientEmail || undefined,
           clientPhone: clientPhone || undefined,
           introduction: introduction || undefined,
+          objective: objective || undefined,
+          specificObjectives: specificObjectives.filter(Boolean),
+          centralGap: centralGap || undefined,
           validityDays,
           discountPercent,
           termsAndConditions: termsAndConditions || undefined,
@@ -375,6 +407,10 @@ export function ProposalForm() {
               methodology: item.methodology || undefined,
               deliverables: item.deliverables.filter((d) => d.name),
               requirements: item.requirements || undefined,
+              scope: item.scope || undefined,
+              outOfScope: item.outOfScope || undefined,
+              faqs: item.faqs.filter((f) => f.question),
+              estimatedDurationDays: item.estimatedDurationDays || undefined,
               sortOrder: i,
             });
           }
@@ -503,6 +539,72 @@ export function ProposalForm() {
                 onChange={(e) => setValidityDays(parseInt(e.target.value) || 30)}
                 className="input"
                 min={1}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Diagnostico y Objetivos */}
+        <div className="card p-6 space-y-4">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+            Diagnostico y Objetivos
+          </h2>
+          <div className="space-y-4">
+            <div>
+              <label className="label">Objetivo de la propuesta</label>
+              <textarea
+                value={objective}
+                onChange={(e) => setObjective(e.target.value)}
+                className="input min-h-[80px]"
+                placeholder="Cual es el objetivo principal de esta propuesta..."
+                rows={3}
+              />
+            </div>
+            <div>
+              <label className="label">Objetivos especificos</label>
+              <div className="space-y-2">
+                {specificObjectives.map((obj, idx) => (
+                  <div key={idx} className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={obj}
+                      onChange={(e) => {
+                        setSpecificObjectives((prev) =>
+                          prev.map((o, i) => (i === idx ? e.target.value : o))
+                        );
+                      }}
+                      className="input flex-1"
+                      placeholder="Objetivo especifico..."
+                    />
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setSpecificObjectives((prev) => prev.filter((_, i) => i !== idx))
+                      }
+                      className="p-2 text-gray-400 hover:text-red-600"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => setSpecificObjectives((prev) => [...prev, ''])}
+                  className="text-sm text-primary-600 hover:text-primary-700 flex items-center gap-1"
+                >
+                  <Plus className="w-4 h-4" />
+                  Agregar objetivo
+                </button>
+              </div>
+            </div>
+            <div>
+              <label className="label">GAP central encontrado</label>
+              <textarea
+                value={centralGap}
+                onChange={(e) => setCentralGap(e.target.value)}
+                className="input min-h-[80px]"
+                placeholder="Cual es la brecha o problema central identificado..."
+                rows={3}
               />
             </div>
           </div>
@@ -741,6 +843,128 @@ export function ProposalForm() {
                           rows={3}
                         />
                       </div>
+
+                      {/* Scope */}
+                      <div>
+                        <label className="label">Alcance (que incluye)</label>
+                        <textarea
+                          value={item.scope}
+                          onChange={(e) =>
+                            handleItemChange(index, 'scope', e.target.value)
+                          }
+                          className="input min-h-[80px]"
+                          placeholder="Que incluye este servicio..."
+                          rows={3}
+                        />
+                      </div>
+
+                      {/* Out of Scope */}
+                      <div>
+                        <label className="label">Fuera de alcance (que NO incluye)</label>
+                        <textarea
+                          value={item.outOfScope}
+                          onChange={(e) =>
+                            handleItemChange(index, 'outOfScope', e.target.value)
+                          }
+                          className="input min-h-[80px]"
+                          placeholder="Que NO incluye este servicio..."
+                          rows={3}
+                        />
+                      </div>
+
+                      {/* FAQs */}
+                      <div>
+                        <label className="label">Preguntas Frecuentes</label>
+                        <div className="space-y-2">
+                          {item.faqs.map((faq, fi) => (
+                            <div key={fi} className="flex items-start gap-2">
+                              <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-2">
+                                <input
+                                  type="text"
+                                  value={faq.question}
+                                  onChange={(e) => {
+                                    setServiceItems((prev) =>
+                                      prev.map((it, ii) => {
+                                        if (ii !== index) return it;
+                                        const newFaqs = [...it.faqs];
+                                        newFaqs[fi] = { ...newFaqs[fi], question: e.target.value };
+                                        return { ...it, faqs: newFaqs };
+                                      })
+                                    );
+                                  }}
+                                  className="input"
+                                  placeholder="Pregunta"
+                                />
+                                <input
+                                  type="text"
+                                  value={faq.answer}
+                                  onChange={(e) => {
+                                    setServiceItems((prev) =>
+                                      prev.map((it, ii) => {
+                                        if (ii !== index) return it;
+                                        const newFaqs = [...it.faqs];
+                                        newFaqs[fi] = { ...newFaqs[fi], answer: e.target.value };
+                                        return { ...it, faqs: newFaqs };
+                                      })
+                                    );
+                                  }}
+                                  className="input"
+                                  placeholder="Respuesta"
+                                />
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setServiceItems((prev) =>
+                                    prev.map((it, ii) => {
+                                      if (ii !== index) return it;
+                                      return { ...it, faqs: it.faqs.filter((_, ffi) => ffi !== fi) };
+                                    })
+                                  );
+                                }}
+                                className="p-2 text-gray-400 hover:text-red-600 mt-1"
+                              >
+                                <X className="w-4 h-4" />
+                              </button>
+                            </div>
+                          ))}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setServiceItems((prev) =>
+                                prev.map((it, ii) =>
+                                  ii === index
+                                    ? { ...it, faqs: [...it.faqs, { question: '', answer: '' }] }
+                                    : it
+                                )
+                              );
+                            }}
+                            className="text-sm text-primary-600 hover:text-primary-700 flex items-center gap-1"
+                          >
+                            <Plus className="w-4 h-4" />
+                            Agregar pregunta
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Estimated Duration */}
+                      <div>
+                        <label className="label">Duracion estimada (dias)</label>
+                        <input
+                          type="number"
+                          value={item.estimatedDurationDays || ''}
+                          onChange={(e) =>
+                            handleItemChange(
+                              index,
+                              'estimatedDurationDays',
+                              e.target.value ? parseInt(e.target.value) : null
+                            )
+                          }
+                          className="input w-48"
+                          placeholder="Ej: 30"
+                          min={1}
+                        />
+                      </div>
                     </div>
                   )}
                 </div>
@@ -907,6 +1131,10 @@ export function ProposalForm() {
                       methodology: '',
                       deliverables: [],
                       requirements: '',
+                      scope: '',
+                      outOfScope: '',
+                      faqs: [],
+                      estimatedDurationDays: null,
                       isExpanded: true,
                     },
                   ]);

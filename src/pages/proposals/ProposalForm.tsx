@@ -9,6 +9,7 @@ import {
   ChevronDown,
   ChevronUp,
   X,
+  Sparkles,
 } from 'lucide-react';
 import { useProposals } from '../../context/ProposalContext';
 import { useProjects } from '../../context/ProjectContext';
@@ -73,6 +74,9 @@ export function ProposalForm() {
   const [strengths, setStrengths] = useState<string[]>([]);
   const [specificObjectives, setSpecificObjectives] = useState<string[]>([]);
   const [centralGap, setCentralGap] = useState<{ current: string; desired: string }[]>([]);
+  const [aiRawText, setAiRawText] = useState('');
+  const [aiParsing, setAiParsing] = useState(false);
+  const [showAiInput, setShowAiInput] = useState(false);
   const [validityDays, setValidityDays] = useState(30);
 
   // Service items
@@ -299,6 +303,72 @@ export function ProposalForm() {
         return { ...item, deliverables: newDeliverables };
       })
     );
+  };
+
+  const handleAiParse = async () => {
+    if (!aiRawText.trim() || aiParsing) return;
+    setAiParsing(true);
+    try {
+      const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY;
+      if (!apiKey) { alert('API key de Anthropic no configurada'); return; }
+
+      const resp = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-direct-browser-access': 'true',
+        },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-5-20250929',
+          max_tokens: 4096,
+          messages: [{
+            role: 'user',
+            content: `Analiza el siguiente texto de diagnostico/briefing de un cliente y extrae la informacion estructurada en formato JSON.
+
+El JSON debe tener exactamente esta estructura:
+{
+  "objective": "string - objetivo general de la propuesta",
+  "strengths": ["array de strings - fortalezas actuales del cliente"],
+  "specificObjectives": ["array de strings - objetivos especificos"],
+  "centralGap": [{"current": "situacion actual", "desired": "situacion deseada"}],
+  "introduction": "string - resumen ejecutivo si se puede inferir del texto (opcional, puede ser vacio)"
+}
+
+Reglas:
+- Si alguna seccion no tiene informacion en el texto, deja un array vacio o string vacio
+- Para centralGap, identifica las brechas entre la situacion actual y la deseada
+- Responde SOLO con el JSON, sin markdown, sin explicaciones, sin backticks
+
+Texto del cliente:
+${aiRawText}`,
+          }],
+        }),
+      });
+
+      if (!resp.ok) throw new Error(`API error: ${resp.status}`);
+      const data = await resp.json();
+      const content = data.content?.[0]?.text || '';
+
+      // Parse JSON - handle possible markdown wrapping
+      const jsonStr = content.replace(/```json?\n?/g, '').replace(/```/g, '').trim();
+      const parsed = JSON.parse(jsonStr);
+
+      if (parsed.objective) setObjective(parsed.objective);
+      if (parsed.strengths?.length) setStrengths(parsed.strengths);
+      if (parsed.specificObjectives?.length) setSpecificObjectives(parsed.specificObjectives);
+      if (parsed.centralGap?.length) setCentralGap(parsed.centralGap);
+      if (parsed.introduction && !introduction) setIntroduction(parsed.introduction);
+
+      setShowAiInput(false);
+      setAiRawText('');
+    } catch (err: any) {
+      console.error('Error parsing with AI:', err);
+      alert('Error al procesar el texto: ' + (err?.message || 'Error desconocido'));
+    } finally {
+      setAiParsing(false);
+    }
   };
 
   const handleSubmit = async (e: FormEvent, saveAsDraft = false) => {
@@ -550,9 +620,56 @@ export function ProposalForm() {
 
         {/* Diagnostico y Objetivos */}
         <div className="card p-6 space-y-4">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-            Diagnostico y Objetivos
-          </h2>
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+              Diagnostico y Objetivos
+            </h2>
+            <button
+              type="button"
+              onClick={() => setShowAiInput(!showAiInput)}
+              className="btn btn-secondary flex items-center gap-2 text-sm"
+            >
+              <Sparkles className="w-4 h-4" />
+              {showAiInput ? 'Cerrar' : 'Completar con IA'}
+            </button>
+          </div>
+
+          {/* AI Input */}
+          {showAiInput && (
+            <div className="p-4 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg space-y-3">
+              <p className="text-sm text-purple-700 dark:text-purple-300">
+                Pega el texto del briefing, diagnostico o notas del cliente. La IA completara automaticamente los campos de abajo.
+              </p>
+              <textarea
+                value={aiRawText}
+                onChange={(e) => setAiRawText(e.target.value)}
+                className="input min-h-[150px]"
+                placeholder="Pega aca el texto libre del diagnostico, notas de reunion, briefing del cliente..."
+                rows={6}
+              />
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  onClick={handleAiParse}
+                  disabled={aiParsing || !aiRawText.trim()}
+                  className="btn btn-primary flex items-center gap-2"
+                >
+                  {aiParsing ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Procesando...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-4 h-4" />
+                      Analizar y completar
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          )}
+
           <div className="space-y-4">
             <div>
               <label className="label">Objetivo de la propuesta</label>

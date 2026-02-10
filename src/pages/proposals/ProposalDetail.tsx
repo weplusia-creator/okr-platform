@@ -358,7 +358,7 @@ export function ProposalDetail() {
           )}
 
           {/* Diagnostico y Objetivos */}
-          {(proposal.objective || (proposal.specificObjectives && proposal.specificObjectives.length > 0) || proposal.centralGap) && (
+          {(proposal.objective || (proposal.strengths && proposal.strengths.length > 0) || (proposal.specificObjectives && proposal.specificObjectives.length > 0) || (proposal.centralGap && proposal.centralGap.length > 0)) && (
             <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 space-y-4">
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
                 Diagnostico y Objetivos
@@ -371,6 +371,18 @@ export function ProposalDetail() {
                   <p className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
                     {proposal.objective}
                   </p>
+                </div>
+              )}
+              {proposal.strengths && proposal.strengths.length > 0 && (
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                    Fortalezas actuales
+                  </h3>
+                  <ul className="list-disc list-inside space-y-1">
+                    {proposal.strengths.map((s, idx) => (
+                      <li key={idx} className="text-gray-700 dark:text-gray-300">{s}</li>
+                    ))}
+                  </ul>
                 </div>
               )}
               {proposal.specificObjectives && proposal.specificObjectives.length > 0 && (
@@ -387,14 +399,23 @@ export function ProposalDetail() {
                   </ul>
                 </div>
               )}
-              {proposal.centralGap && (
+              {proposal.centralGap && proposal.centralGap.length > 0 && (
                 <div>
                   <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                     GAP central encontrado
                   </h3>
-                  <p className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
-                    {proposal.centralGap}
-                  </p>
+                  <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+                    <div className="grid grid-cols-2 bg-gray-100 dark:bg-gray-700 px-4 py-2">
+                      <span className="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase">Situacion actual</span>
+                      <span className="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase">Situacion deseada</span>
+                    </div>
+                    {proposal.centralGap.map((row, idx) => (
+                      <div key={idx} className="grid grid-cols-2 px-4 py-3 border-t border-gray-200 dark:border-gray-700">
+                        <span className="text-gray-700 dark:text-gray-300 pr-4">{row.current}</span>
+                        <span className="text-gray-700 dark:text-gray-300">{row.desired}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>

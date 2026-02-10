@@ -89,8 +89,9 @@ export function ProposalPublicView() {
           clientPhone: p.client_phone,
           introduction: p.introduction,
           objective: p.objective,
+          strengths: p.strengths || [],
           specificObjectives: p.specific_objectives || [],
-          centralGap: p.central_gap,
+          centralGap: p.central_gap || [],
           termsAndConditions: p.terms_and_conditions,
           validityDays: p.validity_days,
           subtotal: parseFloat(p.subtotal) || 0,
@@ -329,13 +330,26 @@ export function ProposalPublicView() {
         )}
 
         {/* Diagnostico y Objetivos */}
-        {(proposal.objective || (proposal.specificObjectives && proposal.specificObjectives.length > 0) || proposal.centralGap) && (
+        {(proposal.objective || (proposal.strengths && proposal.strengths.length > 0) || (proposal.specificObjectives && proposal.specificObjectives.length > 0) || (proposal.centralGap && proposal.centralGap.length > 0)) && (
           <div className="bg-white rounded-xl shadow-sm p-6 mb-6 space-y-4">
             <h2 className="text-lg font-semibold text-gray-900">Diagnóstico y Objetivos</h2>
             {proposal.objective && (
               <div>
                 <h3 className="font-medium text-gray-900 mb-2">Objetivo de la propuesta</h3>
                 <p className="text-gray-700 whitespace-pre-wrap">{proposal.objective}</p>
+              </div>
+            )}
+            {proposal.strengths && proposal.strengths.length > 0 && (
+              <div>
+                <h3 className="font-medium text-gray-900 mb-2">Fortalezas actuales</h3>
+                <ul className="space-y-1">
+                  {proposal.strengths.map((s, idx) => (
+                    <li key={idx} className="flex items-start gap-2 text-gray-700">
+                      <Check className="w-4 h-4 text-primary-600 mt-0.5 flex-shrink-0" />
+                      {s}
+                    </li>
+                  ))}
+                </ul>
               </div>
             )}
             {proposal.specificObjectives && proposal.specificObjectives.length > 0 && (
@@ -351,10 +365,21 @@ export function ProposalPublicView() {
                 </ul>
               </div>
             )}
-            {proposal.centralGap && (
+            {proposal.centralGap && proposal.centralGap.length > 0 && (
               <div>
                 <h3 className="font-medium text-gray-900 mb-2">GAP central encontrado</h3>
-                <p className="text-gray-700 whitespace-pre-wrap">{proposal.centralGap}</p>
+                <div className="border border-gray-200 rounded-lg overflow-hidden">
+                  <div className="grid grid-cols-2 bg-gray-100 px-4 py-2">
+                    <span className="text-xs font-semibold text-gray-600 uppercase">Situación actual</span>
+                    <span className="text-xs font-semibold text-gray-600 uppercase">Situación deseada</span>
+                  </div>
+                  {proposal.centralGap.map((row, idx) => (
+                    <div key={idx} className="grid grid-cols-2 px-4 py-3 border-t border-gray-200">
+                      <span className="text-gray-700 pr-4">{row.current}</span>
+                      <span className="text-gray-700">{row.desired}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
           </div>

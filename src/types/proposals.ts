@@ -51,8 +51,9 @@ export interface Proposal {
   // Content
   introduction: string | null;
   objective: string | null;
+  strengths: string[];
   specificObjectives: string[];
-  centralGap: string | null;
+  centralGap: { current: string; desired: string }[];
   termsAndConditions: string | null;
   validityDays: number;
 
@@ -139,8 +140,9 @@ export interface CreateProposalInput {
   clientPhone?: string;
   introduction?: string;
   objective?: string;
+  strengths?: string[];
   specificObjectives?: string[];
-  centralGap?: string;
+  centralGap?: { current: string; desired: string }[];
   termsAndConditions?: string;
   validityDays?: number;
   discountPercent?: number;

@@ -70,8 +70,9 @@ export function ProposalForm() {
   const [title, setTitle] = useState('');
   const [introduction, setIntroduction] = useState('');
   const [objective, setObjective] = useState('');
+  const [strengths, setStrengths] = useState<string[]>([]);
   const [specificObjectives, setSpecificObjectives] = useState<string[]>([]);
-  const [centralGap, setCentralGap] = useState('');
+  const [centralGap, setCentralGap] = useState<{ current: string; desired: string }[]>([]);
   const [validityDays, setValidityDays] = useState(30);
 
   // Service items
@@ -118,8 +119,9 @@ export function ProposalForm() {
           setTitle(proposal.title);
           setIntroduction(proposal.introduction || '');
           setObjective(proposal.objective || '');
+          setStrengths(proposal.strengths || []);
           setSpecificObjectives(proposal.specificObjectives || []);
-          setCentralGap(proposal.centralGap || '');
+          setCentralGap(proposal.centralGap || []);
           setValidityDays(proposal.validityDays);
           setDiscountPercent(proposal.discountPercent);
           setTermsAndConditions(proposal.termsAndConditions || '');
@@ -316,8 +318,9 @@ export function ProposalForm() {
           clientPhone: clientPhone || undefined,
           introduction: introduction || undefined,
           objective: objective || undefined,
+          strengths: strengths.filter(Boolean),
           specificObjectives: specificObjectives.filter(Boolean),
-          centralGap: centralGap || undefined,
+          centralGap: centralGap.filter((g) => g.current || g.desired),
           validityDays,
           discountPercent,
           termsAndConditions: termsAndConditions || undefined,
@@ -383,8 +386,9 @@ export function ProposalForm() {
           clientPhone: clientPhone || undefined,
           introduction: introduction || undefined,
           objective: objective || undefined,
+          strengths: strengths.filter(Boolean),
           specificObjectives: specificObjectives.filter(Boolean),
-          centralGap: centralGap || undefined,
+          centralGap: centralGap.filter((g) => g.current || g.desired),
           validityDays,
           discountPercent,
           termsAndConditions: termsAndConditions || undefined,
@@ -560,6 +564,47 @@ export function ProposalForm() {
                 rows={3}
               />
             </div>
+
+            {/* Fortalezas actuales */}
+            <div>
+              <label className="label">Fortalezas actuales</label>
+              <div className="space-y-2">
+                {strengths.map((s, idx) => (
+                  <div key={idx} className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={s}
+                      onChange={(e) => {
+                        setStrengths((prev) =>
+                          prev.map((v, i) => (i === idx ? e.target.value : v))
+                        );
+                      }}
+                      className="input flex-1"
+                      placeholder="Fortaleza..."
+                    />
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setStrengths((prev) => prev.filter((_, i) => i !== idx))
+                      }
+                      className="p-2 text-gray-400 hover:text-red-600"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => setStrengths((prev) => [...prev, ''])}
+                  className="text-sm text-primary-600 hover:text-primary-700 flex items-center gap-1"
+                >
+                  <Plus className="w-4 h-4" />
+                  Agregar fortaleza
+                </button>
+              </div>
+            </div>
+
+            {/* Objetivos especificos */}
             <div>
               <label className="label">Objetivos especificos</label>
               <div className="space-y-2">
@@ -597,15 +642,62 @@ export function ProposalForm() {
                 </button>
               </div>
             </div>
+
+            {/* GAP central - tabla */}
             <div>
               <label className="label">GAP central encontrado</label>
-              <textarea
-                value={centralGap}
-                onChange={(e) => setCentralGap(e.target.value)}
-                className="input min-h-[80px]"
-                placeholder="Cual es la brecha o problema central identificado..."
-                rows={3}
-              />
+              {centralGap.length > 0 && (
+                <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden mb-2">
+                  <div className="grid grid-cols-[1fr_1fr_40px] bg-gray-100 dark:bg-gray-800 px-3 py-2">
+                    <span className="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase">Situacion actual</span>
+                    <span className="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase">Situacion deseada</span>
+                    <span />
+                  </div>
+                  {centralGap.map((row, idx) => (
+                    <div key={idx} className="grid grid-cols-[1fr_1fr_40px] gap-2 px-3 py-2 border-t border-gray-200 dark:border-gray-700">
+                      <input
+                        type="text"
+                        value={row.current}
+                        onChange={(e) => {
+                          setCentralGap((prev) =>
+                            prev.map((r, i) => (i === idx ? { ...r, current: e.target.value } : r))
+                          );
+                        }}
+                        className="input"
+                        placeholder="Situacion actual..."
+                      />
+                      <input
+                        type="text"
+                        value={row.desired}
+                        onChange={(e) => {
+                          setCentralGap((prev) =>
+                            prev.map((r, i) => (i === idx ? { ...r, desired: e.target.value } : r))
+                          );
+                        }}
+                        className="input"
+                        placeholder="Situacion deseada..."
+                      />
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setCentralGap((prev) => prev.filter((_, i) => i !== idx))
+                        }
+                        className="p-2 text-gray-400 hover:text-red-600"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <button
+                type="button"
+                onClick={() => setCentralGap((prev) => [...prev, { current: '', desired: '' }])}
+                className="text-sm text-primary-600 hover:text-primary-700 flex items-center gap-1"
+              >
+                <Plus className="w-4 h-4" />
+                Agregar fila
+              </button>
             </div>
           </div>
         </div>

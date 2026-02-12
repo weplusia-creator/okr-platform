@@ -10,6 +10,9 @@ import {
   X,
   TrendingUp,
   TrendingDown,
+  ChevronDown,
+  ChevronUp,
+  FileText,
 } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
 import { useProjects } from '../../context/ProjectContext';
@@ -42,11 +45,15 @@ export function Saldos() {
   const [showModal, setShowModal] = useState(false);
   const [saving, setSaving] = useState(false);
   const [settlementForm, setSettlementForm] = useState({
+    amount: '',
+    paidBy: '',
+    paidTo: '',
     date: new Date().toISOString().split('T')[0],
     notes: '',
   });
 
   // Transaction shortcut
+  const [showDetail, setShowDetail] = useState(false);
   const [showTransactionModal, setShowTransactionModal] = useState(false);
   const [txLoading, setTxLoading] = useState(false);
   const [txForm, setTxForm] = useState({
@@ -204,9 +211,45 @@ export function Saldos() {
     };
   }, [transactions, settlements]);
 
+  // Group transactions by partner for the detail view
+  const transactionsByPartner = useMemo(() => {
+    const grouped: Record<string, typeof transactions> = {};
+    SOCIOS.forEach(s => { grouped[s.name] = []; });
+
+    transactions.forEach(t => {
+      if (!t.paidBy) return;
+      const socio = SOCIOS.find(s => s.name === t.paidBy);
+      if (!socio) return;
+      grouped[socio.name].push(t);
+    });
+
+    // Sort each group by date descending
+    Object.keys(grouped).forEach(name => {
+      grouped[name].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    });
+
+    return grouped;
+  }, [transactions]);
+
+  const openSettlementModal = (options?: { paidBy?: string; paidTo?: string; amount?: number }) => {
+    setSettlementForm({
+      amount: options?.amount ? String(Math.round(options.amount)) : '',
+      paidBy: options?.paidBy || balance.debtor || SOCIOS[0].name,
+      paidTo: options?.paidTo || balance.creditor || SOCIOS[1].name,
+      date: new Date().toISOString().split('T')[0],
+      notes: '',
+    });
+    setShowModal(true);
+  };
+
   const handleSettle = async (e: FormEvent) => {
     e.preventDefault();
-    if (!organization?.id || !balance.debtor || !balance.creditor || balance.amount < 1) return;
+    const amount = parseFloat(settlementForm.amount);
+    if (!organization?.id || !settlementForm.paidBy || !settlementForm.paidTo || !amount || amount <= 0) return;
+    if (settlementForm.paidBy === settlementForm.paidTo) {
+      alert('El pagador y el receptor no pueden ser el mismo socio.');
+      return;
+    }
 
     setSaving(true);
     try {
@@ -214,9 +257,9 @@ export function Saldos() {
         .from('partner_settlements')
         .insert({
           organization_id: organization.id,
-          paid_by: balance.debtor,
-          paid_to: balance.creditor,
-          amount: Math.round(balance.amount * 100) / 100,
+          paid_by: settlementForm.paidBy,
+          paid_to: settlementForm.paidTo,
+          amount: Math.round(amount * 100) / 100,
           date: settlementForm.date,
           notes: settlementForm.notes || null,
         });
@@ -225,7 +268,6 @@ export function Saldos() {
 
       await fetchSettlements();
       setShowModal(false);
-      setSettlementForm({ date: new Date().toISOString().split('T')[0], notes: '' });
     } catch (err) {
       console.error('Error creating settlement:', err);
       alert('Error al registrar el saldo');
@@ -288,7 +330,14 @@ export function Saldos() {
               <Check className="w-8 h-8 text-success-600" />
             </div>
             <h2 className="text-2xl font-bold text-success-600 mb-1">Están al día</h2>
-            <p className="text-gray-500 dark:text-gray-400">No hay deuda pendiente entre socios</p>
+            <p className="text-gray-500 dark:text-gray-400 mb-4">No hay deuda pendiente entre socios</p>
+            <button
+              onClick={() => openSettlementModal()}
+              className="btn-secondary"
+            >
+              <DollarSign className="w-4 h-4" />
+              Registrar pago entre socios
+            </button>
           </>
         ) : (
           <>
@@ -301,13 +350,29 @@ export function Saldos() {
             <h2 className="text-4xl font-bold text-gray-900 dark:text-white mb-6">
               {formatCurrency(balance.amount)}
             </h2>
-            <button
-              onClick={() => setShowModal(true)}
-              className="btn-primary text-lg px-8 py-3"
-            >
-              <Check className="w-5 h-5" />
-              Saldar deuda
-            </button>
+            <div className="flex items-center justify-center gap-3">
+              <button
+                onClick={() => openSettlementModal({
+                  paidBy: balance.debtor || undefined,
+                  paidTo: balance.creditor || undefined,
+                  amount: balance.amount,
+                })}
+                className="btn-primary text-lg px-8 py-3"
+              >
+                <Check className="w-5 h-5" />
+                Saldar deuda completa
+              </button>
+              <button
+                onClick={() => openSettlementModal({
+                  paidBy: balance.debtor || undefined,
+                  paidTo: balance.creditor || undefined,
+                })}
+                className="btn-secondary text-lg px-6 py-3"
+              >
+                <DollarSign className="w-5 h-5" />
+                Pago parcial
+              </button>
+            </div>
           </>
         )}
       </div>
@@ -335,6 +400,128 @@ export function Saldos() {
             </div>
           </div>
         ))}
+      </div>
+
+      {/* Detalle de deudas */}
+      <div className="card p-5">
+        <button
+          onClick={() => setShowDetail(prev => !prev)}
+          className="w-full flex items-center justify-between"
+        >
+          <h3 className="text-base font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+            <FileText className="w-5 h-5 text-indigo-500" />
+            Detalle de transacciones por socio
+          </h3>
+          {showDetail ? (
+            <ChevronUp className="w-5 h-5 text-gray-400" />
+          ) : (
+            <ChevronDown className="w-5 h-5 text-gray-400" />
+          )}
+        </button>
+
+        {showDetail && (
+          <div className="mt-4 space-y-6">
+            {SOCIOS.map(socio => {
+              const txs = transactionsByPartner[socio.name] || [];
+              const expenses = txs.filter(t => t.type === 'expense');
+              const incomes = txs.filter(t => t.type === 'income');
+              const totalExpenses = expenses.reduce((sum, t) => sum + t.amount, 0);
+              const totalIncome = incomes.reduce((sum, t) => sum + t.amount, 0);
+
+              return (
+                <div key={socio.id}>
+                  <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-3 pb-2 border-b border-gray-200 dark:border-gray-700">
+                    {socio.name}
+                    <span className="ml-2 text-xs font-normal text-gray-400">
+                      ({txs.length} transacciones)
+                    </span>
+                  </h4>
+
+                  {txs.length === 0 ? (
+                    <p className="text-sm text-gray-400 py-2">Sin transacciones registradas</p>
+                  ) : (
+                    <>
+                      {/* Expenses */}
+                      {expenses.length > 0 && (
+                        <div className="mb-3">
+                          <p className="text-xs font-medium text-danger-600 mb-1.5 uppercase tracking-wide">
+                            Gastos pagados ({expenses.length})
+                          </p>
+                          <div className="space-y-1">
+                            {expenses.map(t => (
+                              <div key={t.id} className="flex items-center justify-between py-1.5 px-2 rounded hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm text-gray-800 dark:text-gray-200 truncate">
+                                    {t.description}
+                                  </p>
+                                  <div className="flex items-center gap-2 text-xs text-gray-400">
+                                    <span>{formatDate(t.date)}</span>
+                                    {t.category && <span>· {t.category.name}</span>}
+                                    {t.clientName && <span>· {t.clientName}</span>}
+                                    {t.projectName && <span>· {t.projectName}</span>}
+                                  </div>
+                                </div>
+                                <span className="text-sm font-medium text-danger-600 ml-3 shrink-0">
+                                  -{formatCurrency(t.amount)}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                          <div className="flex justify-end mt-1 pr-2">
+                            <span className="text-xs font-semibold text-danger-600">
+                              Total: -{formatCurrency(totalExpenses)}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Income */}
+                      {incomes.length > 0 && (
+                        <div className="mb-3">
+                          <p className="text-xs font-medium text-success-600 mb-1.5 uppercase tracking-wide">
+                            Ingresos cobrados ({incomes.length})
+                          </p>
+                          <div className="space-y-1">
+                            {incomes.map(t => (
+                              <div key={t.id} className="flex items-center justify-between py-1.5 px-2 rounded hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm text-gray-800 dark:text-gray-200 truncate">
+                                    {t.description}
+                                  </p>
+                                  <div className="flex items-center gap-2 text-xs text-gray-400">
+                                    <span>{formatDate(t.date)}</span>
+                                    {t.category && <span>· {t.category.name}</span>}
+                                    {t.clientName && <span>· {t.clientName}</span>}
+                                    {t.projectName && <span>· {t.projectName}</span>}
+                                  </div>
+                                </div>
+                                <span className="text-sm font-medium text-success-600 ml-3 shrink-0">
+                                  +{formatCurrency(t.amount)}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                          <div className="flex justify-end mt-1 pr-2">
+                            <span className="text-xs font-semibold text-success-600">
+                              Total: +{formatCurrency(totalIncome)}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Partner net */}
+                      <div className="flex justify-end pr-2 pt-1 border-t border-gray-100 dark:border-gray-700">
+                        <span className={`text-sm font-bold ${totalIncome - totalExpenses >= 0 ? 'text-success-600' : 'text-danger-600'}`}>
+                          Neto: {formatCurrency(totalIncome - totalExpenses)}
+                        </span>
+                      </div>
+                    </>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Historial de saldos */}
@@ -555,16 +742,67 @@ export function Saldos() {
               </button>
             </div>
 
-            <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 mb-4 text-center">
-              <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">
-                {balance.debtor} le paga a {balance.creditor}
-              </p>
-              <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                {formatCurrency(balance.amount)}
-              </p>
-            </div>
-
             <form onSubmit={handleSettle} className="space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="label">Pagó</label>
+                  <select
+                    value={settlementForm.paidBy}
+                    onChange={(e) => setSettlementForm(prev => ({ ...prev, paidBy: e.target.value }))}
+                    className="input"
+                    required
+                  >
+                    {SOCIOS.map(s => (
+                      <option key={s.id} value={s.name}>{s.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="label">Recibió</label>
+                  <select
+                    value={settlementForm.paidTo}
+                    onChange={(e) => setSettlementForm(prev => ({ ...prev, paidTo: e.target.value }))}
+                    className="input"
+                    required
+                  >
+                    {SOCIOS.map(s => (
+                      <option key={s.id} value={s.name}>{s.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="label">Monto</label>
+                <input
+                  type="number"
+                  value={settlementForm.amount}
+                  onChange={(e) => setSettlementForm(prev => ({ ...prev, amount: e.target.value }))}
+                  className="input"
+                  placeholder="0"
+                  min="1"
+                  step="1"
+                  required
+                  autoFocus
+                />
+                {balance.amount > 0 && !balance.isSettled && (
+                  <p className="text-xs text-gray-400 mt-1">
+                    Deuda total: {formatCurrency(balance.amount)}
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <label className="label">Concepto / Descripción</label>
+                <input
+                  type="text"
+                  value={settlementForm.notes}
+                  onChange={(e) => setSettlementForm(prev => ({ ...prev, notes: e.target.value }))}
+                  className="input"
+                  placeholder="Ej: Transferencia bancaria, Efectivo, Pago parcial enero..."
+                />
+              </div>
+
               <div>
                 <label className="label">Fecha del pago</label>
                 <input
@@ -576,26 +814,15 @@ export function Saldos() {
                 />
               </div>
 
-              <div>
-                <label className="label">Notas <span className="text-gray-400 font-normal">(opcional)</span></label>
-                <input
-                  type="text"
-                  value={settlementForm.notes}
-                  onChange={(e) => setSettlementForm(prev => ({ ...prev, notes: e.target.value }))}
-                  className="input"
-                  placeholder="Ej: Transferencia bancaria"
-                />
-              </div>
-
               <div className="flex justify-end gap-3 pt-4">
                 <button type="button" onClick={() => setShowModal(false)} className="btn-secondary">
                   Cancelar
                 </button>
-                <button type="submit" disabled={saving} className="btn-primary">
+                <button type="submit" disabled={saving || !settlementForm.amount} className="btn-primary">
                   {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : (
                     <>
                       <Check className="w-5 h-5" />
-                      Confirmar saldo
+                      Confirmar pago
                     </>
                   )}
                 </button>

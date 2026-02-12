@@ -31,10 +31,12 @@ import {
   Handshake,
   Wrench,
   Calculator,
+  Presentation,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../hooks/useTheme';
 import { InfoBar } from './InfoBar';
+import { NotificationBell } from './NotificationBell';
 
 interface NavItem {
   label: string;
@@ -94,9 +96,9 @@ const ADMIN_NAV: NavItem[] = [
     ],
   },
   {
-    label: 'Gestión',
+    label: 'Tareas',
     icon: ClipboardList,
-    path: '/gestion',
+    path: '/tareas',
   },
   {
     label: 'KPIs',
@@ -108,6 +110,7 @@ const ADMIN_NAV: NavItem[] = [
     icon: Wrench,
     children: [
       { label: 'Todas', path: '/tools', icon: Wrench },
+      { label: 'Presentaciones', path: '/presentations', icon: Presentation },
       { label: 'Prospector B2B', path: '/tools/prospector', icon: Target },
       { label: 'Calculadora ROI', path: '/tools/roi', icon: Calculator },
     ],
@@ -358,6 +361,11 @@ export function Layout() {
         </div>
       </aside>
 
+      {/* Desktop notification bell - fixed top right */}
+      <div className="hidden lg:block fixed top-3 right-6 z-50">
+        <NotificationBell />
+      </div>
+
       {/* Main content */}
       <div className="lg:pl-64 pt-1">
         {/* Mobile header */}
@@ -373,7 +381,7 @@ export function Layout() {
               <img src="/wau-logo.png" alt="WAU" className="w-8 h-8 rounded-lg object-contain" />
               <span className="font-bold text-gray-900 dark:text-white tracking-tight">WAU Platform</span>
             </Link>
-            <div className="w-9" /> {/* Spacer */}
+            <NotificationBell />
           </div>
         </header>
 

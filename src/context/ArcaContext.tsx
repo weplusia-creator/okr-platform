@@ -76,7 +76,7 @@ export function ArcaProvider({ children }: { children: ReactNode }) {
         grossIncomeNumber: c.gross_income_number ?? null,
         activityStartDate: c.activity_start_date ?? null,
         address: c.address ?? null,
-        hasCertificate: !!(c.certificate_data && c.private_key_data),
+        hasCertificate: !!(c.certificate_encrypted && c.private_key_encrypted),
         certificateExpiry: c.certificate_expiry ?? null,
         isPrimary: c.is_primary,
         isActive: c.is_active,
@@ -454,7 +454,6 @@ export function ArcaProvider({ children }: { children: ReactNode }) {
     keyFile: File
   ): Promise<boolean> => {
     try {
-      // Read file contents as text
       const certContent = await certFile.text();
       const keyContent = await keyFile.text();
 
@@ -462,33 +461,42 @@ export function ArcaProvider({ children }: { children: ReactNode }) {
         throw new Error('No se pudo leer el contenido de los archivos');
       }
 
-      // Store certificate data directly in Supabase
-      // In production, this should go through an API route that encrypts the data
-      const certBytes = new TextEncoder().encode(certContent);
-      const keyBytes = new TextEncoder().encode(keyContent);
-
-      const { error: updateErr } = await supabase
-        .from('organization_cuits')
-        .update({
-          certificate_data: Array.from(certBytes),
-          private_key_data: Array.from(keyBytes),
-          certificate_expiry: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-        })
-        .eq('id', cuitId);
-
-      if (updateErr) {
-        console.error('Supabase certificate upload error:', updateErr);
-        throw new Error(updateErr.message || 'Error al guardar certificado');
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        throw new Error('No hay sesión activa. Recargá la página.');
       }
 
-      // Refresh CUITs to reflect the new certificate status
-      await fetchCuits();
+      const response = await fetch('/api/arca/config/upload-cert', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          cuitId,
+          certContent,
+          keyContent,
+        }),
+      });
 
+      const text = await response.text();
+      let result: any;
+      try {
+        result = JSON.parse(text);
+      } catch {
+        console.error('upload-cert response not JSON:', text.substring(0, 200));
+        throw new Error('Error del servidor al subir certificado. Revisá la consola (F12).');
+      }
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Error al subir certificado');
+      }
+
+      await fetchCuits();
       return true;
     } catch (err: any) {
       console.error('Error uploading certificate:', err);
-      setError(err.message || 'Error al subir certificado');
-      return false;
+      throw err;
     }
   }, [fetchCuits]);
 

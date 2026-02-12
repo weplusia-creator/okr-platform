@@ -79,6 +79,8 @@ export function CheckinConfigPage() {
           creadoPor: null,
         });
       }
+    } catch (err: any) {
+      alert('Error al guardar config: ' + (err?.message || 'Error desconocido'));
     } finally {
       setSaving(false);
     }
@@ -119,6 +121,8 @@ export function CheckinConfigPage() {
       if (checkin) {
         navigate(`/checkins/${checkin.id}`);
       }
+    } catch (err: any) {
+      alert('Error al crear check-in: ' + (err?.message || 'Error desconocido'));
     } finally {
       setCreating(false);
     }

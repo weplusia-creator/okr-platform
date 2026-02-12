@@ -71,13 +71,17 @@ export function CheckinPlantillas() {
         descripcion: form.descripcion.trim() || null,
         tipo: form.tipo,
         esPublica: false,
-        creadoPor: null,
+        creadoPor: null as any,
       });
       if (p) {
         setShowCreate(false);
         setForm({ nombre: '', descripcion: '', tipo: 'custom' });
         setExpandedId(p.id);
+      } else {
+        alert('No se pudo crear la plantilla. Revisá la consola (F12) para más detalles.');
       }
+    } catch (err: any) {
+      alert('Error: ' + (err?.message || JSON.stringify(err)));
     } finally {
       setSaving(false);
     }
@@ -256,7 +260,7 @@ export function CheckinPlantillas() {
       </div>
 
       {/* Create Modal */}
-      <Modal open={showCreate} onClose={() => setShowCreate(false)} title="Nueva Plantilla">
+      <Modal isOpen={showCreate} onClose={() => setShowCreate(false)} title="Nueva Plantilla">
         <div className="space-y-4">
           <div>
             <label className="label">Nombre *</label>
@@ -301,7 +305,7 @@ export function CheckinPlantillas() {
       </Modal>
 
       {/* Delete confirmation */}
-      <Modal open={!!confirmDelete} onClose={() => setConfirmDelete(null)} title="Eliminar Plantilla">
+      <Modal isOpen={!!confirmDelete} onClose={() => setConfirmDelete(null)} title="Eliminar Plantilla">
         <div className="space-y-4">
           <p className="text-gray-600 dark:text-gray-400">¿Estás seguro de que querés eliminar esta plantilla? Esta acción no se puede deshacer.</p>
           <div className="flex justify-end gap-3">

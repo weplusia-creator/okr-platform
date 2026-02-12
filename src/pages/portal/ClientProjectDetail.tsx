@@ -21,6 +21,7 @@ import { useBMC } from '../../context/BMCContext';
 import { usePlaybook } from '../../context/PlaybookContext';
 import { PROJECT_STATUS_CONFIG, MODULE_STATUS_CONFIG } from '../../types/projects';
 import type { AttendanceRecord } from '../../types/projects';
+import { supabase } from '../../lib/supabase';
 
 const circleColorMap: Record<string, string> = {
   pending: 'bg-gray-300 dark:bg-gray-600',
@@ -38,11 +39,27 @@ export function ClientProjectDetail() {
 
   const isPreview = isAdmin && appUser?.userType !== 'client';
 
+  const [participantProjectIds, setParticipantProjectIds] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (!appUser?.id || isPreview) return;
+    supabase
+      .from('project_participants')
+      .select('project_id')
+      .eq('user_id', appUser.id)
+      .then(({ data }) => {
+        setParticipantProjectIds((data || []).map(r => r.project_id));
+      });
+  }, [appUser?.id, isPreview]);
+
   const project = useMemo(
     () => isPreview
       ? projects.find(p => p.id === projectId)
-      : projects.find(p => p.id === projectId && p.clientId === appUser?.clientId),
-    [projects, projectId, appUser?.clientId, isPreview],
+      : projects.find(p => p.id === projectId && (
+          p.clientId === appUser?.clientId ||
+          participantProjectIds.includes(p.id)
+        )),
+    [projects, projectId, appUser?.clientId, isPreview, participantProjectIds],
   );
 
   useEffect(() => {

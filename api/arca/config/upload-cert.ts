@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import forge from 'node-forge';
-import { encryptData } from '../../../src/lib/arca/crypto';
+import { encryptData } from '../../../src/lib/arca/crypto.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {

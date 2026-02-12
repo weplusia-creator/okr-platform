@@ -162,6 +162,31 @@ export interface TaskComment {
   createdAt: string;
 }
 
+export interface TaskLabel {
+  id: string;
+  organizationId: string;
+  name: string;
+  color: string;
+}
+
+export interface TaskAttachment {
+  id: string;
+  taskId: string;
+  type: 'file' | 'link';
+  name: string;
+  url: string;
+  uploadedBy: string | null;
+  createdAt: string;
+}
+
+export interface TaskAssignee {
+  id: string;
+  taskId: string;
+  userId: string;
+  userName?: string;
+  createdAt: string;
+}
+
 export type MeetingOccurrenceStatus = 'scheduled' | 'completed' | 'cancelled';
 
 export interface Meeting {

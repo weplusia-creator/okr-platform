@@ -11,14 +11,25 @@ if (!supabaseUrl || !supabaseAnonKey) {
   );
 }
 
+// Simple mutex to serialize auth token refresh operations
+const locks = new Map<string, Promise<any>>();
+
 export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
   auth: {
     detectSessionInUrl: true,
     persistSession: true,
     autoRefreshToken: true,
-    // Bypass navigator.locks which causes AbortError in some browsers
-    lock: async (_name: string, _acquireTimeout: number, fn: () => Promise<any>) => {
-      return await fn();
+    // Mutex-based lock to replace navigator.locks (which causes AbortError in some browsers)
+    lock: async (name: string, _acquireTimeout: number, fn: () => Promise<any>) => {
+      const existing = locks.get(name);
+      if (existing) await existing.catch(() => {});
+      const promise = fn();
+      locks.set(name, promise);
+      try {
+        return await promise;
+      } finally {
+        if (locks.get(name) === promise) locks.delete(name);
+      }
     },
     storageKey: 'okr-platform-auth',
   } as any,

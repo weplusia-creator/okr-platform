@@ -44,7 +44,24 @@
       "Bash(vercel:*)",
       "Bash(wc -l:*)",
       "Bash(npx netlify deploy:*)",
-      "Bash(npx netlify link)"
+      "Bash(npx netlify link)",
+      "Bash(git push:*)",
+      "Bash(openssl rand:*)",
+      "Bash(cargo --version:*)",
+      "Bash(SQLX_OFFLINE=true cargo check:*)",
+      "Bash(cargo check:*)",
+      "Bash(git status:*)",
+      "Bash(gh repo list:*)",
+      "Bash(gh auth:*)",
+      "Bash(git remote add:*)",
+      "Bash(git remote set-url:*)",
+      "Bash(git config:*)",
+      "Bash(npm run dev:*)",
+      "Bash(IDS=\"0f037a9b-b8fa-40cf-858a-dff630607c57,f2d68c00-1048-428d-b3ef-0fe1ece54117,916f17cd-b8a2-4918-abd2-17da7e6dd379,9b095696-87e8-4f67-949c-948076201d0d,f18810be-b34f-4844-91e5-1a38ef02e8e5,5168d499-5a10-4de2-8fdf-1f9c6fb9f37b\")",
+      "Bash(KEY=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF2Z2ZxZHRmbW9xa2pmZ3R2cnRnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk2MDA2NTcsImV4cCI6MjA4NTE3NjY1N30._XeM5XGs0L79p2TWKkc881t2ScccYckiXwGirBgJDt8\")",
+      "Bash(echo:*)",
+      "Bash(SRK=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF2Z2ZxZHRmbW9xa2pmZ3R2cnRnIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2OTYwMDY1NywiZXhwIjoyMDg1MTc2NjU3fQ.cBuGvG3uiRJ5UL3c0h-UTL056brKIczBYCG4I404e-0\" node /Users/mateohunicken/okr-platform/scripts/seed-demo-proposal.mjs)",
+      "Bash(SRK=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF2Z2ZxZHRmbW9xa2pmZ3R2cnRnIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2OTYwMDY1NywiZXhwIjoyMDg1MTc2NjU3fQ.cBuGvG3uiRJ5UL3c0h-UTL056brKIczBYCG4I404e-0\" node /Users/mateohunicken/okr-platform/scripts/seed-demo-items.mjs)"
     ]
   }
 }

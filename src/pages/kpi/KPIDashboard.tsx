@@ -29,6 +29,7 @@ import { useKPIs } from '../../context/KPIContext';
 import { useFinance } from '../../context/FinanceContext';
 import { useOKR } from '../../context/OKRContext';
 import { useProjects } from '../../context/ProjectContext';
+import { supabase } from '../../lib/supabase';
 import type { KPI, KPICategory } from '../../types';
 
 export function KPIDashboard() {
@@ -45,6 +46,7 @@ export function KPIDashboard() {
   const { objectives } = useOKR();
   const { projects, fetchAllPayments } = useProjects();
   const [allPayments, setAllPayments] = useState<any[]>([]);
+  const [npsStats, setNpsStats] = useState<{ avg: number; nps: number; total: number }>({ avg: 0, nps: 0, total: 0 });
 
   // Current totals for platform cards
   const platformMetrics = useMemo(() => {
@@ -83,8 +85,11 @@ export function KPIDashboard() {
       { key: 'total_okrs', label: 'OKRs totales', value: objectives.length, unit: '', color: '#8B5CF6', group: 'OKRs' },
       { key: 'avg_okr_progress', label: 'Progreso OKR promedio', value: Math.round(avgOKRProgress), unit: '%', color: '#8B5CF6', group: 'OKRs' },
       { key: 'completed_krs', label: 'Key Results completados', value: completedKRs.length, unit: `/ ${allKRs.length}`, color: '#10B981', group: 'OKRs' },
+      { key: 'nps_avg', label: 'NPS Promedio', value: npsStats.avg, unit: `/ 10`, color: '#F59E0B', group: 'Clientes y Proyectos' },
+      { key: 'nps_score', label: 'NPS Score', value: npsStats.nps, unit: '', color: npsStats.nps >= 50 ? '#10B981' : npsStats.nps >= 0 ? '#F59E0B' : '#EF4444', group: 'Clientes y Proyectos' },
+      { key: 'nps_responses', label: 'Respuestas NPS', value: npsStats.total, unit: '', color: '#8B5CF6', group: 'Clientes y Proyectos' },
     ];
-  }, [clients, invoices, objectives, projects, allPayments, getFinanceSummary]);
+  }, [clients, invoices, objectives, projects, allPayments, getFinanceSummary, npsStats]);
 
   // Build monthly historical data for system KPIs from invoices + payments
   const systemMetricsWithHistory = useMemo(() => {
@@ -255,6 +260,21 @@ export function KPIDashboard() {
     fetchCategories();
     fetchKPIs();
     fetchAllPayments().then(setAllPayments);
+    // Fetch all NPS responses for global average
+    (async () => {
+      try {
+        const { data, error } = await supabase.from('nps_responses').select('score');
+        if (error || !data || data.length === 0) return;
+        const scores = data.map((r: any) => r.score as number);
+        const avg = scores.reduce((s, v) => s + v, 0) / scores.length;
+        const promoters = scores.filter(s => s >= 9).length;
+        const detractors = scores.filter(s => s <= 6).length;
+        const nps = Math.round(((promoters - detractors) / scores.length) * 100);
+        setNpsStats({ avg: Math.round(avg * 10) / 10, nps, total: scores.length });
+      } catch (e) {
+        console.error('Error fetching NPS:', e);
+      }
+    })();
   }, [fetchCategories, fetchKPIs, fetchAllPayments]);
 
   // Sync system KPIs once platform data is loaded (monthly historical)

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
   QrCode,
   Trash2,
@@ -37,9 +37,23 @@ export function NPSSection({ projectId }: Props) {
   const [copied, setCopied] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
+  const didSyncRef = useRef<string | null>(null);
 
-  // Load modules and surveys, then auto-create missing NPS surveys
+  // Only consider active modules (not skipped)
+  const activeModules = useMemo(
+    () => modules.filter(m => m.projectId === projectId && m.status !== 'skipped'),
+    [modules, projectId],
+  );
+  const activeModuleTitles = useMemo(
+    () => new Set(activeModules.map(m => m.title)),
+    [activeModules],
+  );
+
+  // Load modules and surveys, auto-create missing NPS only once per projectId
   useEffect(() => {
+    if (didSyncRef.current === projectId) return;
+    didSyncRef.current = projectId;
+
     const sync = async () => {
       setSyncing(true);
       await fetchModules(projectId);
@@ -48,23 +62,6 @@ export function NPSSection({ projectId }: Props) {
     };
     sync();
   }, [projectId, fetchModules, fetchNPSSurveys]);
-
-  // Auto-create NPS for modules that don't have one yet
-  useEffect(() => {
-    if (syncing) return;
-    const projectModules = modules.filter(m => m.projectId === projectId);
-    const existingTitles = new Set(npsSurveys.map(s => s.sessionTitle));
-    const missing = projectModules.filter(m => !existingTitles.has(m.title));
-
-    if (missing.length > 0) {
-      const createMissing = async () => {
-        for (const mod of missing) {
-          await createNPSSurvey(projectId, mod.title);
-        }
-      };
-      createMissing();
-    }
-  }, [syncing, modules, npsSurveys, projectId, createNPSSurvey]);
 
   const handleToggleExpand = useCallback(async (surveyId: string) => {
     if (expandedSurvey === surveyId) {
@@ -122,7 +119,7 @@ export function NPSSection({ projectId }: Props) {
         </h3>
       </div>
 
-      {npsSurveys.length === 0 ? (
+      {npsSurveys.filter(s => activeModuleTitles.has(s.sessionTitle)).length === 0 ? (
         <div className="card p-12 text-center">
           <Star className="w-16 h-16 mx-auto text-gray-300 dark:text-gray-600 mb-4" />
           <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
@@ -134,7 +131,7 @@ export function NPSSection({ projectId }: Props) {
         </div>
       ) : (
         <div className="space-y-4">
-          {npsSurveys.map(survey => {
+          {npsSurveys.filter(s => activeModuleTitles.has(s.sessionTitle)).map(survey => {
             const surveyResponses = responses[survey.id] || [];
             const stats = getNPSStats(surveyResponses);
             const isExpanded = expandedSurvey === survey.id;

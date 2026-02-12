@@ -46,6 +46,7 @@ import {
 } from './pages/crm';
 import { BMCDashboard, BMCTemplates, BMCCanvasView, BMCRespond } from './pages/bmc';
 import { ProposalsDashboard, ProposalForm, ProposalDetail, ProposalPublicView } from './pages/proposals';
+import { PresentationsDashboard, PresentationForm, PresentationDetail, PresentationPublicView } from './pages/presentations';
 import { ArcaConfig, ArcaPuntosVenta, ArcaInvoices } from './pages/finance/arca';
 import {
   CheckinDashboard, CheckinDetail, CheckinPublicForm,
@@ -105,6 +106,7 @@ function AppRoutes() {
       />
       <Route path="/nps/:token" element={<NPSSurveyForm />} />
       <Route path="/p/:token" element={<ProposalPublicView />} />
+      <Route path="/pres/:token" element={<PresentationPublicView />} />
       <Route path="/checkin/:token" element={<CheckinPublicForm />} />
       <Route
         element={
@@ -117,6 +119,7 @@ function AppRoutes() {
         <Route path="/home" element={<HomeRedirect />} />
         <Route path="/okrs" element={<Dashboard />} />
         <Route path="/okrs/initiatives" element={<OKRInitiatives />} />
+        <Route path="/tareas" element={<TaskBoard />} />
         <Route path="/gestion" element={<TaskBoard />} />
 
         {/* Finance Routes */}
@@ -173,6 +176,11 @@ function AppRoutes() {
         <Route path="/proposals/new" element={<ProposalForm />} />
         <Route path="/proposals/:id" element={<ProposalDetail />} />
         <Route path="/proposals/:id/edit" element={<ProposalForm />} />
+        {/* Presentation Routes */}
+        <Route path="/presentations" element={<PresentationsDashboard />} />
+        <Route path="/presentations/new" element={<PresentationForm />} />
+        <Route path="/presentations/:id" element={<PresentationDetail />} />
+        <Route path="/presentations/:id/edit" element={<PresentationForm />} />
         {/* Tools Routes */}
         <Route path="/tools" element={<ToolsDashboard />} />
         <Route path="/tools/roi" element={<ROIDashboard />} />

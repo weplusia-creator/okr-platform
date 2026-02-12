@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useCallback, useEffect, useMemo, t
 import { createClient } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import { useAuth } from './AuthContext';
+import { notify } from '../lib/notify';
 import type {
   Project,
   ProjectParticipant,
@@ -136,6 +137,7 @@ interface ProjectContextType {
   updateProductTemplateModule: (id: string, updates: Partial<Pick<ProductTemplateModule, 'title' | 'description' | 'sortOrder'>>) => Promise<void>;
   deleteProductTemplateModule: (id: string) => Promise<void>;
   applyProductToProject: (productId: string, projectId: string) => Promise<void>;
+  rescheduleModulesWeekly: (projectId: string) => Promise<void>;
 
   // Template Deliverables
   fetchTemplateDeliverables: (templateModuleId: string) => Promise<ProductTemplateDeliverable[]>;
@@ -475,7 +477,6 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
   }, [currentProject?.id]);
 
   const getProject = useCallback(async (id: string): Promise<Project | null> => {
-    setCurrentProject(null);
     try {
       const { data, error: err } = await db
         .from('projects')
@@ -520,6 +521,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     } catch (err) {
       console.error('Error fetching project:', err);
       setError('Error al cargar proyecto');
+      setCurrentProject(null);
       return null;
     }
   }, []);
@@ -680,6 +682,21 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       };
 
       setParticipants(prev => [...prev, newParticipant]);
+
+      // Notify the added user
+      if (newParticipant.userId && newParticipant.userId !== appUser?.id && organization?.id) {
+        const project = projects.find(p => p.id === data.projectId);
+        notify({
+          organizationId: organization.id,
+          userId: newParticipant.userId,
+          type: 'project_update',
+          title: `Te agregaron al proyecto: ${project?.name || 'Proyecto'}`,
+          entityType: 'project',
+          entityId: data.projectId,
+          actionUrl: `/projects/${data.projectId}`,
+        });
+      }
+
       return { ...newParticipant, isNewUser } as any;
     } catch (err: any) {
       const msg = err?.message || err?.details || JSON.stringify(err);
@@ -687,7 +704,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       setError('Error al agregar participante: ' + msg);
       throw err;
     }
-  }, [organization?.id]);
+  }, [organization?.id, appUser?.id, projects]);
 
   const removeParticipant = useCallback(async (id: string) => {
     try {
@@ -2354,6 +2371,14 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       const templates = await fetchProductTemplateModules(productId);
       if (templates.length === 0) return;
 
+      // Get project start date for scheduling modules weekly
+      const { data: projRow } = await db
+        .from('projects')
+        .select('start_date')
+        .eq('id', projectId)
+        .single();
+      const projectStartDate = projRow?.start_date || new Date().toISOString().slice(0, 10);
+
       // Fetch existing module titles for the project to avoid duplicates
       const { data: existingModules } = await db
         .from('project_modules')
@@ -2362,8 +2387,16 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
 
       const existingTitles = new Set((existingModules || []).map((m: any) => m.title));
 
+      let weekOffset = 0;
       for (const tmpl of templates) {
         if (existingTitles.has(tmpl.title)) continue;
+
+        // Calculate start and due dates: each module starts 1 week after the previous
+        const startMs = new Date(projectStartDate).getTime() + weekOffset * 7 * 24 * 60 * 60 * 1000;
+        const dueMs = startMs + 6 * 24 * 60 * 60 * 1000; // due = 6 days after start (end of week)
+        const startDate = new Date(startMs).toISOString().slice(0, 10);
+        const dueDate = new Date(dueMs).toISOString().slice(0, 10);
+        weekOffset++;
 
         const { data: row } = await db
           .from('project_modules')
@@ -2373,6 +2406,8 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
             description: tmpl.description,
             sort_order: tmpl.sortOrder,
             status: 'pending',
+            start_date: startDate,
+            due_date: dueDate,
           })
           .select()
           .single();
@@ -2384,8 +2419,8 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
             deliverableId: null,
             title: row.title,
             description: row.description,
-            startDate: null,
-            dueDate: null,
+            startDate: row.start_date,
+            dueDate: row.due_date,
             status: row.status,
             completedAt: null,
             completedBy: null,
@@ -2439,6 +2474,12 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
         for (const session of diagnosticSessions) {
           if (existingTitles.has(session.title)) continue;
 
+          const dStartMs = new Date(projectStartDate).getTime() + weekOffset * 7 * 24 * 60 * 60 * 1000;
+          const dDueMs = dStartMs + 6 * 24 * 60 * 60 * 1000;
+          const dStartDate = new Date(dStartMs).toISOString().slice(0, 10);
+          const dDueDate = new Date(dDueMs).toISOString().slice(0, 10);
+          weekOffset++;
+
           const { data: row } = await db
             .from('project_modules')
             .insert({
@@ -2447,6 +2488,8 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
               description: session.description,
               sort_order: session.sortOrder,
               status: 'pending',
+              start_date: dStartDate,
+              due_date: dDueDate,
             })
             .select()
             .single();
@@ -2458,8 +2501,8 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
               deliverableId: null,
               title: row.title,
               description: row.description,
-              startDate: null,
-              dueDate: null,
+              startDate: row.start_date,
+              dueDate: row.due_date,
               status: row.status,
               completedAt: null,
               completedBy: null,
@@ -2471,11 +2514,55 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
           }
         }
       }
+
     } catch (err) {
       console.error('Error applying product to project:', err);
       setError('Error al aplicar servicio al proyecto');
     }
   }, [fetchProductTemplateModules, appUser?.id, products]);
+
+  const rescheduleModulesWeekly = useCallback(async (projectId: string) => {
+    try {
+      // Get project start date
+      const { data: projRow, error: projErr } = await db
+        .from('projects')
+        .select('start_date')
+        .eq('id', projectId)
+        .single();
+      if (projErr) throw projErr;
+      const baseDate = projRow?.start_date || new Date().toISOString().slice(0, 10);
+
+      // Get all modules for the project, ordered by sort_order
+      const { data: allModules, error: modErr } = await db
+        .from('project_modules')
+        .select('id, sort_order, title')
+        .eq('project_id', projectId)
+        .order('sort_order');
+      if (modErr) throw modErr;
+
+      if (!allModules || allModules.length === 0) return;
+
+      // Update each module's dates with weekly intervals
+      for (let i = 0; i < allModules.length; i++) {
+        const startMs = new Date(baseDate).getTime() + i * 7 * 24 * 60 * 60 * 1000;
+        const dueMs = startMs + 6 * 24 * 60 * 60 * 1000;
+        const startDate = new Date(startMs).toISOString().slice(0, 10);
+        const dueDate = new Date(dueMs).toISOString().slice(0, 10);
+
+        const { error: upErr } = await db
+          .from('project_modules')
+          .update({ start_date: startDate, due_date: dueDate })
+          .eq('id', allModules[i].id);
+        if (upErr) throw upErr;
+      }
+
+      // Refresh modules in state
+      await fetchModules(projectId);
+    } catch (err) {
+      console.error('Error rescheduling modules:', err);
+      setError('Error al reprogramar módulos');
+    }
+  }, [fetchModules]);
 
   // ===== TEMPLATE DELIVERABLES =====
 
@@ -2795,6 +2882,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     updateProductTemplateModule,
     deleteProductTemplateModule,
     applyProductToProject,
+    rescheduleModulesWeekly,
     fetchTemplateDeliverables,
     addTemplateDeliverable,
     updateTemplateDeliverable,
@@ -2883,6 +2971,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     updateProductTemplateModule,
     deleteProductTemplateModule,
     applyProductToProject,
+    rescheduleModulesWeekly,
     fetchTemplateDeliverables,
     addTemplateDeliverable,
     updateTemplateDeliverable,

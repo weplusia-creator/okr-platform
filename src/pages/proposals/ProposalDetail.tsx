@@ -158,8 +158,11 @@ export function ProposalDetail() {
   };
 
   const handleDownloadPDF = () => {
-    // Placeholder for PDF download functionality
-    alert('Funcionalidad de descarga de PDF proximamente disponible');
+    if (!proposal?.shareToken) {
+      alert('Primero debes enviar la propuesta para generar el PDF');
+      return;
+    }
+    window.open(`${window.location.origin}/p/${proposal.shareToken}?print=1`, '_blank');
   };
 
   if (loading || loadingData) {
@@ -246,24 +249,26 @@ export function ProposalDetail() {
             </>
           )}
 
-          {/* Sent/Viewed actions */}
-          {isSentOrViewed && (
-            <>
-              <button
-                onClick={handleCopyLink}
-                className="inline-flex items-center gap-2 px-4 py-2 text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-              >
-                <Copy className="w-5 h-5" />
-                Copiar Link
-              </button>
-              <button
-                onClick={handleDownloadPDF}
-                className="inline-flex items-center gap-2 px-4 py-2 text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-              >
-                <Download className="w-5 h-5" />
-                Descargar PDF
-              </button>
-            </>
+          {/* Share/Copy link - show for any proposal that has been sent */}
+          {proposal.shareToken && (
+            <button
+              onClick={handleCopyLink}
+              className="inline-flex items-center gap-2 px-4 py-2 text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+            >
+              <Copy className="w-5 h-5" />
+              Copiar Link
+            </button>
+          )}
+
+          {/* Download PDF */}
+          {!isDraft && (
+            <button
+              onClick={handleDownloadPDF}
+              className="inline-flex items-center gap-2 px-4 py-2 text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+            >
+              <Download className="w-5 h-5" />
+              Descargar PDF
+            </button>
           )}
 
           {/* Duplicate for all non-draft */}

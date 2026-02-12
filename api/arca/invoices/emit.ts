@@ -1,9 +1,9 @@
 import { createClient } from '@supabase/supabase-js';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { WSAAClient } from '../../../src/lib/arca/wsaa';
-import { WSFEV1Client } from '../../../src/lib/arca/wsfev1';
-import type { FECAERequestParams, IVADetail } from '../../../src/lib/arca/wsfev1';
-import { decryptData } from '../../../src/lib/arca/crypto';
+import { WSAAClient } from '../../../src/lib/arca/wsaa.js';
+import { WSFEV1Client } from '../../../src/lib/arca/wsfev1.js';
+import type { FECAERequestParams, IVADetail } from '../../../src/lib/arca/wsfev1.js';
+import { decryptData } from '../../../src/lib/arca/crypto.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
@@ -112,6 +112,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (cuitError || !cuitConfig) {
       return res.status(404).json({ error: 'CUIT configuration not found' });
+    }
+
+    // Validate certificate exists
+    if (!cuitConfig.certificate_encrypted || !cuitConfig.private_key_encrypted) {
+      return res.status(400).json({
+        error: 'No se encontró certificado para este CUIT. Subí el certificado y la clave privada desde la configuración de ARCA.',
+      });
     }
 
     // Decrypt certificate and key

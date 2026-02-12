@@ -34,6 +34,7 @@ export function CheckinDetail() {
     prioridad: 'media' as CompromisoPrioridad,
   });
   const [copied, setCopied] = useState(false);
+  const [loadTimeout, setLoadTimeout] = useState(false);
 
   const checkin = checkins.find(c => c.id === id);
   const project = checkin ? projects.find(p => p.id === checkin.proyectoId) : null;
@@ -60,6 +61,12 @@ export function CheckinDetail() {
   useEffect(() => {
     if (checkins.length === 0) fetchCheckins();
   }, [checkins.length, fetchCheckins]);
+
+  useEffect(() => {
+    if (checkin) { setLoadTimeout(false); return; }
+    const timer = setTimeout(() => setLoadTimeout(true), 8000);
+    return () => clearTimeout(timer);
+  }, [checkin, id]);
 
   const publicUrl = checkin ? `${window.location.origin}/checkin/${checkin.token}` : '';
 
@@ -132,6 +139,22 @@ export function CheckinDetail() {
   };
 
   if (!checkin) {
+    if (loadTimeout) {
+      return (
+        <div className="text-center py-12">
+          <p className="text-gray-500 dark:text-gray-400 mb-2">Error al cargar el check-in</p>
+          <button
+            onClick={() => { setLoadTimeout(false); fetchCheckins(); }}
+            className="text-primary-600 hover:underline mr-4"
+          >
+            Reintentar
+          </button>
+          <Link to="/checkins" className="text-gray-500 hover:underline">
+            Volver a check-ins
+          </Link>
+        </div>
+      );
+    }
     return (
       <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
@@ -390,7 +413,7 @@ export function CheckinDetail() {
       </div>
 
       {/* Close Modal */}
-      <Modal open={showClose} onClose={() => setShowClose(false)} title="Cerrar Check-in">
+      <Modal isOpen={showClose} onClose={() => setShowClose(false)} title="Cerrar Check-in">
         <div className="space-y-4">
           <div>
             <label className="label">Resumen de la reunión</label>
@@ -423,7 +446,7 @@ export function CheckinDetail() {
       </Modal>
 
       {/* Add Compromiso Modal */}
-      <Modal open={showAddCompromiso} onClose={() => setShowAddCompromiso(false)} title="Nuevo compromiso">
+      <Modal isOpen={showAddCompromiso} onClose={() => setShowAddCompromiso(false)} title="Nuevo compromiso">
         <div className="space-y-4">
           <div>
             <label className="label">Descripción *</label>

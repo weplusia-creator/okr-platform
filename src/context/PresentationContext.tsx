@@ -1,0 +1,410 @@
+import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
+import { supabase } from '../lib/supabase';
+import { useAuth } from './AuthContext';
+import type {
+  Presentation,
+  PresentationSlide,
+  PresentationStatus,
+  CreatePresentationInput,
+  CreateSlideInput,
+  UpdateSlideInput,
+} from '../types/presentations';
+
+interface PresentationContextType {
+  presentations: Presentation[];
+  loading: boolean;
+  error: string | null;
+
+  fetchPresentations: () => Promise<void>;
+  getPresentation: (id: string) => Promise<Presentation | null>;
+  addPresentation: (data: CreatePresentationInput) => Promise<Presentation | null>;
+  updatePresentation: (id: string, updates: Partial<Presentation>) => Promise<void>;
+  deletePresentation: (id: string) => Promise<void>;
+  duplicatePresentation: (id: string) => Promise<Presentation | null>;
+
+  fetchSlides: (presentationId: string) => Promise<PresentationSlide[]>;
+  addSlide: (data: CreateSlideInput) => Promise<PresentationSlide | null>;
+  updateSlide: (id: string, updates: UpdateSlideInput) => Promise<void>;
+  deleteSlide: (id: string) => Promise<void>;
+  reorderSlides: (presentationId: string, slideIds: string[]) => Promise<void>;
+
+  publishPresentation: (id: string) => Promise<string>;
+}
+
+const PresentationContext = createContext<PresentationContextType | undefined>(undefined);
+
+export function PresentationProvider({ children }: { children: ReactNode }) {
+  const { appUser } = useAuth();
+  const [presentations, setPresentations] = useState<Presentation[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // ===== Fetch Presentations =====
+  const fetchPresentations = useCallback(async () => {
+    if (!appUser?.organizationId) return;
+
+    setLoading(true);
+    try {
+      const { data, error: err } = await supabase
+        .from('presentations')
+        .select('*')
+        .eq('organization_id', appUser.organizationId)
+        .order('created_at', { ascending: false });
+
+      if (err) throw err;
+
+      setPresentations(
+        (data || []).map((p: any) => ({
+          id: p.id,
+          organizationId: p.organization_id,
+          title: p.title,
+          subtitle: p.subtitle,
+          author: p.author,
+          date: p.date,
+          clientName: p.client_name,
+          clientCompany: p.client_company,
+          status: p.status as PresentationStatus,
+          shareToken: p.share_token,
+          createdBy: p.created_by,
+          createdAt: p.created_at,
+          updatedAt: p.updated_at,
+        }))
+      );
+    } catch (err: any) {
+      console.error('Error fetching presentations:', err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }, [appUser?.organizationId]);
+
+  useEffect(() => {
+    if (appUser?.organizationId) {
+      fetchPresentations();
+    }
+  }, [appUser?.organizationId, fetchPresentations]);
+
+  // ===== Get Single Presentation =====
+  const getPresentation = useCallback(async (id: string): Promise<Presentation | null> => {
+    try {
+      const { data, error: err } = await supabase
+        .from('presentations')
+        .select('*')
+        .eq('id', id)
+        .single();
+
+      if (err) throw err;
+
+      const slides = await fetchSlides(id);
+
+      return {
+        id: data.id,
+        organizationId: data.organization_id,
+        title: data.title,
+        subtitle: data.subtitle,
+        author: data.author,
+        date: data.date,
+        clientName: data.client_name,
+        clientCompany: data.client_company,
+        status: data.status as PresentationStatus,
+        shareToken: data.share_token,
+        createdBy: data.created_by,
+        createdAt: data.created_at,
+        updatedAt: data.updated_at,
+        slides,
+      };
+    } catch (err: any) {
+      console.error('Error getting presentation:', err);
+      return null;
+    }
+  }, []);
+
+  // ===== Add Presentation =====
+  const addPresentation = useCallback(
+    async (data: CreatePresentationInput): Promise<Presentation | null> => {
+      if (!appUser?.organizationId) return null;
+
+      try {
+        const insertData: Record<string, any> = {
+          organization_id: appUser.organizationId,
+          title: data.title,
+          subtitle: data.subtitle || null,
+          author: data.author || null,
+          client_name: data.clientName || null,
+          client_company: data.clientCompany || null,
+          created_by: appUser.id,
+          status: 'draft',
+        };
+        if (data.date) insertData.date = data.date;
+
+        const { data: created, error: err } = await supabase
+          .from('presentations')
+          .insert(insertData)
+          .select()
+          .single();
+
+        if (err) throw new Error(err.message);
+
+        const newPres: Presentation = {
+          id: created.id,
+          organizationId: created.organization_id,
+          title: created.title,
+          subtitle: created.subtitle,
+          author: created.author,
+          date: created.date,
+          clientName: created.client_name,
+          clientCompany: created.client_company,
+          status: created.status,
+          shareToken: created.share_token,
+          createdBy: created.created_by,
+          createdAt: created.created_at,
+          updatedAt: created.updated_at,
+        };
+
+        setPresentations((prev) => [newPres, ...prev]);
+        return newPres;
+      } catch (err: any) {
+        console.error('Error adding presentation:', err);
+        throw err;
+      }
+    },
+    [appUser]
+  );
+
+  // ===== Update Presentation =====
+  const updatePresentation = useCallback(
+    async (id: string, updates: Partial<Presentation>) => {
+      try {
+        const dbUpdates: Record<string, any> = {};
+
+        if (updates.title !== undefined) dbUpdates.title = updates.title;
+        if (updates.subtitle !== undefined) dbUpdates.subtitle = updates.subtitle;
+        if (updates.author !== undefined) dbUpdates.author = updates.author;
+        if (updates.date !== undefined) dbUpdates.date = updates.date;
+        if (updates.clientName !== undefined) dbUpdates.client_name = updates.clientName;
+        if (updates.clientCompany !== undefined) dbUpdates.client_company = updates.clientCompany;
+        if (updates.status !== undefined) dbUpdates.status = updates.status;
+
+        dbUpdates.updated_at = new Date().toISOString();
+
+        const { error: err } = await supabase.from('presentations').update(dbUpdates).eq('id', id);
+        if (err) throw err;
+
+        setPresentations((prev) =>
+          prev.map((p) => (p.id === id ? { ...p, ...updates, updatedAt: dbUpdates.updated_at } : p))
+        );
+      } catch (err: any) {
+        console.error('Error updating presentation:', err);
+        setError(err.message);
+      }
+    },
+    []
+  );
+
+  // ===== Delete Presentation =====
+  const deletePresentation = useCallback(async (id: string) => {
+    try {
+      const { error: err } = await supabase.from('presentations').delete().eq('id', id);
+      if (err) throw err;
+      setPresentations((prev) => prev.filter((p) => p.id !== id));
+    } catch (err: any) {
+      console.error('Error deleting presentation:', err);
+      setError(err.message);
+    }
+  }, []);
+
+  // ===== Duplicate Presentation =====
+  const duplicatePresentation = useCallback(
+    async (id: string): Promise<Presentation | null> => {
+      const original = presentations.find((p) => p.id === id);
+      if (!original) return null;
+
+      const newPres = await addPresentation({
+        title: `${original.title} (copia)`,
+        subtitle: original.subtitle || undefined,
+        author: original.author || undefined,
+        date: original.date || undefined,
+        clientName: original.clientName || undefined,
+        clientCompany: original.clientCompany || undefined,
+      });
+
+      if (!newPres) return null;
+
+      const slides = await fetchSlides(id);
+      for (const slide of slides) {
+        await addSlide({
+          presentationId: newPres.id,
+          title: slide.title,
+          content: slide.content || undefined,
+          bulletPoints: slide.bulletPoints,
+          layout: slide.layout,
+          bgColor: slide.bgColor,
+          sortOrder: slide.sortOrder,
+        });
+      }
+
+      return newPres;
+    },
+    [presentations, addPresentation]
+  );
+
+  // ===== Fetch Slides =====
+  const fetchSlides = useCallback(async (presentationId: string): Promise<PresentationSlide[]> => {
+    try {
+      const { data, error: err } = await supabase
+        .from('presentation_slides')
+        .select('*')
+        .eq('presentation_id', presentationId)
+        .order('sort_order', { ascending: true });
+
+      if (err) throw err;
+
+      return (data || []).map((s: any) => ({
+        id: s.id,
+        presentationId: s.presentation_id,
+        title: s.title,
+        content: s.content,
+        bulletPoints: s.bullet_points || [],
+        layout: s.layout,
+        bgColor: s.bg_color,
+        sortOrder: s.sort_order,
+        createdAt: s.created_at,
+      }));
+    } catch (err: any) {
+      console.error('Error fetching slides:', err);
+      return [];
+    }
+  }, []);
+
+  // ===== Add Slide =====
+  const addSlide = useCallback(async (data: CreateSlideInput): Promise<PresentationSlide | null> => {
+    try {
+      const { data: created, error: err } = await supabase
+        .from('presentation_slides')
+        .insert({
+          presentation_id: data.presentationId,
+          title: data.title,
+          content: data.content || null,
+          bullet_points: data.bulletPoints || [],
+          layout: data.layout || 'content',
+          bg_color: data.bgColor || '#231F1F',
+          sort_order: data.sortOrder ?? 0,
+        })
+        .select()
+        .single();
+
+      if (err) throw err;
+
+      return {
+        id: created.id,
+        presentationId: created.presentation_id,
+        title: created.title,
+        content: created.content,
+        bulletPoints: created.bullet_points || [],
+        layout: created.layout,
+        bgColor: created.bg_color,
+        sortOrder: created.sort_order,
+        createdAt: created.created_at,
+      };
+    } catch (err: any) {
+      console.error('Error adding slide:', err);
+      return null;
+    }
+  }, []);
+
+  // ===== Update Slide =====
+  const updateSlide = useCallback(async (id: string, updates: UpdateSlideInput) => {
+    try {
+      const dbUpdates: Record<string, any> = {};
+
+      if (updates.title !== undefined) dbUpdates.title = updates.title;
+      if (updates.content !== undefined) dbUpdates.content = updates.content;
+      if (updates.bulletPoints !== undefined) dbUpdates.bullet_points = updates.bulletPoints;
+      if (updates.layout !== undefined) dbUpdates.layout = updates.layout;
+      if (updates.bgColor !== undefined) dbUpdates.bg_color = updates.bgColor;
+      if (updates.sortOrder !== undefined) dbUpdates.sort_order = updates.sortOrder;
+
+      const { error: err } = await supabase.from('presentation_slides').update(dbUpdates).eq('id', id);
+      if (err) throw err;
+    } catch (err: any) {
+      console.error('Error updating slide:', err);
+    }
+  }, []);
+
+  // ===== Delete Slide =====
+  const deleteSlide = useCallback(async (id: string) => {
+    try {
+      const { error: err } = await supabase.from('presentation_slides').delete().eq('id', id);
+      if (err) throw err;
+    } catch (err: any) {
+      console.error('Error deleting slide:', err);
+    }
+  }, []);
+
+  // ===== Reorder Slides =====
+  const reorderSlides = useCallback(async (presentationId: string, slideIds: string[]) => {
+    try {
+      const updates = slideIds.map((id, index) =>
+        supabase.from('presentation_slides').update({ sort_order: index }).eq('id', id)
+      );
+      await Promise.all(updates);
+    } catch (err: any) {
+      console.error('Error reordering slides:', err);
+    }
+  }, []);
+
+  // ===== Publish Presentation =====
+  const publishPresentation = useCallback(async (id: string): Promise<string> => {
+    try {
+      const { data, error: err } = await supabase
+        .from('presentations')
+        .update({ status: 'published', updated_at: new Date().toISOString() })
+        .eq('id', id)
+        .select('share_token')
+        .single();
+
+      if (err) throw err;
+
+      setPresentations((prev) =>
+        prev.map((p) => (p.id === id ? { ...p, status: 'published' as PresentationStatus } : p))
+      );
+
+      return data.share_token;
+    } catch (err: any) {
+      console.error('Error publishing presentation:', err);
+      throw err;
+    }
+  }, []);
+
+  return (
+    <PresentationContext.Provider
+      value={{
+        presentations,
+        loading,
+        error,
+        fetchPresentations,
+        getPresentation,
+        addPresentation,
+        updatePresentation,
+        deletePresentation,
+        duplicatePresentation,
+        fetchSlides,
+        addSlide,
+        updateSlide,
+        deleteSlide,
+        reorderSlides,
+        publishPresentation,
+      }}
+    >
+      {children}
+    </PresentationContext.Provider>
+  );
+}
+
+export function usePresentations() {
+  const context = useContext(PresentationContext);
+  if (!context) {
+    throw new Error('usePresentations must be used within PresentationProvider');
+  }
+  return context;
+}

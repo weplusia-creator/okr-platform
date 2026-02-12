@@ -1,21 +1,17 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { DragDropContext, Droppable, Draggable, type DropResult } from '@hello-pangea/dnd';
-import { Calendar, User, Trash2, X, Filter, Plus, MessageCircle } from 'lucide-react';
+import { Calendar, User, Trash2, X, Filter, Plus, MessageCircle, AlertTriangle, Tag } from 'lucide-react';
 import { useTask } from '../../context/TaskContext';
 import { useAuth } from '../../context/AuthContext';
 import { TaskDetail } from './TaskDetail';
 import type { Task, TaskStatus } from '../../types';
 
-const AVATAR_COLORS = [
-  '#EF4444', '#F59E0B', '#10B981', '#3B82F6',
-  '#8B5CF6', '#EC4899', '#14B8A6', '#F97316',
-  '#6366F1', '#84CC16', '#06B6D4', '#E11D48',
-];
-
 function avatarColor(id: string): string {
-  let hash = 0;
-  for (let i = 0; i < id.length; i++) hash = ((hash << 5) - hash + id.charCodeAt(i)) | 0;
-  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
+  let h = 2166136261;
+  for (let i = 0; i < id.length; i++) { h ^= id.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; }
+  const hue = h % 360;
+  const light = 35 + (Math.floor(h / 360) % 20);
+  return `hsl(${hue}, 70%, ${light}%)`;
 }
 
 const COLUMNS: { id: TaskStatus; label: string; color: string }[] = [
@@ -28,6 +24,7 @@ export function TaskBoard() {
   const {
     tasks, updateTask, deleteTask, addTask,
     taskComments, fetchTaskComments,
+    labels,
     taskLabels, fetchTaskLabels,
     taskAssignees, fetchAssignees,
   } = useTask();
@@ -38,6 +35,8 @@ export function TaskBoard() {
   const [filterStatus, setFilterStatus] = useState<TaskStatus | ''>('');
   const [filterDateFrom, setFilterDateFrom] = useState('');
   const [filterDateTo, setFilterDateTo] = useState('');
+  const [filterLabel, setFilterLabel] = useState('');
+  const [filterOverdue, setFilterOverdue] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
 
@@ -81,6 +80,7 @@ export function TaskBoard() {
   };
 
   // Filter
+  const todayStr = new Date().toISOString().slice(0, 10);
   const filtered = useMemo(() => {
     return tasks.filter(t => {
       if (filterResponsible && t.responsibleId !== filterResponsible) return false;
@@ -88,9 +88,16 @@ export function TaskBoard() {
       if (filterStatus && t.status !== filterStatus) return false;
       if (filterDateFrom && (!t.dueDate || t.dueDate < filterDateFrom)) return false;
       if (filterDateTo && (!t.dueDate || t.dueDate > filterDateTo)) return false;
+      if (filterLabel) {
+        const tl = taskLabels[t.id] || [];
+        if (!tl.some(l => l.id === filterLabel)) return false;
+      }
+      if (filterOverdue) {
+        if (!t.dueDate || t.dueDate >= todayStr || t.status === 'done') return false;
+      }
       return true;
     });
-  }, [tasks, filterResponsible, filterText, filterStatus, filterDateFrom, filterDateTo]);
+  }, [tasks, filterResponsible, filterText, filterStatus, filterDateFrom, filterDateTo, filterLabel, filterOverdue, taskLabels, todayStr]);
 
   const columnData = useMemo(() => {
     const map: Record<TaskStatus, Task[]> = { todo: [], in_progress: [], done: [] };
@@ -111,7 +118,7 @@ export function TaskBoard() {
 
   const activeUsers = orgUsers.filter(u => u.status === 'active' && u.userType !== 'client');
   const today = new Date();
-  const hasFilters = filterResponsible || filterText || filterStatus || filterDateFrom || filterDateTo;
+  const hasFilters = filterResponsible || filterText || filterStatus || filterDateFrom || filterDateTo || filterLabel || filterOverdue;
 
   const selectedTask = selectedTaskId ? tasks.find(t => t.id === selectedTaskId) : null;
 
@@ -158,6 +165,23 @@ export function TaskBoard() {
             <option key={c.id} value={c.id}>{c.label}</option>
           ))}
         </select>
+        <select
+          value={filterLabel}
+          onChange={e => setFilterLabel(e.target.value)}
+          className="select text-sm py-1.5 w-auto"
+        >
+          <option value="">Etiqueta</option>
+          {labels.map(l => (
+            <option key={l.id} value={l.id}>{l.name}</option>
+          ))}
+        </select>
+        <button
+          onClick={() => setFilterOverdue(!filterOverdue)}
+          className={`flex items-center gap-1 text-sm px-3 py-1.5 rounded-lg border transition-colors ${filterOverdue ? 'bg-red-50 dark:bg-red-900/20 border-red-300 dark:border-red-700 text-red-600 dark:text-red-400' : 'border-gray-300 dark:border-gray-600 text-gray-500 hover:border-red-300 hover:text-red-500'}`}
+        >
+          <AlertTriangle className="w-3.5 h-3.5" />
+          Vencidas
+        </button>
         <div className="flex items-center gap-1 text-xs text-gray-500">
           <Calendar className="w-3.5 h-3.5" />
           <input type="date" value={filterDateFrom} onChange={e => setFilterDateFrom(e.target.value)} className="input text-xs py-1 w-auto" />
@@ -165,7 +189,7 @@ export function TaskBoard() {
           <input type="date" value={filterDateTo} onChange={e => setFilterDateTo(e.target.value)} className="input text-xs py-1 w-auto" />
         </div>
         {hasFilters && (
-          <button onClick={() => { setFilterResponsible(''); setFilterText(''); setFilterStatus(''); setFilterDateFrom(''); setFilterDateTo(''); }} className="text-xs text-gray-500 hover:text-primary-600">
+          <button onClick={() => { setFilterResponsible(''); setFilterText(''); setFilterStatus(''); setFilterDateFrom(''); setFilterDateTo(''); setFilterLabel(''); setFilterOverdue(false); }} className="text-xs text-gray-500 hover:text-primary-600">
             Limpiar
           </button>
         )}

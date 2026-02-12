@@ -1,6 +1,7 @@
-import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
+import { createContext, useContext, useState, useCallback, useEffect, useRef, type ReactNode } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from './AuthContext';
+import { notifyMany } from '../lib/notify';
 import type {
   Client,
   Invoice,
@@ -76,7 +77,7 @@ const DEFAULT_CATEGORIES: { name: string; type: TransactionType; color: string }
 ];
 
 export function FinanceProvider({ children }: { children: ReactNode }) {
-  const { organization } = useAuth();
+  const { organization, appUser } = useAuth();
   const [clients, setClients] = useState<Client[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [categories, setCategories] = useState<CashFlowCategory[]>([]);
@@ -145,14 +146,11 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
         notes: client.notes || null,
       };
       if (client.cuit != null) row.cuit = client.cuit;
-      if (client.tipoDocumento != null) row.tipo_documento = client.tipoDocumento;
-      if (client.condicionIva != null) row.condicion_iva = client.condicionIva;
       if (client.industry != null) row.industry = client.industry;
       if (client.employeeCount != null) row.employee_count = client.employeeCount;
       if (client.website != null) row.website = client.website;
       if (client.contactName != null) row.contact_name = client.contactName;
       if (client.contactRole != null) row.contact_role = client.contactRole;
-      if (client.logoUrl != null) row.logo_url = client.logoUrl;
 
       const { data: inserted, error: insertErr } = await supabase
         .from('clients')
@@ -182,29 +180,26 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
       if (updates.phone !== undefined) row.phone = updates.phone;
       if (updates.address !== undefined) row.address = updates.address;
       if (updates.cuit !== undefined) row.cuit = updates.cuit;
-      if (updates.tipoDocumento !== undefined) row.tipo_documento = updates.tipoDocumento;
-      if (updates.condicionIva !== undefined) row.condicion_iva = updates.condicionIva;
       if (updates.industry !== undefined) row.industry = updates.industry;
       if (updates.employeeCount !== undefined) row.employee_count = updates.employeeCount;
       if (updates.website !== undefined) row.website = updates.website;
       if (updates.contactName !== undefined) row.contact_name = updates.contactName;
       if (updates.contactRole !== undefined) row.contact_role = updates.contactRole;
-      if (updates.logoUrl !== undefined) row.logo_url = updates.logoUrl;
       if (updates.notes !== undefined) row.notes = updates.notes;
 
       if (Object.keys(row).length === 0) return true;
 
       const { error: err } = await supabase
         .from('clients')
-        .update(row)
+        .update(row as any)
         .eq('id', id);
 
       if (err) throw err;
 
       setClients(prev => prev.map(c => c.id === id ? { ...c, ...updates } : c));
       return true;
-    } catch (err) {
-      console.error('Error updating client:', err);
+    } catch (err: any) {
+      console.error('Error updating client:', err?.message || err);
       setError('Error al actualizar cliente');
       return false;
     }
@@ -466,12 +461,33 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
         }
       }
 
+      // Notify admin users
+      if (organization?.id && appUser?.id && invoice) {
+        const { data: admins } = await supabase
+          .from('users')
+          .select('id')
+          .eq('organization_id', organization.id)
+          .in('role', ['admin', 'super_admin'])
+          .neq('id', appUser.id);
+
+        if (admins && admins.length > 0) {
+          notifyMany(admins.map(a => a.id), {
+            organizationId: organization.id,
+            type: 'finance',
+            title: `Factura cobrada: ${invoice.invoiceNumber}`,
+            entityType: 'invoice',
+            entityId: id,
+            actionUrl: '/finance/invoices',
+          });
+        }
+      }
+
       await fetchInvoices();
     } catch (err) {
       console.error('Error marking invoice as paid:', err);
       setError('Error al marcar factura como pagada');
     }
-  }, [invoices, categories, organization?.id, fetchInvoices]);
+  }, [invoices, categories, organization?.id, appUser?.id, fetchInvoices]);
 
   const getClientInvoices = useCallback((clientId: string) => {
     return invoices.filter(i => i.clientId === clientId);
@@ -716,13 +732,36 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
       };
 
       setTransactions(prev => [newTransaction, ...prev]);
+
+      // Notify admin users in the org (except the creator)
+      if (organization?.id && appUser?.id) {
+        const { data: admins } = await supabase
+          .from('users')
+          .select('id')
+          .eq('organization_id', organization.id)
+          .in('role', ['admin', 'super_admin'])
+          .neq('id', appUser.id);
+
+        if (admins && admins.length > 0) {
+          const fmt = new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' });
+          notifyMany(admins.map(a => a.id), {
+            organizationId: organization.id,
+            type: 'finance',
+            title: `Nueva ${newTransaction.type === 'income' ? 'ingreso' : 'gasto'}: ${newTransaction.description} ${fmt.format(newTransaction.amount)}`,
+            entityType: 'transaction',
+            entityId: newTransaction.id,
+            actionUrl: '/finance/cash-flow',
+          });
+        }
+      }
+
       return newTransaction;
     } catch (err) {
       console.error('Error adding transaction:', err);
       setError('Error al crear transacción');
       return null;
     }
-  }, [organization?.id]);
+  }, [organization?.id, appUser?.id]);
 
   const updateTransaction = useCallback(async (id: string, updates: Partial<CashFlowTransaction>) => {
     try {
@@ -1039,8 +1078,12 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
     }
   }, [organization?.id, fetchClients, fetchInvoices, fetchCategories, fetchTransactions, fetchRecurringExpenses]);
 
-  // Check for overdue invoices periodically
+  // Check for overdue invoices once after initial load
+  const overdueCheckedRef = useRef(false);
   useEffect(() => {
+    if (invoices.length === 0 || overdueCheckedRef.current) return;
+    overdueCheckedRef.current = true;
+
     const checkOverdue = async () => {
       const today = new Date().toISOString().split('T')[0];
       const overdueIds = invoices
@@ -1058,7 +1101,8 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
     };
 
     checkOverdue();
-  }, [invoices, fetchInvoices]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [invoices]);
 
   const value: FinanceContextType = {
     clients,

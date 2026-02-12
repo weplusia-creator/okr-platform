@@ -7,16 +7,12 @@ import { useTask } from '../../context/TaskContext';
 import { useAuth } from '../../context/AuthContext';
 import type { Task, TaskStatus } from '../../types';
 
-const AVATAR_COLORS = [
-  '#EF4444', '#F59E0B', '#10B981', '#3B82F6',
-  '#8B5CF6', '#EC4899', '#14B8A6', '#F97316',
-  '#6366F1', '#84CC16', '#06B6D4', '#E11D48',
-];
-
 function avatarColor(id: string): string {
-  let hash = 0;
-  for (let i = 0; i < id.length; i++) hash = ((hash << 5) - hash + id.charCodeAt(i)) | 0;
-  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
+  let h = 2166136261;
+  for (let i = 0; i < id.length; i++) { h ^= id.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; }
+  const hue = h % 360;
+  const light = 35 + (Math.floor(h / 360) % 20);
+  return `hsl(${hue}, 70%, ${light}%)`;
 }
 
 const STATUS_OPTIONS: { value: TaskStatus; label: string }[] = [
@@ -118,13 +114,20 @@ export function TaskDetail({ task, onClose }: Props) {
   };
 
   const handleCreateLabel = async () => {
-    if (!newLabelName.trim()) return;
-    const label = await addLabel(newLabelName.trim(), newLabelColor);
-    if (label) {
-      await assignLabel(task.id, label.id);
+    const name = newLabelName.trim();
+    if (!name) { alert('Nombre vacío'); return; }
+    try {
+      const label = await addLabel(name, newLabelColor);
+      if (label) {
+        await assignLabel(task.id, label.id);
+        setNewLabelName('');
+        setShowLabelForm(false);
+      } else {
+        alert('No se pudo crear la etiqueta (label es null). Puede que falte organización.');
+      }
+    } catch (err: any) {
+      alert('Error al crear etiqueta: ' + (err?.message || 'Error desconocido'));
     }
-    setNewLabelName('');
-    setShowLabelForm(false);
   };
 
   const handleAddAttachment = async () => {
@@ -207,16 +210,6 @@ export function TaskDetail({ task, onClose }: Props) {
             />
           </div>
 
-          {/* Save button */}
-          <div className="flex gap-2">
-            <button onClick={handleSave} className={`btn-primary text-sm flex items-center gap-2 ${saved ? 'bg-green-600 hover:bg-green-700' : ''}`}>
-              {saved ? <><Check className="w-4 h-4" /> Guardado</> : <><Save className="w-4 h-4" /> Guardar</>}
-            </button>
-            <button onClick={handleSaveAndClose} className="btn-secondary text-sm">
-              Guardar y cerrar
-            </button>
-          </div>
-
           {/* Additional assignees (multi) */}
           <div>
             <div className="flex items-center gap-2 mb-2">
@@ -278,9 +271,17 @@ export function TaskDetail({ task, onClose }: Props) {
 
               {labels.filter(l => !currentLabels.some(cl => cl.id === l.id)).length > 0 && (
                 <select
-                  onChange={e => { if (e.target.value) assignLabel(task.id, e.target.value); e.target.value = ''; }}
+                  value=""
+                  onChange={async e => {
+                    const val = e.target.value;
+                    if (!val) return;
+                    try {
+                      await assignLabel(task.id, val);
+                    } catch (err: any) {
+                      alert('Error al asignar etiqueta: ' + (err?.message || 'Error'));
+                    }
+                  }}
                   className="text-xs border border-dashed border-gray-300 dark:border-gray-600 rounded-full px-2 py-0.5 bg-transparent text-gray-500 cursor-pointer"
-                  defaultValue=""
                 >
                   <option value="" disabled>+ Etiqueta</option>
                   {labels.filter(l => !currentLabels.some(cl => cl.id === l.id)).map(l => (
@@ -431,10 +432,15 @@ export function TaskDetail({ task, onClose }: Props) {
           </div>
 
           {/* Footer */}
-          <div className="flex justify-between items-center pt-3 border-t border-gray-200 dark:border-gray-700">
-            <p className="text-[10px] text-gray-400">
-              Creada {new Date(task.createdAt).toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' })}
-            </p>
+          <div className="flex items-center justify-between pt-3 border-t border-gray-200 dark:border-gray-700">
+            <div className="flex items-center gap-2">
+              <button onClick={handleSave} className={`btn-primary text-sm flex items-center gap-2 ${saved ? 'bg-green-600 hover:bg-green-700' : ''}`}>
+                {saved ? <><Check className="w-4 h-4" /> Guardado</> : <><Save className="w-4 h-4" /> Guardar</>}
+              </button>
+              <button onClick={handleSaveAndClose} className="btn-secondary text-sm">
+                Guardar y cerrar
+              </button>
+            </div>
             {confirmDelete ? (
               <div className="flex items-center gap-2">
                 <span className="text-xs text-red-600">Eliminar?</span>

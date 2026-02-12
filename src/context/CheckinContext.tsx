@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useCallback, useEffect, useMemo, type ReactNode } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from './AuthContext';
+import { notifyMany } from '../lib/notify';
 import type {
   CheckinPlantilla, CheckinPlantillaPregunta, CheckinConfig, Checkin,
   CheckinPregunta, CheckinCompromiso, CheckinMetrica,
@@ -145,41 +146,42 @@ export function CheckinProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const addPlantilla = useCallback(async (data: Omit<CheckinPlantilla, 'id' | 'organizationId' | 'createdAt' | 'updatedAt'>): Promise<CheckinPlantilla | null> => {
-    if (!organization?.id || !appUser?.id) return null;
-    try {
-      const { data: row, error } = await db
-        .from('checkin_plantillas')
-        .insert({
-          organization_id: organization.id,
-          nombre: data.nombre,
-          descripcion: data.descripcion || null,
-          tipo: data.tipo || 'custom',
-          es_publica: data.esPublica ?? false,
-          creado_por: data.creadoPor || appUser.id,
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      const plantilla: CheckinPlantilla = {
-        id: row.id,
-        organizationId: row.organization_id,
-        nombre: row.nombre,
-        descripcion: row.descripcion,
-        tipo: row.tipo,
-        esPublica: row.es_publica,
-        creadoPor: row.creado_por,
-        createdAt: row.created_at,
-        updatedAt: row.updated_at,
-      };
-
-      setPlantillas(prev => [...prev, plantilla].sort((a, b) => a.nombre.localeCompare(b.nombre)));
-      return plantilla;
-    } catch (err) {
-      console.error('Error adding checkin plantilla:', err);
-      return null;
+    if (!organization?.id || !appUser?.id) {
+      console.error('addPlantilla: missing org or user', { orgId: organization?.id, userId: appUser?.id });
+      throw new Error('No se encontró la organización o el usuario. Intentá recargar la página.');
     }
+    const { data: row, error } = await db
+      .from('checkin_plantillas')
+      .insert({
+        organization_id: organization.id,
+        nombre: data.nombre,
+        descripcion: data.descripcion || null,
+        tipo: data.tipo || 'custom',
+        es_publica: data.esPublica ?? false,
+        creado_por: data.creadoPor || appUser.id,
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error adding checkin plantilla:', error);
+      throw new Error(error.message || 'Error al crear la plantilla en la base de datos.');
+    }
+
+    const plantilla: CheckinPlantilla = {
+      id: row.id,
+      organizationId: row.organization_id,
+      nombre: row.nombre,
+      descripcion: row.descripcion,
+      tipo: row.tipo,
+      esPublica: row.es_publica,
+      creadoPor: row.creado_por,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    };
+
+    setPlantillas(prev => [...prev, plantilla].sort((a, b) => a.nombre.localeCompare(b.nombre)));
+    return plantilla;
   }, [organization?.id, appUser?.id]);
 
   const updatePlantilla = useCallback(async (id: string, updates: Partial<CheckinPlantilla>) => {
@@ -304,26 +306,30 @@ export function CheckinProvider({ children }: { children: ReactNode }) {
   }, [organization?.id]);
 
   const addConfig = useCallback(async (data: Omit<CheckinConfig, 'id' | 'organizationId' | 'createdAt' | 'updatedAt'>): Promise<CheckinConfig | null> => {
-    if (!organization?.id || !appUser?.id) return null;
-    try {
-      const { data: row, error } = await db
-        .from('checkin_config')
-        .insert({
-          organization_id: organization.id,
-          proyecto_id: data.proyectoId || null,
-          cliente_id: data.clienteId || null,
-          activo: data.activo ?? true,
-          frecuencia: data.frecuencia || 'semanal',
-          dia_preferido: data.diaPreferido || null,
-          hora_envio: data.horaEnvio || null,
-          plantilla_id: data.plantillaId || null,
-          metricas_config: data.metricasConfig || null,
-          creado_por: data.creadoPor || appUser.id,
-        })
-        .select()
-        .single();
+    if (!organization?.id || !appUser?.id) {
+      throw new Error('No se encontró la organización o el usuario. Recargá la página.');
+    }
+    const { data: row, error } = await db
+      .from('checkin_config')
+      .insert({
+        organization_id: organization.id,
+        proyecto_id: data.proyectoId || null,
+        cliente_id: data.clienteId || null,
+        activo: data.activo ?? true,
+        frecuencia: data.frecuencia || 'semanal',
+        dia_preferido: data.diaPreferido || null,
+        hora_envio: data.horaEnvio || null,
+        plantilla_id: data.plantillaId || null,
+        metricas_config: data.metricasConfig || null,
+        creado_por: data.creadoPor || appUser.id,
+      })
+      .select()
+      .single();
 
-      if (error) throw error;
+    if (error) {
+      console.error('Error adding checkin config:', error);
+      throw new Error(error.message || 'Error al crear configuración de check-in.');
+    }
 
       const config: CheckinConfig = {
         id: row.id,
@@ -343,10 +349,6 @@ export function CheckinProvider({ children }: { children: ReactNode }) {
 
       setConfigs(prev => [config, ...prev]);
       return config;
-    } catch (err) {
-      console.error('Error adding checkin config:', err);
-      return null;
-    }
   }, [organization?.id, appUser?.id]);
 
   const updateConfig = useCallback(async (id: string, updates: Partial<CheckinConfig>) => {
@@ -432,11 +434,12 @@ export function CheckinProvider({ children }: { children: ReactNode }) {
   }, [organization?.id]);
 
   const addCheckin = useCallback(async (data: Omit<Checkin, 'id' | 'organizationId' | 'token' | 'createdAt' | 'updatedAt'>): Promise<Checkin | null> => {
-    if (!organization?.id || !appUser?.id) return null;
-    try {
-      const { data: row, error } = await db
-        .from('checkins')
-        .insert({
+    if (!organization?.id || !appUser?.id) {
+      throw new Error('No se encontró la organización o el usuario. Recargá la página.');
+    }
+    const { data: row, error } = await db
+      .from('checkins')
+      .insert({
           organization_id: organization.id,
           config_id: data.configId || null,
           proyecto_id: data.proyectoId || null,
@@ -461,7 +464,10 @@ export function CheckinProvider({ children }: { children: ReactNode }) {
         .select()
         .single();
 
-      if (error) throw error;
+    if (error) {
+      console.error('Error adding checkin:', error);
+      throw new Error(error.message || 'Error al crear check-in.');
+    }
 
       const checkin: Checkin = {
         id: row.id,
@@ -492,10 +498,6 @@ export function CheckinProvider({ children }: { children: ReactNode }) {
 
       setCheckins(prev => [checkin, ...prev]);
       return checkin;
-    } catch (err) {
-      console.error('Error adding checkin:', err);
-      return null;
-    }
   }, [organization?.id, appUser?.id]);
 
   const updateCheckin = useCallback(async (id: string, updates: Partial<Checkin>) => {
@@ -729,6 +731,34 @@ export function CheckinProvider({ children }: { children: ReactNode }) {
         estado: 'completado_cliente' as CheckinStatus,
         fechaCompletadoCliente: now,
       } : c));
+
+      // Notify admins that a client completed the checkin
+      try {
+        const { data: checkinFull } = await supabase
+          .from('checkins')
+          .select('id, organization_id')
+          .eq('token', token)
+          .single();
+
+        if (checkinFull) {
+          const { data: admins } = await supabase
+            .from('users')
+            .select('id')
+            .eq('organization_id', checkinFull.organization_id)
+            .in('role', ['admin', 'super_admin']);
+
+          if (admins && admins.length > 0) {
+            notifyMany(admins.map(a => a.id), {
+              organizationId: checkinFull.organization_id,
+              type: 'checkin',
+              title: 'Check-in completado por cliente',
+              entityType: 'checkin',
+              entityId: checkinFull.id,
+              actionUrl: `/checkins/${checkinFull.id}`,
+            });
+          }
+        }
+      } catch { /* notification is best-effort */ }
 
       return true;
     } catch (err) {

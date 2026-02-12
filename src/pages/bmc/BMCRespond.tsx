@@ -5,6 +5,7 @@ import { useBMC } from '../../context/BMCContext';
 import { useAuth } from '../../context/AuthContext';
 import { BMC_BLOCK_CONFIG, BMC_CANVAS_STATUS_LABELS } from '../../types/bmc';
 import type { BmcBlock, BmcBlockType } from '../../types/bmc';
+import { supabase } from '../../lib/supabase';
 
 export function BMCRespond() {
   const { canvasId } = useParams<{ canvasId: string }>();
@@ -40,6 +41,24 @@ export function BMCRespond() {
       fetchVotes(canvasId);
     }
   }, [canvasId, fetchCanvases, fetchBlocks, fetchParticipants, fetchResponses, fetchVotes]);
+
+  // Realtime: update "otras respuestas" live
+  useEffect(() => {
+    if (!canvasId) return;
+    const channel = supabase
+      .channel(`bmc-responses-respond-${canvasId}`)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'bmc_responses',
+        filter: `canvas_id=eq.${canvasId}`,
+      }, () => {
+        fetchResponses(canvasId);
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [canvasId, fetchResponses]);
 
   useEffect(() => {
     for (const block of blocks) {
@@ -119,6 +138,25 @@ export function BMCRespond() {
   // Show other responses after responding
   const canSeeOthers = canvas?.showOthersResponses === 'yes' ||
     (canvas?.showOthersResponses === 'after' && myParticipant?.status === 'completed');
+
+  const PARTICIPANT_COLORS = [
+    { bg: 'bg-blue-100 dark:bg-blue-900/30', text: 'text-blue-700 dark:text-blue-300' },
+    { bg: 'bg-emerald-100 dark:bg-emerald-900/30', text: 'text-emerald-700 dark:text-emerald-300' },
+    { bg: 'bg-amber-100 dark:bg-amber-900/30', text: 'text-amber-700 dark:text-amber-300' },
+    { bg: 'bg-purple-100 dark:bg-purple-900/30', text: 'text-purple-700 dark:text-purple-300' },
+    { bg: 'bg-rose-100 dark:bg-rose-900/30', text: 'text-rose-700 dark:text-rose-300' },
+    { bg: 'bg-cyan-100 dark:bg-cyan-900/30', text: 'text-cyan-700 dark:text-cyan-300' },
+    { bg: 'bg-indigo-100 dark:bg-indigo-900/30', text: 'text-indigo-700 dark:text-indigo-300' },
+    { bg: 'bg-teal-100 dark:bg-teal-900/30', text: 'text-teal-700 dark:text-teal-300' },
+  ];
+
+  const participantColorMap = useMemo(() => {
+    const map: Record<string, typeof PARTICIPANT_COLORS[0]> = {};
+    participants.forEach((p, i) => {
+      map[p.id] = PARTICIPANT_COLORS[i % PARTICIPANT_COLORS.length];
+    });
+    return map;
+  }, [participants]);
 
   if (!canvas) {
     return (
@@ -245,11 +283,14 @@ export function BMCRespond() {
                 {otherResponses.length > 0 && (
                   <div className="mt-3 space-y-1.5">
                     <p className="text-[10px] font-semibold text-gray-400">Otras respuestas:</p>
-                    {otherResponses.map(r => (
-                      <div key={r.id} className="bg-gray-50 dark:bg-gray-700/30 rounded px-2 py-1.5">
+                    {otherResponses.map(r => {
+                      const pColor = participantColorMap[r.participantId] || PARTICIPANT_COLORS[0];
+                      const pName = r.isAnonymous ? 'Anónimo' : (r.participantName || participants.find(p => p.id === r.participantId)?.name || '—');
+                      return (
+                      <div key={r.id} className={`rounded px-2 py-1.5 border ${pColor.bg}`}>
                         <p className="text-xs text-gray-600 dark:text-gray-400">{r.response}</p>
                         <div className="flex items-center justify-between mt-0.5">
-                          <span className="text-[10px] text-gray-400">{r.isAnonymous ? 'Anónimo' : r.participantName}</span>
+                          <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${pColor.bg} ${pColor.text}`}>{pName}</span>
                           {canvas.allowVoting && myParticipant && (
                             <div className="flex gap-0.5">
                               {[1, 2, 3, 4, 5].map(v => (
@@ -269,7 +310,8 @@ export function BMCRespond() {
                           )}
                         </div>
                       </div>
-                    ))}
+                    );
+                    })}
                   </div>
                 )}
               </div>

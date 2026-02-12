@@ -1,19 +1,39 @@
-import { useMemo } from 'react';
+import { useMemo, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { FolderKanban, Calendar, Clock, Eye } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useProjects } from '../../context/ProjectContext';
 import { PROJECT_STATUS_CONFIG } from '../../types/projects';
+import { supabase } from '../../lib/supabase';
 
 export function ClientPortal() {
   const { appUser, isAdmin } = useAuth();
   const { projects, loading } = useProjects();
+  const [participantProjectIds, setParticipantProjectIds] = useState<string[]>([]);
 
   const isPreview = isAdmin && appUser?.userType !== 'client';
 
+  // Fetch project IDs where the user is a participant
+  useEffect(() => {
+    if (!appUser?.id || isPreview) return;
+    supabase
+      .from('project_participants')
+      .select('project_id')
+      .eq('user_id', appUser.id)
+      .then(({ data }) => {
+        setParticipantProjectIds((data || []).map(r => r.project_id));
+      });
+  }, [appUser?.id, isPreview]);
+
   const clientProjects = useMemo(
-    () => isPreview ? projects : projects.filter(p => p.clientId === appUser?.clientId),
-    [projects, appUser?.clientId, isPreview],
+    () => {
+      if (isPreview) return projects;
+      return projects.filter(p =>
+        (appUser?.clientId && p.clientId === appUser.clientId) ||
+        participantProjectIds.includes(p.id)
+      );
+    },
+    [projects, appUser?.clientId, isPreview, participantProjectIds],
   );
 
   if (loading) {

@@ -16,6 +16,8 @@ import { ToolsProvider } from './context/ToolsContext';
 import { ProspectorProvider } from './context/ProspectorContext';
 import { TaskProvider } from './context/TaskContext';
 import { CheckinProvider } from './context/CheckinContext';
+import { NotificationProvider } from './context/NotificationContext';
+import { PresentationProvider } from './context/PresentationContext';
 import './index.css';
 import App from './App';
 
@@ -63,7 +65,11 @@ createRoot(document.getElementById('root')!).render(
                             <ProspectorProvider>
                               <TaskProvider>
                                 <CheckinProvider>
-                                  <App />
+                                  <PresentationProvider>
+                                    <NotificationProvider>
+                                      <App />
+                                    </NotificationProvider>
+                                  </PresentationProvider>
                                 </CheckinProvider>
                               </TaskProvider>
                             </ProspectorProvider>

@@ -2,6 +2,8 @@ import { useMemo, useEffect, useState } from 'react';
 import { DollarSign, FileText, ExternalLink, TrendingUp, CalendarDays, CheckCircle2, Circle, Loader2, Receipt, Link2, Pencil, Trash2 } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
 import { useProjects } from '../../context/ProjectContext';
+import { supabase } from '../../lib/supabase';
+import { useAuth } from '../../context/AuthContext';
 import type { Project, ProjectPayment } from '../../types/projects';
 
 interface FinanceSectionProps {
@@ -18,7 +20,8 @@ const formatMonth = (month: string) => {
 };
 
 export function FinanceSection({ project }: FinanceSectionProps) {
-  const { invoices, addInvoice, addTransaction, categories } = useFinance();
+  const { organization } = useAuth();
+  const { invoices, addInvoice, addTransaction, deleteTransaction, transactions, categories, fetchCategories } = useFinance();
   const { payments, fetchPayments, generatePayments, markPaymentPaid, markPaymentPending, updatePaymentPaidDate, updatePaymentAmount, deletePayment, linkPaymentInvoice } = useProjects();
   const [generating, setGenerating] = useState(false);
   const [creatingInvoiceFor, setCreatingInvoiceFor] = useState<string | null>(null);
@@ -71,14 +74,55 @@ export function FinanceSection({ project }: FinanceSectionProps) {
   };
 
   const handleMarkPaid = async (payment: ProjectPayment) => {
-    await markPaymentPaid(payment.id);
-    // Auto-create cash flow transaction
-    const incomeCategory = categories.find(c => c.type === 'income');
-    if (incomeCategory) {
+    try {
+      await markPaymentPaid(payment.id);
+
+      // Find income category — try local state first
+      let catId = categories.find(c => c.type === 'income')?.id;
+
+      // Fallback: query DB directly if categories not loaded
+      if (!catId && organization?.id) {
+        const { data: catRows, error: catErr } = await supabase
+          .from('cash_flow_categories')
+          .select('id')
+          .eq('organization_id', organization.id)
+          .eq('type', 'income')
+          .limit(1);
+        if (catErr) {
+          console.error('Error querying income category:', catErr);
+        } else if (catRows && catRows.length > 0) {
+          catId = catRows[0].id;
+        }
+        fetchCategories();
+      }
+
+      if (!catId) {
+        alert('Error: No se encontró categoría de ingresos para crear la transacción en flujo de caja. Recargá la página e intentá de nuevo.');
+        return;
+      }
+
+      // Delete any existing transaction for this payment (handles re-marking as paid)
+      const existingTx = transactions.find(t => t.paymentId === payment.id);
+      if (existingTx) {
+        await deleteTransaction(existingTx.id);
+      } else if (organization?.id) {
+        // Also check DB directly in case local state doesn't have paymentId mapped
+        const { data: dbTx } = await supabase
+          .from('cash_flow_transactions')
+          .select('id')
+          .eq('organization_id', organization.id)
+          .eq('payment_id', payment.id);
+        if (dbTx && dbTx.length > 0) {
+          for (const tx of dbTx) {
+            await supabase.from('cash_flow_transactions').delete().eq('id', tx.id);
+          }
+        }
+      }
+
       const today = new Date().toISOString().split('T')[0];
-      await addTransaction({
+      const result = await addTransaction({
         type: 'income',
-        categoryId: incomeCategory.id,
+        categoryId: catId,
         amount: payment.amount,
         description: `Cuota ${formatMonth(payment.month)} — ${project.name}`,
         date: today,
@@ -86,7 +130,28 @@ export function FinanceSection({ project }: FinanceSectionProps) {
         clientId: project.clientId || null,
         projectId: project.id,
         paymentId: payment.id,
+        paidBy: null,
       });
+
+      if (!result) {
+        alert('Error: No se pudo crear la transacción en flujo de caja. Revisá la consola del navegador (F12) para más detalles.');
+      }
+    } catch (err: any) {
+      console.error('Error creating cash flow transaction for payment:', err);
+      alert(`Error al registrar en flujo de caja: ${err?.message || 'Error desconocido'}`);
+    }
+  };
+
+  const handleMarkPending = async (payment: ProjectPayment) => {
+    try {
+      await markPaymentPending(payment.id);
+      // Delete associated cash flow transaction
+      const existingTx = transactions.find(t => t.paymentId === payment.id);
+      if (existingTx) {
+        await deleteTransaction(existingTx.id);
+      }
+    } catch (err) {
+      console.error('Error marking payment pending:', err);
     }
   };
 
@@ -326,7 +391,7 @@ export function FinanceSection({ project }: FinanceSectionProps) {
                               </button>
                             ) : (
                               <button
-                                onClick={() => markPaymentPending(payment.id)}
+                                onClick={() => handleMarkPending(payment)}
                                 className="text-xs text-yellow-600 hover:text-yellow-800 dark:text-yellow-400 dark:hover:text-yellow-300 font-medium"
                               >
                                 Marcar pendiente

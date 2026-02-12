@@ -54,7 +54,7 @@ export function CashFlow() {
     generateMonthlyExpenses,
   } = useFinance();
   const { isAdmin } = useAuth();
-  const { fetchAllPayments, projects } = useProjects();
+  const { fetchAllPayments, projects, markPaymentPaid, markPaymentPending } = useProjects();
   const navigate = useNavigate();
 
   const [allPayments, setAllPayments] = useState<(ProjectPayment & { projectName: string; clientId?: string })[]>([]);
@@ -208,6 +208,52 @@ export function CashFlow() {
       month: 'short',
       year: 'numeric',
     });
+  };
+
+  const formatMonthLabel = (month: string) => {
+    const [yyyy, mm] = month.split('-');
+    const date = new Date(Number(yyyy), Number(mm) - 1, 1);
+    return date.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' });
+  };
+
+  const handleGanttTogglePaid = async (payment: ProjectPayment & { projectName: string; clientId?: string }) => {
+    const isPaid = payment.status === 'paid';
+    try {
+      if (isPaid) {
+        // Mark as pending + delete associated transaction
+        await markPaymentPending(payment.id);
+        setAllPayments(prev => prev.map(p => p.id === payment.id ? { ...p, status: 'pending' as const, paidDate: null } : p));
+        const existingTx = transactions.find(t => t.paymentId === payment.id);
+        if (existingTx) await deleteTransaction(existingTx.id);
+      } else {
+        // Mark as paid + create cash flow transaction
+        await markPaymentPaid(payment.id);
+        setAllPayments(prev => prev.map(p => p.id === payment.id ? { ...p, status: 'paid' as const, paidDate: new Date().toISOString().slice(0, 10) } : p));
+
+        // Find income category
+        const incomeCategory = categories.find(c => c.type === 'income');
+        if (incomeCategory) {
+          // Delete any existing transaction for this payment (re-marking case)
+          const existingTx = transactions.find(t => t.paymentId === payment.id);
+          if (existingTx) await deleteTransaction(existingTx.id);
+
+          const today = new Date().toISOString().split('T')[0];
+          await addTransaction({
+            type: 'income',
+            categoryId: incomeCategory.id,
+            amount: payment.amount,
+            description: `Cuota ${formatMonthLabel(payment.month)} — ${payment.projectName}`,
+            date: today,
+            invoiceId: null,
+            clientId: payment.clientId || null,
+            projectId: payment.projectId,
+            paymentId: payment.id,
+          });
+        }
+      }
+    } catch (err) {
+      console.error('Error toggling payment status:', err);
+    }
   };
 
   const openNewTransaction = (type: TransactionType) => {
@@ -1337,13 +1383,18 @@ export function CashFlow() {
                       const isPaid = payment.status === 'paid';
                       return (
                         <td key={m} className="py-2 px-2 text-center">
-                          <div className={`inline-block px-2 py-1 rounded-md text-xs font-medium ${
-                            isPaid
-                              ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
-                              : 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'
-                          }`}>
+                          <button
+                            onClick={() => handleGanttTogglePaid(payment)}
+                            title={isPaid ? 'Click para marcar como pendiente' : 'Click para marcar como cobrado'}
+                            className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium transition-all ${
+                              isPaid
+                                ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900/50'
+                                : 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400 hover:bg-yellow-200 dark:hover:bg-yellow-900/50 cursor-pointer'
+                            }`}
+                          >
+                            {isPaid && <Check className="w-3 h-3" />}
                             {formatCurrency(payment.amount)}
-                          </div>
+                          </button>
                         </td>
                       );
                     })}

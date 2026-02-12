@@ -2,6 +2,7 @@ import { useState, useEffect, type FormEvent } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
   ArrowLeft,
+  ArrowRight,
   Save,
   Loader2,
   Plus,
@@ -10,6 +11,8 @@ import {
   ChevronUp,
   X,
   Sparkles,
+  LayoutList,
+  Presentation,
 } from 'lucide-react';
 import { useProposals } from '../../context/ProposalContext';
 import { useProjects } from '../../context/ProjectContext';
@@ -77,6 +80,8 @@ export function ProposalForm() {
   const [aiRawText, setAiRawText] = useState('');
   const [aiParsing, setAiParsing] = useState(false);
   const [showAiInput, setShowAiInput] = useState(false);
+  const [wizardMode, setWizardMode] = useState(false);
+  const [wizardStep, setWizardStep] = useState(0);
   const [validityDays, setValidityDays] = useState(30);
 
   // Service items
@@ -527,8 +532,54 @@ ${aiRawText}`,
         </div>
       </div>
 
+      {/* Mode Toggle */}
+      <div className="flex items-center gap-2 bg-gray-100 dark:bg-gray-800 rounded-lg p-1 w-fit">
+        <button
+          type="button"
+          onClick={() => { setWizardMode(false); }}
+          className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${!wizardMode ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'}`}
+        >
+          <LayoutList className="w-4 h-4" />
+          Formulario
+        </button>
+        <button
+          type="button"
+          onClick={() => { setWizardMode(true); setWizardStep(0); }}
+          className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${wizardMode ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'}`}
+        >
+          <Presentation className="w-4 h-4" />
+          Paso a paso
+        </button>
+      </div>
+
+      {/* Wizard Progress */}
+      {wizardMode && (
+        <div className="flex items-center gap-1">
+          {['Cliente', 'Propuesta', 'Diagnostico', 'Servicios', 'Precios', 'Terminos'].map((label, idx) => (
+            <div key={label} className="flex items-center gap-1 flex-1">
+              <button
+                type="button"
+                onClick={() => setWizardStep(idx)}
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-colors w-full justify-center ${
+                  idx === wizardStep
+                    ? 'bg-primary-600 text-white'
+                    : idx < wizardStep
+                      ? 'bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300'
+                      : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400'
+                }`}
+              >
+                <span className="hidden sm:inline">{label}</span>
+                <span className="sm:hidden">{idx + 1}</span>
+              </button>
+              {idx < 5 && <div className={`w-2 h-0.5 flex-shrink-0 ${idx < wizardStep ? 'bg-primary-400' : 'bg-gray-300 dark:bg-gray-600'}`} />}
+            </div>
+          ))}
+        </div>
+      )}
+
       <form onSubmit={(e) => handleSubmit(e, false)} className="space-y-6">
-        {/* Client Info Section */}
+        {/* Client Info Section - Step 0 */}
+        {(!wizardMode || wizardStep === 0) && (
         <div className="card p-6 space-y-4">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
             Datos del Cliente
@@ -577,8 +628,10 @@ ${aiRawText}`,
             </div>
           </div>
         </div>
+        )}
 
-        {/* Proposal Info Section */}
+        {/* Proposal Info Section - Step 1 */}
+        {(!wizardMode || wizardStep === 1) && (
         <div className="card p-6 space-y-4">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
             Informacion de la Propuesta
@@ -617,8 +670,10 @@ ${aiRawText}`,
             </div>
           </div>
         </div>
+        )}
 
-        {/* Diagnostico y Objetivos */}
+        {/* Diagnostico y Objetivos - Step 2 */}
+        {(!wizardMode || wizardStep === 2) && (
         <div className="card p-6 space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
@@ -818,8 +873,10 @@ ${aiRawText}`,
             </div>
           </div>
         </div>
+        )}
 
-        {/* Service Items Section */}
+        {/* Service Items Section - Step 3 */}
+        {(!wizardMode || wizardStep === 3) && (
         <div className="card p-6 space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
@@ -1181,8 +1238,10 @@ ${aiRawText}`,
             </div>
           )}
         </div>
+        )}
 
-        {/* Pricing Section */}
+        {/* Pricing Section - Step 4 */}
+        {(!wizardMode || wizardStep === 4) && (
         <div className="card p-6 space-y-4">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
             Precios
@@ -1216,8 +1275,10 @@ ${aiRawText}`,
             </div>
           </div>
         </div>
+        )}
 
-        {/* Terms Section */}
+        {/* Terms Section - Step 5 */}
+        {(!wizardMode || wizardStep === 5) && (
         <div className="card p-6 space-y-4">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
             Terminos
@@ -1245,8 +1306,58 @@ ${aiRawText}`,
             </div>
           </div>
         </div>
+        )}
 
-        {/* Footer Buttons */}
+        {/* Wizard Navigation */}
+        {wizardMode && (
+          <div className="flex items-center justify-between">
+            <button
+              type="button"
+              onClick={() => setWizardStep((s) => Math.max(0, s - 1))}
+              disabled={wizardStep === 0}
+              className="btn btn-secondary flex items-center gap-2 disabled:opacity-40"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Anterior
+            </button>
+            <span className="text-sm text-gray-500 dark:text-gray-400">
+              Paso {wizardStep + 1} de 6
+            </span>
+            {wizardStep < 5 ? (
+              <button
+                type="button"
+                onClick={() => setWizardStep((s) => Math.min(5, s + 1))}
+                className="btn btn-primary flex items-center gap-2"
+              >
+                Siguiente
+                <ArrowRight className="w-4 h-4" />
+              </button>
+            ) : (
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={(e) => handleSubmit(e as any, true)}
+                  disabled={loading || !clientName || !title}
+                  className="btn btn-secondary flex items-center gap-2"
+                >
+                  {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                  Borrador
+                </button>
+                <button
+                  type="submit"
+                  disabled={loading || !clientName || !title}
+                  className="btn btn-primary flex items-center gap-2"
+                >
+                  {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                  Guardar
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Footer Buttons (full form mode) */}
+        {!wizardMode && (
         <div className="flex items-center justify-end gap-4">
           <button
             type="button"
@@ -1281,6 +1392,7 @@ ${aiRawText}`,
             Guardar
           </button>
         </div>
+        )}
       </form>
 
       {/* Product Selection Modal */}

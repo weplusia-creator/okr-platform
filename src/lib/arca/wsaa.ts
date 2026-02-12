@@ -47,13 +47,15 @@ export class WSAAClient {
    */
   private createTRA(service: string): string {
     const now = new Date();
-    // Generation time: 5 minutes in the past to account for clock skew
-    const generationTime = new Date(now.getTime() - 5 * 60 * 1000);
-    // Expiration time: 24 hours from now (max allowed by WSAA)
-    const expirationTime = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+    // Generation time: 10 minutes in the past to account for clock skew
+    const generationTime = new Date(now.getTime() - 10 * 60 * 1000);
+    // Expiration time: 12 hours from now (max allowed by WSAA is <24h)
+    const expirationTime = new Date(now.getTime() + 12 * 60 * 60 * 1000);
 
     const formatDate = (d: Date): string => {
-      return d.toISOString().replace(/\.\d{3}Z$/, '-03:00');
+      // WSAA expects ISO format with timezone offset
+      // Use UTC format which WSAA accepts
+      return d.toISOString().replace(/\.\d{3}Z$/, '+00:00');
     };
 
     return `<?xml version="1.0" encoding="UTF-8"?>

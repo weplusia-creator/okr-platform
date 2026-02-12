@@ -21,6 +21,8 @@ import {
   LayoutGrid,
   BookMarked,
   MoreHorizontal,
+  CalendarClock,
+  Loader2,
 } from 'lucide-react';
 import { useProjects } from '../../context/ProjectContext';
 import { useAuth } from '../../context/AuthContext';
@@ -100,6 +102,7 @@ export function ProjectDetail() {
     alumniProfile,
     fetchAlumniProfile,
     fetchAllAlumniProfiles,
+    rescheduleModulesWeekly,
   } = useProjects();
 
   const { canvases, fetchCanvases } = useBMC();
@@ -117,6 +120,7 @@ export function ProjectDetail() {
   const [, setAlumniProfileChecked] = useState(false);
   const [allAlumniProfiles, setAllAlumniProfiles] = useState<AlumniProfile[]>([]);
   const [editingAlumniProfile, setEditingAlumniProfile] = useState(false);
+  const [rescheduling, setRescheduling] = useState(false);
 
   // Determine current user's role in this project
   const currentParticipant = useMemo(() => {
@@ -248,7 +252,50 @@ export function ProjectDetail() {
     setShowDeliverableForm(true);
   };
 
-  if (loading && !currentProject) {
+  const [projectLoaded, setProjectLoaded] = useState(false);
+  const [loadError, setLoadError] = useState(false);
+
+  useEffect(() => {
+    setProjectLoaded(false);
+    setLoadError(false);
+  }, [id]);
+
+  useEffect(() => {
+    if (currentProject?.id === id) {
+      setProjectLoaded(true);
+    }
+  }, [currentProject, id]);
+
+  // Timeout: if project hasn't loaded in 8 seconds, show error
+  useEffect(() => {
+    if (projectLoaded) return;
+    const timer = setTimeout(() => {
+      if (!projectLoaded) setLoadError(true);
+    }, 8000);
+    return () => clearTimeout(timer);
+  }, [projectLoaded, id]);
+
+  if (!projectLoaded && !currentProject) {
+    if (loadError) {
+      return (
+        <div className="text-center py-12">
+          <p className="text-gray-500 dark:text-gray-400 mb-2">Error al cargar el proyecto</p>
+          <button
+            onClick={() => {
+              setLoadError(false);
+              setProjectLoaded(false);
+              if (id) getProject(id);
+            }}
+            className="text-primary-600 hover:underline mr-4"
+          >
+            Reintentar
+          </button>
+          <Link to="/projects/list" className="text-gray-500 hover:underline">
+            Volver a proyectos
+          </Link>
+        </div>
+      );
+    }
     return (
       <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500" />
@@ -568,7 +615,27 @@ export function ProjectDetail() {
         {/* ===== MODULOS ===== */}
         {activeTab === 'modules' && (
           <div className="space-y-4">
-            <ModuleProgress modules={modules} />
+            <div className="flex items-center gap-3">
+              <div className="flex-1">
+                <ModuleProgress modules={modules} />
+              </div>
+              {sortedModules.length > 1 && (
+                <button
+                  onClick={async () => {
+                    if (!id || rescheduling) return;
+                    setRescheduling(true);
+                    await rescheduleModulesWeekly(id);
+                    setRescheduling(false);
+                  }}
+                  disabled={rescheduling}
+                  className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors shrink-0 disabled:opacity-50"
+                  title="Reprogramar módulos con intervalos semanales"
+                >
+                  {rescheduling ? <Loader2 className="w-4 h-4 animate-spin" /> : <CalendarClock className="w-4 h-4" />}
+                  {rescheduling ? 'Reprogramando...' : 'Reprogramar semanal'}
+                </button>
+              )}
+            </div>
 
             {sortedModules.length === 0 ? (
               <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">

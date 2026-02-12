@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, Users, Plus, Trash2, CheckCircle, Eye, Lock, Unlock,
   ChevronDown, ChevronRight, Star, Send, Download, ClipboardCopy, MessageSquare,
+  Pencil, X, Save,
 } from 'lucide-react';
 import { useBMC } from '../../context/BMCContext';
 import { useProjects } from '../../context/ProjectContext';
@@ -12,6 +13,7 @@ import {
   BMC_BLOCK_CONFIG, BMC_CANVAS_STATUS_LABELS, BMC_CANVAS_TYPE_LABELS,
 } from '../../types/bmc';
 import type { BmcBlockType, BmcBlock, BmcCanvasStatus } from '../../types/bmc';
+import { supabase } from '../../lib/supabase';
 
 export function BMCCanvasView() {
   const { canvasId } = useParams<{ canvasId: string }>();
@@ -23,7 +25,7 @@ export function BMCCanvasView() {
     blocks, fetchBlocks, consolidateBlock,
     questions, fetchQuestions,
     participants, fetchParticipants, addParticipant, removeParticipant,
-    responses, fetchResponses,
+    responses, fetchResponses, saveResponse,
     votes, fetchVotes, castVote,
   } = useBMC();
 
@@ -36,6 +38,8 @@ export function BMCCanvasView() {
   const [addUserId, setAddUserId] = useState('');
   const [saving, setSaving] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
+  const [editingResponseId, setEditingResponseId] = useState<string | null>(null);
+  const [editText, setEditText] = useState('');
 
   const canvas = canvases.find(c => c.id === canvasId);
   const project = canvas ? projects.find(p => p.id === canvas.projectId) : null;
@@ -49,6 +53,24 @@ export function BMCCanvasView() {
       fetchVotes(canvasId);
     }
   }, [canvasId, fetchCanvases, fetchBlocks, fetchParticipants, fetchResponses, fetchVotes]);
+
+  // Realtime: re-fetch responses when any change happens
+  useEffect(() => {
+    if (!canvasId) return;
+    const channel = supabase
+      .channel(`bmc-responses-admin-${canvasId}`)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'bmc_responses',
+        filter: `canvas_id=eq.${canvasId}`,
+      }, () => {
+        fetchResponses(canvasId);
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [canvasId, fetchResponses]);
 
   // Load questions for all blocks
   useEffect(() => {
@@ -74,6 +96,51 @@ export function BMCCanvasView() {
     }
     return map;
   }, [responses]);
+
+  // Assign a stable color to each participant
+  const PARTICIPANT_COLORS = [
+    { bg: 'bg-blue-100 dark:bg-blue-900/30', text: 'text-blue-700 dark:text-blue-300', border: 'border-blue-200 dark:border-blue-800' },
+    { bg: 'bg-emerald-100 dark:bg-emerald-900/30', text: 'text-emerald-700 dark:text-emerald-300', border: 'border-emerald-200 dark:border-emerald-800' },
+    { bg: 'bg-amber-100 dark:bg-amber-900/30', text: 'text-amber-700 dark:text-amber-300', border: 'border-amber-200 dark:border-amber-800' },
+    { bg: 'bg-purple-100 dark:bg-purple-900/30', text: 'text-purple-700 dark:text-purple-300', border: 'border-purple-200 dark:border-purple-800' },
+    { bg: 'bg-rose-100 dark:bg-rose-900/30', text: 'text-rose-700 dark:text-rose-300', border: 'border-rose-200 dark:border-rose-800' },
+    { bg: 'bg-cyan-100 dark:bg-cyan-900/30', text: 'text-cyan-700 dark:text-cyan-300', border: 'border-cyan-200 dark:border-cyan-800' },
+    { bg: 'bg-indigo-100 dark:bg-indigo-900/30', text: 'text-indigo-700 dark:text-indigo-300', border: 'border-indigo-200 dark:border-indigo-800' },
+    { bg: 'bg-teal-100 dark:bg-teal-900/30', text: 'text-teal-700 dark:text-teal-300', border: 'border-teal-200 dark:border-teal-800' },
+  ];
+
+  const participantColorMap = useMemo(() => {
+    const map: Record<string, typeof PARTICIPANT_COLORS[0]> = {};
+    participants.forEach((p, i) => {
+      map[p.id] = PARTICIPANT_COLORS[i % PARTICIPANT_COLORS.length];
+    });
+    return map;
+  }, [participants]);
+
+  const handleEditResponse = (responseId: string, currentText: string) => {
+    setEditingResponseId(responseId);
+    setEditText(currentText);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingResponseId || !editText.trim()) return;
+    const r = responses.find(r => r.id === editingResponseId);
+    if (!r || !canvasId) return;
+    setSaving(true);
+    try {
+      await saveResponse({
+        canvasId,
+        blockId: r.blockId,
+        questionId: r.questionId,
+        participantId: r.participantId,
+        response: editText.trim(),
+      });
+      setEditingResponseId(null);
+      setEditText('');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const handleAddParticipant = async () => {
     if (!canvasId) return;
@@ -250,23 +317,65 @@ export function BMCCanvasView() {
                   {qResponses.length === 0 ? (
                     <p className="text-xs text-gray-400 italic ml-7">Sin respuestas aún</p>
                   ) : (
-                    <div className="space-y-1.5 ml-7">
+                    <div className="space-y-2 ml-7">
                       {qResponses.map(r => {
                         const rVotes = votes.filter(v => v.responseId === r.id);
                         const avgVote = rVotes.length > 0 ? (rVotes.reduce((s, v) => s + v.value, 0) / rVotes.length).toFixed(1) : null;
                         const pName = r.isAnonymous ? 'Anónimo' : (r.participantName || participants.find(p => p.id === r.participantId)?.name || '—');
+                        const pColor = participantColorMap[r.participantId] || PARTICIPANT_COLORS[0];
+                        const isEditing = editingResponseId === r.id;
 
                         return (
-                          <div key={r.id} className="bg-gray-50 dark:bg-gray-700/30 rounded-lg px-3 py-2">
-                            <p className="text-sm text-gray-700 dark:text-gray-300">{r.response}</p>
-                            <div className="flex items-center justify-between mt-1">
-                              <span className="text-[10px] text-gray-400 font-medium">{pName}</span>
-                              {canvas.allowVoting && avgVote && (
-                                <span className="text-[10px] text-amber-500 flex items-center gap-0.5">
-                                  <Star className="w-3 h-3 fill-amber-400" /> {avgVote}
-                                </span>
-                              )}
-                            </div>
+                          <div key={r.id} className={`rounded-lg px-3 py-2.5 border ${pColor.bg} ${pColor.border}`}>
+                            {isEditing ? (
+                              <div className="space-y-2">
+                                <textarea
+                                  className="input text-sm"
+                                  rows={3}
+                                  value={editText}
+                                  onChange={e => setEditText(e.target.value)}
+                                  autoFocus
+                                />
+                                <div className="flex justify-end gap-2">
+                                  <button
+                                    onClick={() => setEditingResponseId(null)}
+                                    className="btn-ghost btn-sm flex items-center gap-1 text-xs"
+                                  >
+                                    <X className="w-3 h-3" /> Cancelar
+                                  </button>
+                                  <button
+                                    onClick={handleSaveEdit}
+                                    disabled={saving || !editText.trim()}
+                                    className="btn-primary btn-sm flex items-center gap-1 text-xs disabled:opacity-50"
+                                  >
+                                    <Save className="w-3 h-3" /> Guardar
+                                  </button>
+                                </div>
+                              </div>
+                            ) : (
+                              <>
+                                <p className="text-sm text-gray-700 dark:text-gray-300">{r.response}</p>
+                                <div className="flex items-center justify-between mt-1.5">
+                                  <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${pColor.bg} ${pColor.text}`}>
+                                    {pName}
+                                  </span>
+                                  <div className="flex items-center gap-2">
+                                    {canvas.allowVoting && avgVote && (
+                                      <span className="text-[10px] text-amber-500 flex items-center gap-0.5">
+                                        <Star className="w-3 h-3 fill-amber-400" /> {avgVote}
+                                      </span>
+                                    )}
+                                    <button
+                                      onClick={() => handleEditResponse(r.id, r.response)}
+                                      className="text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 transition-colors"
+                                      title="Editar respuesta"
+                                    >
+                                      <Pencil className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
+                                </div>
+                              </>
+                            )}
                           </div>
                         );
                       })}

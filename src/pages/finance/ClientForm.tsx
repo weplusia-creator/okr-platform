@@ -79,33 +79,40 @@ export function ClientForm() {
   const [webMessage, setWebMessage] = useState('');
   const [formData, setFormData] = useState(EMPTY_FORM);
 
+  const [formPopulated, setFormPopulated] = useState(false);
+
+  // Reset when navigating to a different client
   useEffect(() => {
+    setFormPopulated(false);
     setSaving(false);
     setWebMessage('');
-    if (isEditing) {
-      const client = clients.find(c => c.id === id);
-      if (client) {
-        setFormData({
-          name: client.name,
-          company: client.company || '',
-          email: client.email || '',
-          phone: client.phone || '',
-          address: client.address || '',
-          cuit: client.cuit || '',
-          condicionIva: client.condicionIva || '',
-          industry: client.industry || '',
-          employeeCount: client.employeeCount || '',
-          website: client.website || '',
-          contactName: client.contactName || '',
-          contactRole: client.contactRole || '',
-          logoUrl: client.logoUrl || '',
-          notes: client.notes || '',
-        });
-      }
-    } else {
-      setFormData(EMPTY_FORM);
+    if (!isEditing) setFormData(EMPTY_FORM);
+  }, [id, isEditing]);
+
+  // Populate form when client data becomes available (only once per id)
+  useEffect(() => {
+    if (!isEditing || formPopulated) return;
+    const client = clients.find(c => c.id === id);
+    if (client) {
+      setFormData({
+        name: client.name,
+        company: client.company || '',
+        email: client.email || '',
+        phone: client.phone || '',
+        address: client.address || '',
+        cuit: client.cuit || '',
+        condicionIva: client.condicionIva || '',
+        industry: client.industry || '',
+        employeeCount: client.employeeCount || '',
+        website: client.website || '',
+        contactName: client.contactName || '',
+        contactRole: client.contactRole || '',
+        logoUrl: client.logoUrl || '',
+        notes: client.notes || '',
+      });
+      setFormPopulated(true);
     }
-  }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [id, clients, isEditing, formPopulated]);
 
   const handleFetchFromWeb = async () => {
     if (!formData.website) return;

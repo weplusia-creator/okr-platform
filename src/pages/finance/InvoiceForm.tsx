@@ -142,6 +142,8 @@ export function InvoiceForm() {
         );
         navigate('/finance/invoices');
       }
+    } catch (err: any) {
+      alert('Error al guardar factura: ' + (err?.message || 'Error desconocido'));
     } finally {
       setLoading(false);
     }

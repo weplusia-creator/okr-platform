@@ -137,6 +137,8 @@ export function BMCCanvasView() {
       });
       setEditingResponseId(null);
       setEditText('');
+    } catch (err: any) {
+      alert('Error al guardar: ' + (err?.message || 'Error desconocido'));
     } finally {
       setSaving(false);
     }

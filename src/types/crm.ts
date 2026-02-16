@@ -1,8 +1,8 @@
 // ===== CRM Types =====
 
 // ===== Enums/Union Types =====
-export type LeadSource = 'manual' | 'web' | 'referido' | 'evento' | 'linkedin' | 'publicidad' | 'otro';
-export type LeadStatus = 'nuevo' | 'contactado' | 'calificado' | 'descalificado';
+export type LeadSource = 'manual' | 'web' | 'referido' | 'evento' | 'linkedin' | 'publicidad' | 'landing' | 'guia agro' | 'otro';
+export type LeadStatus = 'new' | 'nuevo' | 'contactado' | 'calificado' | 'descalificado';
 export type DealStage = string;
 export type ActivityType = 'llamada' | 'email' | 'reunion' | 'tarea' | 'nota';
 
@@ -101,10 +101,13 @@ export const LEAD_SOURCE_LABELS: Record<LeadSource, string> = {
   evento: 'Evento',
   linkedin: 'LinkedIn',
   publicidad: 'Publicidad',
+  landing: 'Landing',
+  'guia agro': 'Guía Agro',
   otro: 'Otro',
 };
 
 export const LEAD_STATUS_CONFIG: Record<LeadStatus, { label: string; color: string; bgClass: string }> = {
+  new: { label: 'Nuevo', color: 'blue', bgClass: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300' },
   nuevo: { label: 'Nuevo', color: 'blue', bgClass: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300' },
   contactado: { label: 'Contactado', color: 'yellow', bgClass: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300' },
   calificado: { label: 'Calificado', color: 'green', bgClass: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' },

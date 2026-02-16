@@ -23,6 +23,11 @@ import {
   MoreHorizontal,
   CalendarClock,
   Loader2,
+  Megaphone,
+  Pin,
+  Send,
+  Check,
+  X,
 } from 'lucide-react';
 import { useProjects } from '../../context/ProjectContext';
 import { useAuth } from '../../context/AuthContext';
@@ -56,10 +61,11 @@ import {
   getProjectDisplayName,
 } from '../../types/projects';
 
-type TabKey = 'summary' | 'deliverables' | 'modules' | 'gantt' | 'team' | 'attendance' | 'nps' | 'documents' | 'finance' | 'activity' | 'onboarding' | 'bmc' | 'playbook' | 'checkins';
+type TabKey = 'summary' | 'novedades' | 'deliverables' | 'modules' | 'gantt' | 'team' | 'attendance' | 'nps' | 'documents' | 'finance' | 'activity' | 'onboarding' | 'bmc' | 'playbook' | 'checkins';
 
 const PRIMARY_TABS: { key: TabKey; label: string; icon: React.ElementType }[] = [
   { key: 'summary', label: 'Resumen', icon: BarChart3 },
+  { key: 'novedades', label: 'Novedades', icon: Megaphone },
   { key: 'modules', label: 'Módulos', icon: BookOpen },
   { key: 'deliverables', label: 'Entregables', icon: Package },
   { key: 'gantt', label: 'Gantt', icon: GanttChart },
@@ -77,7 +83,21 @@ const SECONDARY_TABS: { key: TabKey; label: string; icon: React.ElementType }[] 
   { key: 'activity', label: 'Actividad', icon: Activity },
 ];
 
-const ALUMNO_TABS: TabKey[] = ['deliverables', 'modules', 'gantt', 'team', 'attendance', 'documents', 'onboarding'];
+const ALUMNO_TABS: TabKey[] = ['novedades', 'deliverables', 'modules', 'gantt', 'team', 'attendance', 'documents', 'onboarding'];
+
+function formatNovedadDate(dateStr: string): string {
+  const date = new Date(dateStr);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMin = Math.floor(diffMs / 60000);
+  if (diffMin < 1) return 'ahora';
+  if (diffMin < 60) return `hace ${diffMin}m`;
+  const diffHours = Math.floor(diffMin / 60);
+  if (diffHours < 24) return `hace ${diffHours}h`;
+  const diffDays = Math.floor(diffHours / 24);
+  if (diffDays < 7) return `hace ${diffDays}d`;
+  return date.toLocaleDateString('es-AR', { day: 'numeric', month: 'short' });
+}
 
 export function ProjectDetail() {
   const { id } = useParams<{ id: string }>();
@@ -103,7 +123,16 @@ export function ProjectDetail() {
     fetchAlumniProfile,
     fetchAllAlumniProfiles,
     rescheduleModulesWeekly,
+    novedades,
+    fetchNovedades,
+    addNovedad,
+    updateNovedad,
+    deleteNovedad,
+    togglePinNovedad,
   } = useProjects();
+
+  const [editingNovedadId, setEditingNovedadId] = useState<string | null>(null);
+  const [editingNovedadContent, setEditingNovedadContent] = useState('');
 
   const { canvases, fetchCanvases } = useBMC();
   const { playbooks, fetchPlaybooks } = usePlaybook();
@@ -121,6 +150,8 @@ export function ProjectDetail() {
   const [allAlumniProfiles, setAllAlumniProfiles] = useState<AlumniProfile[]>([]);
   const [editingAlumniProfile, setEditingAlumniProfile] = useState(false);
   const [rescheduling, setRescheduling] = useState(false);
+  const [novedadContent, setNovedadContent] = useState('');
+  const [postingNovedad, setPostingNovedad] = useState(false);
 
   // Determine current user's role in this project
   const currentParticipant = useMemo(() => {
@@ -185,6 +216,7 @@ export function ProjectDetail() {
     fetchModules(id).catch(e => console.error('[ProjectDetail] fetchModules error:', e));
     fetchDocuments(id).catch(e => console.error('[ProjectDetail] fetchDocuments error:', e));
     fetchActivityLog(id).catch(e => console.error('[ProjectDetail] fetchActivityLog error:', e));
+    fetchNovedades(id).catch(e => console.error('[ProjectDetail] fetchNovedades error:', e));
     fetchCanvases(id).catch(e => console.error('[ProjectDetail] fetchCanvases error:', e));
     fetchPlaybooks().catch(e => console.error('[ProjectDetail] fetchPlaybooks error:', e));
     fetchCheckins(id).catch(e => console.error('[ProjectDetail] fetchCheckins error:', e));
@@ -250,6 +282,19 @@ export function ProjectDetail() {
   const handleEditDeliverable = (deliverable: ProjectDeliverable) => {
     setEditingDeliverable(deliverable);
     setShowDeliverableForm(true);
+  };
+
+  const handlePostNovedad = async () => {
+    if (!id || !novedadContent.trim()) return;
+    setPostingNovedad(true);
+    try {
+      await addNovedad(id, novedadContent.trim());
+      setNovedadContent('');
+    } catch (err: any) {
+      alert('Error al publicar: ' + (err?.message || 'Error desconocido'));
+    } finally {
+      setPostingNovedad(false);
+    }
   };
 
   const [projectLoaded, setProjectLoaded] = useState(false);
@@ -535,6 +580,157 @@ export function ProjectDetail() {
                 <ActivityTimeline activityLog={activityLog.slice(0, 10)} />
               </div>
             </div>
+          </div>
+        )}
+
+        {/* ===== NOVEDADES ===== */}
+        {activeTab === 'novedades' && (
+          <div className="space-y-4">
+            {/* New post form */}
+            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
+              <div className="flex gap-3">
+                <div className="w-8 h-8 rounded-full bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <span className="text-xs font-bold text-primary-600 dark:text-primary-400">
+                    {appUser?.fullName?.charAt(0)?.toUpperCase() || '?'}
+                  </span>
+                </div>
+                <div className="flex-1">
+                  <textarea
+                    className="input resize-none"
+                    rows={2}
+                    placeholder="Compartí una novedad con el equipo..."
+                    value={novedadContent}
+                    onChange={e => setNovedadContent(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && novedadContent.trim()) {
+                        e.preventDefault();
+                        handlePostNovedad();
+                      }
+                    }}
+                  />
+                  <div className="flex items-center justify-between mt-2">
+                    <span className="text-xs text-gray-400">Ctrl+Enter para publicar</span>
+                    <button
+                      onClick={handlePostNovedad}
+                      disabled={!novedadContent.trim() || postingNovedad}
+                      className="btn-primary text-sm inline-flex items-center gap-1.5 disabled:opacity-50"
+                    >
+                      <Send className="w-3.5 h-3.5" />
+                      {postingNovedad ? 'Publicando...' : 'Publicar'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Feed */}
+            {novedades.length > 0 ? (
+              <div className="space-y-3">
+                {novedades.map(n => (
+                  <div
+                    key={n.id}
+                    className={`bg-white dark:bg-gray-800 rounded-xl border ${n.pinned ? 'border-amber-300 dark:border-amber-600' : 'border-gray-200 dark:border-gray-700'} p-4`}
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center flex-shrink-0">
+                        <span className="text-xs font-bold text-gray-600 dark:text-gray-300">
+                          {n.userName?.charAt(0)?.toUpperCase() || '?'}
+                        </span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-semibold text-gray-900 dark:text-white">{n.userName || 'Usuario'}</span>
+                          <span className="text-xs text-gray-400">{formatNovedadDate(n.createdAt)}</span>
+                          {n.pinned && (
+                            <span className="inline-flex items-center gap-0.5 text-[10px] font-medium text-amber-600 dark:text-amber-400">
+                              <Pin className="w-3 h-3" /> Fijada
+                            </span>
+                          )}
+                        </div>
+                        {editingNovedadId === n.id ? (
+                          <div className="mt-1">
+                            <textarea
+                              className="input resize-none text-sm"
+                              rows={3}
+                              value={editingNovedadContent}
+                              onChange={e => setEditingNovedadContent(e.target.value)}
+                              onKeyDown={e => {
+                                if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && editingNovedadContent.trim()) {
+                                  e.preventDefault();
+                                  updateNovedad(n.id, editingNovedadContent.trim())
+                                    .then(() => setEditingNovedadId(null))
+                                    .catch(() => alert('Error al editar'));
+                                }
+                                if (e.key === 'Escape') setEditingNovedadId(null);
+                              }}
+                              autoFocus
+                            />
+                            <div className="flex items-center gap-2 mt-1.5">
+                              <button
+                                onClick={() => {
+                                  if (!editingNovedadContent.trim()) return;
+                                  updateNovedad(n.id, editingNovedadContent.trim())
+                                    .then(() => setEditingNovedadId(null))
+                                    .catch(() => alert('Error al editar'));
+                                }}
+                                className="btn-primary text-xs inline-flex items-center gap-1 px-2.5 py-1"
+                              >
+                                <Check className="w-3 h-3" /> Guardar
+                              </button>
+                              <button
+                                onClick={() => setEditingNovedadId(null)}
+                                className="btn-secondary text-xs inline-flex items-center gap-1 px-2.5 py-1"
+                              >
+                                <X className="w-3 h-3" /> Cancelar
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <p className="text-sm text-gray-700 dark:text-gray-300 mt-1 whitespace-pre-wrap">{n.content}</p>
+                        )}
+                      </div>
+                      {(n.userId === appUser?.id || appUser?.role === 'admin') && editingNovedadId !== n.id && (
+                        <div className="flex items-center gap-1 flex-shrink-0">
+                          {n.userId === appUser?.id && (
+                            <button
+                              onClick={() => { setEditingNovedadId(n.id); setEditingNovedadContent(n.content); }}
+                              className="p-1.5 text-gray-400 hover:text-primary-600 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                              title="Editar"
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                          <button
+                            onClick={() => togglePinNovedad(n.id, !n.pinned).catch(() => alert('Error al fijar novedad'))}
+                            className={`p-1.5 rounded-lg transition-colors ${n.pinned ? 'text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/20' : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
+                            title={n.pinned ? 'Desfijar' : 'Fijar'}
+                          >
+                            <Pin className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => {
+                              if (confirm('Eliminar esta novedad?')) {
+                                deleteNovedad(n.id).catch(() => alert('Error al eliminar'));
+                              }
+                            }}
+                            className="p-1.5 text-gray-400 hover:text-danger-600 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                            title="Eliminar"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="card p-12 text-center">
+                <Megaphone className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
+                <p className="text-gray-500 dark:text-gray-400">No hay novedades aún</p>
+                <p className="text-xs text-gray-400 mt-1">Publicá la primera novedad del proyecto</p>
+              </div>
+            )}
           </div>
         )}
 

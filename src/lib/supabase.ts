@@ -11,7 +11,7 @@ if (!supabaseUrl || !supabaseAnonKey) {
   );
 }
 
-// Simple mutex to serialize auth token refresh operations
+// Mutex with timeout to serialize auth token refresh operations
 const locks = new Map<string, Promise<any>>();
 
 export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
@@ -19,14 +19,27 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
     detectSessionInUrl: true,
     persistSession: true,
     autoRefreshToken: true,
-    // Mutex-based lock to replace navigator.locks (which causes AbortError in some browsers)
-    lock: async (name: string, _acquireTimeout: number, fn: () => Promise<any>) => {
+    // Mutex-based lock with timeout to prevent deadlocks
+    lock: async (name: string, acquireTimeout: number, fn: () => Promise<any>) => {
+      const timeout = Math.min(acquireTimeout || 5000, 10000); // Max 10s
       const existing = locks.get(name);
-      if (existing) await existing.catch(() => {});
+      if (existing) {
+        // Wait for existing lock with timeout
+        await Promise.race([
+          existing.catch(() => {}),
+          new Promise((resolve) => setTimeout(resolve, timeout)),
+        ]);
+      }
       const promise = fn();
       locks.set(name, promise);
       try {
-        return await promise;
+        // Also timeout the lock function itself
+        return await Promise.race([
+          promise,
+          new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error('Auth lock timeout')), timeout)
+          ),
+        ]);
       } finally {
         if (locks.get(name) === promise) locks.delete(name);
       }

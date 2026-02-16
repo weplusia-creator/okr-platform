@@ -52,6 +52,11 @@ const ADMIN_NAV: NavItem[] = [
     path: '/',
   },
   {
+    label: 'Tablero de Control',
+    icon: BarChart3,
+    path: '/dashboard',
+  },
+  {
     label: 'Proyectos',
     icon: FolderKanban,
     children: [

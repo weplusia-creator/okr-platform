@@ -15,7 +15,7 @@ import {
   Building2,
 } from 'lucide-react';
 import { usePresentations } from '../../context/PresentationContext';
-import { PRESENTATION_STATUS_CONFIG, SLIDE_BG_COLORS, SLIDE_LAYOUT_CONFIG } from '../../types/presentations';
+import { PRESENTATION_STATUS_CONFIG, SLIDE_BG_COLORS, SLIDE_LAYOUT_CONFIG, getSlideAccentColor, getSlideTextColor } from '../../types/presentations';
 import type { Presentation, PresentationSlide } from '../../types/presentations';
 
 export function PresentationDetail() {
@@ -49,27 +49,31 @@ export function PresentationDetail() {
     try {
       const token = await publishPresentation(pres.id);
       const url = `${window.location.origin}/pres/${token}`;
-      await navigator.clipboard.writeText(url);
+      await navigator.clipboard.writeText(url).catch(() => {});
       setPres({ ...pres, status: 'published' });
       alert('Presentacion publicada! Link copiado al portapapeles.');
-    } catch (err) {
-      console.error('Error publishing:', err);
+    } catch (err: any) {
+      alert('Error al publicar: ' + (err?.message || 'Error desconocido'));
     } finally {
       setPublishing(false);
     }
   };
 
-  const handleCopyLink = () => {
+  const handleCopyLink = async () => {
     if (!pres) return;
     const url = `${window.location.origin}/pres/${pres.shareToken}`;
-    navigator.clipboard.writeText(url);
+    await navigator.clipboard.writeText(url).catch(() => {});
     alert('Link copiado al portapapeles');
   };
 
   const handleDelete = async () => {
     if (!pres || !confirm('Eliminar esta presentacion?')) return;
-    await deletePresentation(pres.id);
-    navigate('/presentations');
+    try {
+      await deletePresentation(pres.id);
+      navigate('/presentations');
+    } catch (err: any) {
+      alert('Error al eliminar: ' + (err?.message || 'Error desconocido'));
+    }
   };
 
   const handleDuplicate = async () => {
@@ -87,15 +91,12 @@ export function PresentationDetail() {
     });
   };
 
-  const getSlideTextColor = (bgColor: string) => {
-    return bgColor === '#FFFBE8' ? 'text-[#231F1F]' : 'text-white';
+  const textColorClass = (bgColor: string) => {
+    return getSlideTextColor(bgColor) === '#FFFFFF' ? 'text-white' : 'text-[#231F1F]';
   };
 
-  const getSlideAccentColor = (bgColor: string) => {
-    if (bgColor === '#FF4632') return '#D4FC59';
-    if (bgColor === '#FFFBE8') return '#FF4632';
-    if (bgColor === '#3100E2') return '#D4FC59';
-    return '#D4FC59';
+  const subTextColorClass = (bgColor: string) => {
+    return getSlideTextColor(bgColor) === '#FFFFFF' ? 'text-white/60' : 'text-[#231F1F]/60';
   };
 
   if (loading) {
@@ -167,67 +168,106 @@ export function PresentationDetail() {
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {slides.map((slide, index) => (
-                <div
-                  key={slide.id}
-                  className="rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700"
-                >
-                  {/* Slide preview */}
+              {slides.map((slide, index) => {
+                const accent = getSlideAccentColor(slide.bgColor);
+                const tc = textColorClass(slide.bgColor);
+                const stc = subTextColorClass(slide.bgColor);
+
+                return (
                   <div
-                    className="p-5 aspect-[16/9] flex flex-col justify-center"
-                    style={{ background: slide.bgColor }}
+                    key={slide.id}
+                    className="rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700"
                   >
-                    {slide.layout === 'title' ? (
-                      <div>
-                        <h3 className={`text-lg font-bold ${getSlideTextColor(slide.bgColor)} leading-tight`}>
-                          {slide.title}
-                        </h3>
-                        {slide.content && (
-                          <p className={`text-xs mt-2 ${slide.bgColor === '#FFFBE8' ? 'text-[#231F1F]/60' : 'text-white/60'}`}>
-                            {slide.content}
-                          </p>
-                        )}
-                      </div>
-                    ) : slide.layout === 'quote' ? (
-                      <div>
-                        <div className="w-8 h-1 mb-3" style={{ background: getSlideAccentColor(slide.bgColor) }} />
-                        <p className={`text-sm italic ${getSlideTextColor(slide.bgColor)} leading-relaxed`}>
-                          "{slide.content}"
-                        </p>
-                      </div>
-                    ) : (
-                      <div>
-                        <p className={`text-xs font-bold uppercase tracking-wider mb-2`} style={{ color: getSlideAccentColor(slide.bgColor) }}>
-                          {slide.title}
-                        </p>
-                        {slide.content && (
-                          <p className={`text-xs ${slide.bgColor === '#FFFBE8' ? 'text-[#231F1F]/70' : 'text-white/70'} mb-2 line-clamp-2`}>
-                            {slide.content}
-                          </p>
-                        )}
-                        {slide.bulletPoints.length > 0 && (
-                          <div className="space-y-0.5">
-                            {slide.bulletPoints.slice(0, 3).map((bp, i) => (
-                              <p key={i} className={`text-xs ${slide.bgColor === '#FFFBE8' ? 'text-[#231F1F]/60' : 'text-white/60'}`}>
-                                • {bp}
-                              </p>
-                            ))}
-                            {slide.bulletPoints.length > 3 && (
-                              <p className={`text-xs ${slide.bgColor === '#FFFBE8' ? 'text-[#231F1F]/40' : 'text-white/40'}`}>
-                                +{slide.bulletPoints.length - 3} mas
-                              </p>
-                            )}
+                    {/* Slide preview */}
+                    <div
+                      className="p-4 aspect-[16/9] flex flex-col justify-center relative overflow-hidden"
+                      style={{ background: slide.bgColor }}
+                    >
+                      {/* Background image for section layout */}
+                      {slide.layout === 'section' && slide.imageUrl && (
+                        <img src={slide.imageUrl} alt="" className="absolute inset-0 w-full h-full object-cover opacity-40 grayscale" />
+                      )}
+
+                      {slide.layout === 'title' ? (
+                        <div className="relative z-10">
+                          <div className="text-[10px] font-black tracking-widest mb-2" style={{ color: accent }}>WAU©</div>
+                          {slide.subtitle && (
+                            <p className={`text-[10px] italic ${stc} mb-0.5`} style={{ fontFamily: 'serif' }}>{slide.subtitle}</p>
+                          )}
+                          <h3 className={`text-base font-black ${tc} leading-tight uppercase`}>{slide.title}</h3>
+                        </div>
+                      ) : slide.layout === 'section' ? (
+                        <div className="relative z-10 flex items-center justify-center h-full">
+                          <div className="bg-white rounded-xl p-3 text-center max-w-[80%]">
+                            <h3 className="text-sm font-black text-[#231F1F] uppercase leading-tight">{slide.title}</h3>
                           </div>
-                        )}
-                      </div>
-                    )}
+                        </div>
+                      ) : slide.layout === 'quote' ? (
+                        <div className="relative z-10 text-center px-2">
+                          <span className="text-2xl font-black leading-none" style={{ color: accent }}>"</span>
+                          <p className={`text-xs italic ${tc} leading-relaxed`}>{slide.content}</p>
+                        </div>
+                      ) : slide.layout === 'bullets' ? (
+                        <div className="relative z-10">
+                          {slide.subtitle && (
+                            <p className="text-[10px] italic mb-0.5" style={{ color: accent, fontFamily: 'serif' }}>{slide.subtitle}</p>
+                          )}
+                          <h3 className={`text-xs font-bold ${tc} uppercase mb-2`}>{slide.title}</h3>
+                          {slide.bulletPoints.length > 0 && (
+                            <div className="grid grid-cols-2 gap-1">
+                              {slide.bulletPoints.slice(0, 4).map((bp, i) => (
+                                <div key={i} className="rounded-lg px-1.5 py-1 text-[8px] text-white font-medium truncate" style={{ background: accent === '#D4FC59' ? ['#FF4632','#3100E2','#6B21A8','#231F1F'][i % 4] : ['#231F1F','#FF4632','#3100E2','#6B21A8'][i % 4] }}>
+                                  {bp}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      ) : slide.layout === 'image-text' ? (
+                        <div className="relative z-10 flex gap-2 h-full items-center">
+                          <div className="flex-1">
+                            {slide.subtitle && (
+                              <p className="text-[10px] italic mb-0.5" style={{ color: accent, fontFamily: 'serif' }}>{slide.subtitle}</p>
+                            )}
+                            <h3 className={`text-xs font-bold ${tc} leading-tight`}>{slide.title}</h3>
+                          </div>
+                          {slide.imageUrl && (
+                            <div className="w-[40%] h-full rounded-lg overflow-hidden flex-shrink-0">
+                              <img src={slide.imageUrl} alt="" className="w-full h-full object-cover" />
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="relative z-10">
+                          {slide.subtitle && (
+                            <p className="text-[10px] italic mb-0.5" style={{ color: accent, fontFamily: 'serif' }}>{slide.subtitle}</p>
+                          )}
+                          <h3 className={`text-xs font-bold ${tc} uppercase mb-1`}>{slide.title}</h3>
+                          <div className="w-6 h-0.5 mb-1.5" style={{ background: accent }} />
+                          {slide.content && (
+                            <p className={`text-[9px] ${stc} line-clamp-2`}>{slide.content}</p>
+                          )}
+                          {slide.bulletPoints.length > 0 && (
+                            <div className="mt-1 space-y-0.5">
+                              {slide.bulletPoints.slice(0, 2).map((bp, i) => (
+                                <p key={i} className={`text-[9px] ${stc}`}>• {bp}</p>
+                              ))}
+                              {slide.bulletPoints.length > 2 && (
+                                <p className={`text-[9px] ${stc}`}>+{slide.bulletPoints.length - 2} mas</p>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    {/* Slide footer */}
+                    <div className="px-3 py-2 bg-white dark:bg-gray-800 flex items-center justify-between">
+                      <span className="text-xs text-gray-400">{index + 1}. {SLIDE_LAYOUT_CONFIG[slide.layout as keyof typeof SLIDE_LAYOUT_CONFIG]?.label}</span>
+                      {slide.imageUrl && <span className="text-[10px] text-gray-400">img</span>}
+                    </div>
                   </div>
-                  {/* Slide footer */}
-                  <div className="px-3 py-2 bg-white dark:bg-gray-800 flex items-center justify-between">
-                    <span className="text-xs text-gray-400">{index + 1}. {SLIDE_LAYOUT_CONFIG[slide.layout as keyof typeof SLIDE_LAYOUT_CONFIG]?.label}</span>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
@@ -275,15 +315,13 @@ export function PresentationDetail() {
               Duplicar
             </button>
 
-            {pres.status === 'draft' && (
-              <button
-                onClick={handleDelete}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-              >
-                <Trash2 className="w-4 h-4" />
-                Eliminar
-              </button>
-            )}
+            <button
+              onClick={handleDelete}
+              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+            >
+              <Trash2 className="w-4 h-4" />
+              Eliminar
+            </button>
           </div>
 
           {/* Info */}

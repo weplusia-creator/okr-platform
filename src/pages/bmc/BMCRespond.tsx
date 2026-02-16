@@ -123,6 +123,8 @@ export function BMCRespond() {
       }
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
+    } catch (err: any) {
+      alert('Error al guardar respuestas: ' + (err?.message || 'Error desconocido'));
     } finally {
       setSaving(false);
     }

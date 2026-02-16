@@ -35,19 +35,28 @@ export function PresentationsDashboard() {
 
   const handleDuplicate = async (id: string) => {
     setMenuOpen(null);
-    await duplicatePresentation(id);
+    try {
+      await duplicatePresentation(id);
+    } catch (err: any) {
+      alert('Error al duplicar: ' + (err?.message || 'Error desconocido'));
+    }
   };
 
   const handleDelete = async (id: string) => {
     setMenuOpen(null);
     if (!confirm('Eliminar esta presentacion?')) return;
-    await deletePresentation(id);
+    try {
+      await deletePresentation(id);
+    } catch (err: any) {
+      alert('Error al eliminar: ' + (err?.message || 'Error desconocido'));
+    }
   };
 
-  const handleCopyLink = (token: string) => {
+  const handleCopyLink = async (token: string) => {
     setMenuOpen(null);
     const url = `${window.location.origin}/pres/${token}`;
-    navigator.clipboard.writeText(url);
+    await navigator.clipboard.writeText(url).catch(() => {});
+    alert('Link copiado');
   };
 
   if (loading) {
@@ -178,14 +187,12 @@ export function PresentationsDashboard() {
                           >
                             <Copy className="w-4 h-4" /> Duplicar
                           </button>
-                          {pres.status === 'draft' && (
-                            <button
-                              onClick={() => handleDelete(pres.id)}
-                              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
-                            >
-                              <Trash2 className="w-4 h-4" /> Eliminar
-                            </button>
-                          )}
+                          <button
+                            onClick={() => handleDelete(pres.id)}
+                            className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
+                          >
+                            <Trash2 className="w-4 h-4" /> Eliminar
+                          </button>
                         </div>
                       )}
                     </td>

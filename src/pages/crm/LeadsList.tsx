@@ -208,7 +208,7 @@ export function LeadsList() {
               </thead>
               <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                 {filteredLeads.map((lead) => {
-                  const statusConfig = LEAD_STATUS_CONFIG[lead.status];
+                  const statusConfig = LEAD_STATUS_CONFIG[lead.status] || { label: lead.status, color: 'gray', bgClass: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300' };
 
                   return (
                     <tr

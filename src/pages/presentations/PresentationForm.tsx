@@ -16,16 +16,19 @@ import {
 } from 'lucide-react';
 import { usePresentations } from '../../context/PresentationContext';
 import { useAuth } from '../../context/AuthContext';
-import { SLIDE_BG_COLORS, SLIDE_LAYOUT_CONFIG } from '../../types/presentations';
+import { supabase } from '../../lib/supabase';
+import { SLIDE_BG_COLORS, SLIDE_LAYOUT_CONFIG, getSlideAccentColor } from '../../types/presentations';
 import type { SlideLayout, PresentationSlide } from '../../types/presentations';
 
 interface LocalSlide {
   id?: string;
   title: string;
+  subtitle: string;
   content: string;
   bulletPoints: string[];
   layout: SlideLayout;
   bgColor: string;
+  imageUrl: string;
 }
 
 export function PresentationForm() {
@@ -66,6 +69,7 @@ export function PresentationForm() {
   // General
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [saveProgress, setSaveProgress] = useState('');
   const [existingSlideIds, setExistingSlideIds] = useState<string[]>([]);
 
   // Load existing presentation for edit
@@ -86,10 +90,12 @@ export function PresentationForm() {
               pres.slides.map((s) => ({
                 id: s.id,
                 title: s.title,
+                subtitle: s.subtitle || '',
                 content: s.content || '',
                 bulletPoints: s.bulletPoints || [],
                 layout: s.layout as SlideLayout,
                 bgColor: s.bgColor,
+                imageUrl: s.imageUrl || '',
               }))
             );
             setExistingSlideIds(pres.slides.map((s) => s.id));
@@ -125,27 +131,36 @@ export function PresentationForm() {
           max_tokens: 4096,
           messages: [{
             role: 'user',
-            content: `Analiza el siguiente texto y genera una presentacion profesional en formato JSON.
+            content: `Analiza el siguiente texto y genera una presentacion profesional de alto impacto visual en formato JSON.
 
 Genera un array de slides donde cada slide tiene:
-- title: titulo de la slide (corto, impactante)
+- title: titulo de la slide (corto, impactante, EN MAYUSCULAS para section y bullets)
+- subtitle: subtitulo decorativo en italic (ej: "Compartir", "Beneficios de", "Por que los"). Opcional pero recomendado.
 - content: texto principal (1-3 oraciones, conciso)
-- bulletPoints: array de puntos clave (0-6 puntos por slide)
-- layout: "title" para portada, "content" para texto, "bullets" para listas, "quote" para citas destacadas
-- bgColor: color de fondo, rotar entre "#231F1F" (oscuro), "#FF4632" (rojo), "#FFFBE8" (claro), "#3100E2" (azul)
+- bulletPoints: array de puntos clave (para layout "bullets" cada punto se convierte en una card visual, maximo 4)
+- layout: uno de "title", "section", "content", "bullets", "quote", "image-text"
+- bgColor: color de fondo, rotar entre "#231F1F" (oscuro), "#FF4632" (rojo), "#FFFBE8" (claro), "#3100E2" (azul), "#D4FC59" (lima), "#6B21A8" (purpura)
+
+Layouts disponibles:
+- "title": portada principal con titulo grande y logo
+- "section": slide de seccion con titulo impactante gigante (para separar temas)
+- "content": texto con contenido en card redondeada
+- "bullets": grilla de 2-4 cards de colores, cada bulletPoint = una card
+- "quote": cita destacada grande en italic
+- "image-text": layout dividido texto izq + espacio para imagen der
 
 Reglas:
 - La primera slide DEBE ser layout "title" con bgColor "#231F1F"
-- Maximo 6-8 slides en total
-- Mantener el contenido conciso y visual - cada slide debe comunicar UNA idea
-- Usar variedad de layouts y colores para hacer la presentacion dinamica
-- Para slides de "bullets", el content puede ser vacio y los puntos van en bulletPoints
-- Para slides de "content", el texto va en content y bulletPoints puede estar vacio
-- Para slides de "quote", usar content para la cita y bulletPoints vacio
+- Maximo 8-12 slides en total
+- Alternar colores de fondo para variedad visual impactante
+- Para "bullets" maximo 4 puntos (se muestran como cards coloridas)
+- Para "section" el titulo debe ser grande e impactante, en mayusculas
+- Incluir al menos 1 slide de tipo "section" y 1 de "bullets" para variedad
+- Los subtitles deben ser cortos y decorativos (1-3 palabras)
 - Responde SOLO con el JSON, sin markdown, sin backticks, sin explicaciones
 
 Formato de respuesta exacto:
-{"slides": [{"title": "...", "content": "...", "bulletPoints": ["..."], "layout": "...", "bgColor": "..."}]}
+{"slides": [{"title": "...", "subtitle": "...", "content": "...", "bulletPoints": ["..."], "layout": "...", "bgColor": "..."}]}
 
 Texto:
 ${aiText}`,
@@ -153,20 +168,31 @@ ${aiText}`,
         }),
       });
 
-      if (!resp.ok) throw new Error(`API error: ${resp.status}`);
+      if (!resp.ok) {
+        const errBody = await resp.text().catch(() => '');
+        throw new Error(`API error ${resp.status}: ${errBody.slice(0, 200)}`);
+      }
       const data = await resp.json();
       const content = data.content?.[0]?.text || '';
+      if (!content) throw new Error('La IA no genero contenido');
 
       const jsonStr = content.replace(/```json?\n?/g, '').replace(/```/g, '').trim();
-      const parsed = JSON.parse(jsonStr);
+      let parsed: any;
+      try {
+        parsed = JSON.parse(jsonStr);
+      } catch {
+        throw new Error('La IA devolvio un formato invalido');
+      }
 
-      if (parsed.slides && Array.isArray(parsed.slides)) {
+      if (parsed.slides && Array.isArray(parsed.slides) && parsed.slides.length > 0) {
         setSlides(parsed.slides.map((s: any) => ({
           title: s.title || '',
+          subtitle: s.subtitle || '',
           content: s.content || '',
           bulletPoints: s.bulletPoints || [],
           layout: s.layout || 'content',
           bgColor: s.bgColor || '#231F1F',
+          imageUrl: '',
         })));
         setStep(2);
       }
@@ -180,11 +206,13 @@ ${aiText}`,
 
   // ===== Slide management =====
   const addLocalSlide = () => {
-    setSlides((prev) => [
-      ...prev,
-      { title: '', content: '', bulletPoints: [], layout: 'content', bgColor: '#231F1F' },
-    ]);
-    setExpandedSlide(slides.length);
+    setSlides((prev) => {
+      setExpandedSlide(prev.length);
+      return [
+        ...prev,
+        { title: '', subtitle: '', content: '', bulletPoints: [], layout: 'content', bgColor: '#231F1F', imageUrl: '' },
+      ];
+    });
   };
 
   const removeSlide = (index: number) => {
@@ -234,73 +262,161 @@ ${aiText}`,
   };
 
   // ===== Save =====
+  // Direct fetch to Supabase REST API - bypasses client auth/lock issues
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+  const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+  const getAccessToken = async (): Promise<string> => {
+    // Try to get token from localStorage first (avoids client lock issues)
+    try {
+      const stored = localStorage.getItem('okr-platform-auth');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        const token = parsed?.access_token || parsed?.session?.access_token;
+        if (token) return token;
+      }
+    } catch {}
+    // Fallback to supabase client
+    const { data } = await supabase.auth.getSession();
+    return data?.session?.access_token || '';
+  };
+
+  const directInsert = async (table: string, body: Record<string, any>): Promise<any> => {
+    const token = await getAccessToken();
+    const resp = await fetch(`${supabaseUrl}/rest/v1/${table}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': supabaseKey,
+        'Authorization': `Bearer ${token}`,
+        'Prefer': 'return=representation',
+      },
+      body: JSON.stringify(body),
+    });
+    if (!resp.ok) {
+      const errText = await resp.text().catch(() => '');
+      throw new Error(`Error ${resp.status}: ${errText.slice(0, 200)}`);
+    }
+    const arr = await resp.json();
+    return Array.isArray(arr) ? arr[0] : arr;
+  };
+
+  const directUpdate = async (table: string, id: string, body: Record<string, any>): Promise<void> => {
+    const token = await getAccessToken();
+    const resp = await fetch(`${supabaseUrl}/rest/v1/${table}?id=eq.${id}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': supabaseKey,
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify(body),
+    });
+    if (!resp.ok) {
+      const errText = await resp.text().catch(() => '');
+      throw new Error(`Error ${resp.status}: ${errText.slice(0, 200)}`);
+    }
+  };
+
+  const directDelete = async (table: string, id: string): Promise<void> => {
+    const token = await getAccessToken();
+    const resp = await fetch(`${supabaseUrl}/rest/v1/${table}?id=eq.${id}`, {
+      method: 'DELETE',
+      headers: {
+        'apikey': supabaseKey,
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+    if (!resp.ok) {
+      const errText = await resp.text().catch(() => '');
+      throw new Error(`Error ${resp.status}: ${errText.slice(0, 200)}`);
+    }
+  };
+
   const handleSave = async () => {
-    if (!appUser || !title.trim()) return;
+    if (!appUser) return;
+    if (!title.trim()) { alert('Ingresa un titulo'); return; }
+    if (slides.length === 0) { alert('Agrega al menos una slide'); return; }
     setSaving(true);
+    setSaveProgress('Creando presentacion...');
 
     try {
       let presentationId = id;
 
       if (isEditing && presentationId) {
-        await updatePresentation(presentationId, {
+        setSaveProgress('Actualizando presentacion...');
+        const presUpdates: Record<string, any> = {
           title,
           subtitle: subtitle || null,
           author: author || null,
           date: date || null,
-          clientName: clientName || null,
-          clientCompany: clientCompany || null,
-        });
+          client_name: clientName || null,
+          client_company: clientCompany || null,
+          updated_at: new Date().toISOString(),
+        };
+        await directUpdate('presentations', presentationId, presUpdates);
 
-        // Delete removed slides
         const currentSlideIds = slides.filter((s) => s.id).map((s) => s.id!);
         const toDelete = existingSlideIds.filter((eid) => !currentSlideIds.includes(eid));
-        await Promise.all(toDelete.map((sid) => deleteSlide(sid)));
+        for (const sid of toDelete) {
+          await directDelete('presentation_slides', sid);
+        }
 
-        // Update or add slides in parallel
-        await Promise.all(slides.map((s, i) =>
-          s.id
-            ? updateSlide(s.id, {
-                title: s.title,
-                content: s.content || null,
-                bulletPoints: s.bulletPoints,
-                layout: s.layout,
-                bgColor: s.bgColor,
-                sortOrder: i,
-              })
-            : addSlide({
-                presentationId: presentationId!,
-                title: s.title,
-                content: s.content || undefined,
-                bulletPoints: s.bulletPoints,
-                layout: s.layout,
-                bgColor: s.bgColor,
-                sortOrder: i,
-              })
-        ));
-      } else {
-        const pres = await addPresentation({
-          title,
-          subtitle: subtitle || undefined,
-          author: author || undefined,
-          date: date || undefined,
-          clientName: clientName || undefined,
-          clientCompany: clientCompany || undefined,
-        });
-
-        if (!pres) throw new Error('Error creating presentation');
-        presentationId = pres.id;
-
-        await Promise.all(slides.map((s, i) =>
-          addSlide({
-            presentationId: pres.id,
+        for (let i = 0; i < slides.length; i++) {
+          const s = slides[i];
+          setSaveProgress(`Guardando slide ${i + 1}/${slides.length}...`);
+          const slideRow: Record<string, any> = {
             title: s.title,
-            content: s.content || undefined,
-            bulletPoints: s.bulletPoints,
+            content: s.content || null,
+            bullet_points: s.bulletPoints,
             layout: s.layout,
-            bgColor: s.bgColor,
-            sortOrder: i,
-          })
-        ));
+            bg_color: s.bgColor,
+            sort_order: i,
+            subtitle: s.subtitle || null,
+            image_url: s.imageUrl || null,
+          };
+
+          if (s.id) {
+            await directUpdate('presentation_slides', s.id, slideRow);
+          } else {
+            slideRow.presentation_id = presentationId;
+            await directInsert('presentation_slides', slideRow);
+          }
+        }
+      } else {
+        setSaveProgress('Creando presentacion...');
+        const presRow: Record<string, any> = {
+          organization_id: appUser.organizationId,
+          title,
+          subtitle: subtitle || null,
+          author: author || null,
+          client_name: clientName || null,
+          client_company: clientCompany || null,
+          created_by: appUser.id,
+          status: 'draft',
+        };
+        if (date) presRow.date = date;
+
+        const created = await directInsert('presentations', presRow);
+        presentationId = created.id;
+        console.log('[save] presentation created:', presentationId);
+
+        for (let i = 0; i < slides.length; i++) {
+          const s = slides[i];
+          setSaveProgress(`Guardando slide ${i + 1}/${slides.length}...`);
+          const slideRow: Record<string, any> = {
+            presentation_id: presentationId,
+            title: s.title,
+            content: s.content || null,
+            bullet_points: s.bulletPoints,
+            layout: s.layout,
+            bg_color: s.bgColor,
+            sort_order: i,
+            subtitle: s.subtitle || null,
+            image_url: s.imageUrl || null,
+          };
+          await directInsert('presentation_slides', slideRow);
+        }
       }
 
       navigate(`/presentations/${presentationId}`);
@@ -309,19 +425,13 @@ ${aiText}`,
       alert('Error al guardar: ' + (err?.message || 'Error desconocido'));
     } finally {
       setSaving(false);
+      setSaveProgress('');
     }
   };
 
   // ===== Slide preview helper =====
-  const getSlideTextColor = (bgColor: string) => {
-    return bgColor === '#FFFBE8' ? 'text-[#231F1F]' : 'text-white';
-  };
-
-  const getSlideAccentColor = (bgColor: string) => {
-    if (bgColor === '#FF4632') return '#D4FC59';
-    if (bgColor === '#FFFBE8') return '#FF4632';
-    if (bgColor === '#3100E2') return '#D4FC59';
-    return '#D4FC59';
+  const getSlideTextColorClass = (bgColor: string) => {
+    return bgColor === '#FFFBE8' || bgColor === '#D4FC59' ? 'text-[#231F1F]' : 'text-white';
   };
 
   if (loading) {
@@ -495,10 +605,12 @@ ${aiText}`,
                 onClick={() => {
                   setSlides([{
                     title: title,
+                    subtitle: '',
                     content: subtitle || '',
                     bulletPoints: [],
                     layout: 'title',
                     bgColor: '#231F1F',
+                    imageUrl: '',
                   }]);
                   setStep(2);
                 }}
@@ -600,7 +712,7 @@ ${aiText}`,
                     >
                       {slide.layout === 'title' ? (
                         <div>
-                          <h3 className={`text-xl font-bold ${getSlideTextColor(slide.bgColor)} leading-tight`}>
+                          <h3 className={`text-xl font-bold ${getSlideTextColorClass(slide.bgColor)} leading-tight`}>
                             {slide.title || 'Titulo'}
                           </h3>
                           {slide.content && (
@@ -612,13 +724,13 @@ ${aiText}`,
                       ) : slide.layout === 'quote' ? (
                         <div>
                           <div className="w-8 h-1 mb-3" style={{ background: getSlideAccentColor(slide.bgColor) }} />
-                          <p className={`text-lg italic ${getSlideTextColor(slide.bgColor)} leading-relaxed`}>
+                          <p className={`text-lg italic ${getSlideTextColorClass(slide.bgColor)} leading-relaxed`}>
                             "{slide.content || 'Cita'}"
                           </p>
                         </div>
                       ) : (
                         <div>
-                          <h3 className={`text-sm font-bold ${getSlideTextColor(slide.bgColor)} mb-2`}>
+                          <h3 className={`text-sm font-bold ${getSlideTextColorClass(slide.bgColor)} mb-2`}>
                             {slide.title}
                           </h3>
                           {slide.content && (
@@ -655,6 +767,17 @@ ${aiText}`,
                         type="text"
                         value={slide.title}
                         onChange={(e) => updateLocalSlide(index, 'title', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-[#3100E2]/50 outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Subtitulo <span className="text-gray-400 font-normal">(decorativo, italic)</span></label>
+                      <input
+                        type="text"
+                        value={slide.subtitle}
+                        onChange={(e) => updateLocalSlide(index, 'subtitle', e.target.value)}
+                        placeholder="Ej: Compartir, Beneficios de, Elementos..."
                         className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-[#3100E2]/50 outline-none"
                       />
                     </div>
@@ -715,7 +838,7 @@ ${aiText}`,
                       </div>
                       <div>
                         <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Color de fondo</label>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           {SLIDE_BG_COLORS.map((c) => (
                             <button
                               key={c.value}
@@ -731,6 +854,30 @@ ${aiText}`,
                           ))}
                         </div>
                       </div>
+                    </div>
+
+                    {/* Image URL */}
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
+                        URL de imagen <span className="text-gray-400 font-normal">(opcional - para section, image-text)</span>
+                      </label>
+                      <input
+                        type="url"
+                        value={slide.imageUrl}
+                        onChange={(e) => updateLocalSlide(index, 'imageUrl', e.target.value)}
+                        placeholder="https://ejemplo.com/imagen.jpg"
+                        className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-[#3100E2]/50 outline-none"
+                      />
+                      {slide.imageUrl && (
+                        <div className="mt-2 relative rounded-lg overflow-hidden h-24 bg-gray-100 dark:bg-gray-800">
+                          <img
+                            src={slide.imageUrl}
+                            alt="Preview"
+                            className="w-full h-full object-cover"
+                            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                          />
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
@@ -765,7 +912,7 @@ ${aiText}`,
               {saving ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  Guardando...
+                  {saveProgress || 'Guardando...'}
                 </>
               ) : (
                 <>

@@ -1,4 +1,3 @@
-import { useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import {
   ArrowRight,
@@ -13,16 +12,7 @@ import {
   Search,
   Settings,
   RefreshCw,
-  X,
-  Loader2,
-  User,
-  Mail,
-  Phone,
-  Building2,
-  Briefcase,
-  MessageSquare,
 } from 'lucide-react';
-import { supabase } from '../lib/supabase';
 
 const PROBLEMS = [
   {
@@ -83,47 +73,6 @@ const DIFFERENTIALS = [
 ];
 
 export function Landing() {
-  const [showForm, setShowForm] = useState(false);
-  const [formState, setFormState] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
-  const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    phone: '',
-    company: '',
-    role: '',
-    message: '',
-  });
-
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    setFormState('loading');
-
-    const { error } = await supabase.from('leads').insert({
-      name: formData.name,
-      email: formData.email,
-      phone: formData.phone || null,
-      company: formData.company || null,
-      role: formData.role || null,
-      message: formData.message || null,
-    });
-
-    if (error) {
-      setFormState('error');
-    } else {
-      setFormState('success');
-    }
-  };
-
-  const openForm = () => {
-    setShowForm(true);
-    setFormState('idle');
-    setFormData({ name: '', email: '', phone: '', company: '', role: '', message: '' });
-  };
-
-  const closeForm = () => {
-    setShowForm(false);
-  };
-
   return (
     <div className="min-h-screen bg-white">
       {/* Nav */}
@@ -134,12 +83,14 @@ export function Landing() {
             <span className="text-xl font-bold text-white tracking-tight">WAU</span>
           </div>
           <div className="flex items-center gap-4">
-            <button
-              onClick={openForm}
+            <a
+              href="https://cal.com/mateo-hunicken-oeq2lq/30min"
+              target="_blank"
+              rel="noopener noreferrer"
               className="hidden sm:inline-flex text-sm font-medium text-gray-400 hover:text-primary-300 transition-colors"
             >
               Agendar llamada
-            </button>
+            </a>
             <Link
               to="/login"
               className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-wau-black bg-primary-300 hover:bg-primary-400 rounded-lg transition-colors"
@@ -169,13 +120,15 @@ export function Landing() {
               Para que tu equipo venda más, mejor y con método.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-              <button
-                onClick={openForm}
+              <a
+                href="https://cal.com/mateo-hunicken-oeq2lq/30min"
+                target="_blank"
+                rel="noopener noreferrer"
                 className="inline-flex items-center gap-2 px-8 py-4 text-base font-semibold text-wau-black bg-primary-300 hover:bg-primary-400 rounded-xl shadow-lg shadow-primary-300/20 transition-all hover:shadow-xl hover:shadow-primary-300/30 hover:-translate-y-0.5"
               >
-                Agendar llamada estratégica
+                Agendar llamada
                 <ArrowRight className="w-5 h-5" />
-              </button>
+              </a>
               <a
                 href="#servicios"
                 className="inline-flex items-center gap-2 px-8 py-4 text-base font-medium text-gray-400 hover:text-primary-300 transition-colors"
@@ -365,16 +318,18 @@ export function Landing() {
             ¿Listo para construir tu modelo comercial?
           </h2>
           <p className="text-lg text-gray-400 mb-10 max-w-xl mx-auto leading-relaxed">
-            Agendá una llamada estratégica de 30 minutos. Sin compromiso, sin venta agresiva. Analizamos tu situación y te decimos honestamente si podemos ayudarte.
+            Agendá una llamada de 30 minutos. Sin compromiso, sin venta agresiva. Analizamos tu situación y te decimos honestamente si podemos ayudarte.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <button
-              onClick={openForm}
+            <a
+              href="https://cal.com/mateo-hunicken-oeq2lq/30min"
+              target="_blank"
+              rel="noopener noreferrer"
               className="inline-flex items-center gap-2 px-8 py-4 text-base font-semibold text-wau-black bg-primary-300 hover:bg-primary-400 rounded-xl transition-all hover:-translate-y-0.5 shadow-lg shadow-primary-300/20"
             >
-              Agendar llamada estratégica
+              Agendar llamada
               <ArrowRight className="w-5 h-5" />
-            </button>
+            </a>
             <Link
               to="/login"
               className="inline-flex items-center gap-2 px-8 py-4 text-base font-medium text-gray-400 hover:text-primary-300 transition-colors"
@@ -400,170 +355,6 @@ export function Landing() {
         </div>
       </footer>
 
-      {/* Contact Form Modal */}
-      {showForm && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={closeForm} />
-          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto animate-scale-in">
-            <button
-              onClick={closeForm}
-              className="absolute top-4 right-4 p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
-            >
-              <X className="w-5 h-5" />
-            </button>
-
-            {formState === 'success' ? (
-              <div className="p-8 text-center">
-                <div className="w-16 h-16 bg-primary-300 rounded-full flex items-center justify-center mx-auto mb-6">
-                  <CheckCircle2 className="w-8 h-8 text-wau-black" />
-                </div>
-                <h3 className="text-2xl font-bold text-wau-black mb-3">
-                  ¡Mensaje enviado!
-                </h3>
-                <p className="text-gray-500 mb-8 leading-relaxed">
-                  Recibimos tu solicitud. Nos vamos a comunicar con vos en las próximas 24 horas para coordinar la llamada.
-                </p>
-                <button
-                  onClick={closeForm}
-                  className="btn-wau px-8 py-3"
-                >
-                  Cerrar
-                </button>
-              </div>
-            ) : (
-              <div className="p-8">
-                <div className="mb-6">
-                  <h3 className="text-2xl font-bold text-wau-black mb-2">
-                    Agendar llamada estratégica
-                  </h3>
-                  <p className="text-gray-500 text-sm">
-                    Completá tus datos y nos comunicamos para coordinar una llamada de 30 minutos sin compromiso.
-                  </p>
-                </div>
-
-                {formState === 'error' && (
-                  <div className="mb-6 p-4 rounded-lg bg-danger-50 border border-danger-200">
-                    <p className="text-sm text-danger-600">
-                      Hubo un error al enviar. Por favor intentá de nuevo.
-                    </p>
-                  </div>
-                )}
-
-                <form onSubmit={handleSubmit} className="space-y-4">
-                  <div>
-                    <label className="label">Nombre completo *</label>
-                    <div className="relative">
-                      <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-gray-400" />
-                      <input
-                        type="text"
-                        required
-                        value={formData.name}
-                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                        className="input pl-10"
-                        placeholder="Tu nombre"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="label">Email *</label>
-                    <div className="relative">
-                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-gray-400" />
-                      <input
-                        type="email"
-                        required
-                        value={formData.email}
-                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                        className="input pl-10"
-                        placeholder="tu@email.com"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="label">Teléfono</label>
-                    <div className="relative">
-                      <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-gray-400" />
-                      <input
-                        type="tel"
-                        value={formData.phone}
-                        onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                        className="input pl-10"
-                        placeholder="+54 11 1234-5678"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <label className="label">Empresa</label>
-                      <div className="relative">
-                        <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-gray-400" />
-                        <input
-                          type="text"
-                          value={formData.company}
-                          onChange={(e) => setFormData({ ...formData, company: e.target.value })}
-                          className="input pl-10"
-                          placeholder="Nombre de tu empresa"
-                        />
-                      </div>
-                    </div>
-                    <div>
-                      <label className="label">Cargo</label>
-                      <div className="relative">
-                        <Briefcase className="absolute left-3 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-gray-400" />
-                        <input
-                          type="text"
-                          value={formData.role}
-                          onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                          className="input pl-10"
-                          placeholder="Tu cargo"
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="label">¿En qué podemos ayudarte?</label>
-                    <div className="relative">
-                      <MessageSquare className="absolute left-3 top-3 w-4.5 h-4.5 text-gray-400" />
-                      <textarea
-                        value={formData.message}
-                        onChange={(e) => setFormData({ ...formData, message: e.target.value })}
-                        className="input pl-10 min-h-[80px] resize-none"
-                        placeholder="Contanos brevemente tu situación..."
-                        rows={3}
-                      />
-                    </div>
-                  </div>
-
-                  <button
-                    type="submit"
-                    disabled={formState === 'loading'}
-                    className="btn-wau w-full py-3 mt-2"
-                  >
-                    {formState === 'loading' ? (
-                      <>
-                        <Loader2 className="w-5 h-5 animate-spin" />
-                        Enviando...
-                      </>
-                    ) : (
-                      <>
-                        Solicitar llamada
-                        <ArrowRight className="w-5 h-5" />
-                      </>
-                    )}
-                  </button>
-
-                  <p className="text-xs text-gray-400 text-center mt-3">
-                    Sin compromiso. Sin venta agresiva. Solo una conversación honesta.
-                  </p>
-                </form>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

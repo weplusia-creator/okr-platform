@@ -14,9 +14,10 @@ import {
   Plus,
   CheckCircle2,
   Circle,
+  Pencil,
 } from 'lucide-react';
 import { useCRM } from '../../context/CRMContext';
-import { LEAD_STATUS_CONFIG, LEAD_SOURCE_LABELS, ACTIVITY_TYPE_CONFIG, DEAL_STAGE_CONFIG, type LeadStatus, type ActivityType } from '../../types/crm';
+import { LEAD_STATUS_CONFIG, LEAD_SOURCE_LABELS, ACTIVITY_TYPE_CONFIG, DEAL_STAGE_CONFIG, type LeadStatus, type LeadSource, type ActivityType } from '../../types/crm';
 import { Modal } from '../../components/Modal';
 
 const formatDate = (dateString: string | null): string => {
@@ -73,14 +74,28 @@ export function LeadDetail() {
   } = useCRM();
 
   const [isActivityModalOpen, setIsActivityModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [activityForm, setActivityForm] = useState({
     activityType: 'llamada' as ActivityType,
     subject: '',
     description: '',
     dueDate: '',
   });
+  const [editForm, setEditForm] = useState({
+    contactName: '',
+    company: '',
+    email: '',
+    phone: '',
+    position: '',
+    source: 'manual' as LeadSource,
+    budgetRange: '',
+    timeline: '',
+    needs: '',
+    notes: '',
+  });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isConverting, setIsConverting] = useState(false);
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
 
   const lead = leads.find(l => l.id === id);
 
@@ -112,6 +127,46 @@ export function LeadDetail() {
   const handleStatusChange = async (newStatus: LeadStatus) => {
     if (!lead) return;
     await updateLead(lead.id, { status: newStatus });
+  };
+
+  const openEditModal = () => {
+    if (!lead) return;
+    setEditForm({
+      contactName: lead.contactName || '',
+      company: lead.company || '',
+      email: lead.email || '',
+      phone: lead.phone || '',
+      position: lead.position || '',
+      source: lead.source,
+      budgetRange: lead.budgetRange || '',
+      timeline: lead.timeline || '',
+      needs: lead.needs || '',
+      notes: lead.notes || '',
+    });
+    setIsEditModalOpen(true);
+  };
+
+  const handleEditSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!lead || isSavingEdit) return;
+    setIsSavingEdit(true);
+    try {
+      await updateLead(lead.id, {
+        contactName: editForm.contactName,
+        company: editForm.company || null,
+        email: editForm.email || null,
+        phone: editForm.phone || null,
+        position: editForm.position || null,
+        source: editForm.source,
+        budgetRange: editForm.budgetRange || null,
+        timeline: editForm.timeline || null,
+        needs: editForm.needs || null,
+        notes: editForm.notes || null,
+      });
+      setIsEditModalOpen(false);
+    } finally {
+      setIsSavingEdit(false);
+    }
   };
 
   const handleConvertToDeal = async () => {
@@ -218,7 +273,7 @@ export function LeadDetail() {
           <select
             value={lead.status}
             onChange={(e) => handleStatusChange(e.target.value as LeadStatus)}
-            className={`appearance-none px-4 py-2 pr-8 rounded-full text-sm font-medium cursor-pointer border-0 ${LEAD_STATUS_CONFIG[lead.status].bgClass}`}
+            className={`appearance-none px-4 py-2 pr-8 rounded-full text-sm font-medium cursor-pointer border-0 ${(LEAD_STATUS_CONFIG[lead.status] || LEAD_STATUS_CONFIG.nuevo).bgClass}`}
           >
             {Object.entries(LEAD_STATUS_CONFIG).map(([status, config]) => (
               <option key={status} value={status}>
@@ -227,6 +282,15 @@ export function LeadDetail() {
             ))}
           </select>
         </div>
+
+        {/* Edit Button */}
+        <button
+          onClick={openEditModal}
+          className="btn-secondary"
+        >
+          <Pencil className="w-4 h-4 mr-2" />
+          Editar
+        </button>
 
         {/* Convert to Deal Button */}
         {!isConverted && (
@@ -287,9 +351,19 @@ export function LeadDetail() {
                   <Phone className="w-5 h-5 text-gray-400 shrink-0" />
                   <div>
                     <p className="text-xs text-gray-500 dark:text-gray-500">Telefono</p>
-                    <a href={`tel:${lead.phone}`} className="text-primary-600 hover:underline">
-                      {lead.phone}
-                    </a>
+                    <div className="flex items-center gap-3">
+                      <a href={`tel:${lead.phone}`} className="text-primary-600 hover:underline">
+                        {lead.phone}
+                      </a>
+                      <a
+                        href={`https://wa.me/${lead.phone.replace(/[^0-9]/g, '')}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 rounded-full hover:bg-green-200 dark:hover:bg-green-900/50 transition-colors"
+                      >
+                        WhatsApp
+                      </a>
+                    </div>
                   </div>
                 </div>
               )}
@@ -308,7 +382,7 @@ export function LeadDetail() {
                 <Target className="w-5 h-5 text-gray-400 shrink-0" />
                 <div>
                   <p className="text-xs text-gray-500 dark:text-gray-500">Fuente</p>
-                  <p className="text-gray-900 dark:text-white">{LEAD_SOURCE_LABELS[lead.source]}</p>
+                  <p className="text-gray-900 dark:text-white">{LEAD_SOURCE_LABELS[lead.source] || lead.source}</p>
                 </div>
               </div>
 
@@ -647,6 +721,150 @@ export function LeadDetail() {
               className="btn-primary"
             >
               {isSubmitting ? 'Guardando...' : 'Guardar Actividad'}
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Edit Lead Modal */}
+      <Modal
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
+        title="Editar Lead"
+      >
+        <form onSubmit={handleEditSubmit} className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Nombre *
+              </label>
+              <input
+                type="text"
+                value={editForm.contactName}
+                onChange={(e) => setEditForm({ ...editForm, contactName: e.target.value })}
+                className="input"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Empresa
+              </label>
+              <input
+                type="text"
+                value={editForm.company}
+                onChange={(e) => setEditForm({ ...editForm, company: e.target.value })}
+                className="input"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Email
+              </label>
+              <input
+                type="email"
+                value={editForm.email}
+                onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                className="input"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Telefono
+              </label>
+              <input
+                type="text"
+                value={editForm.phone}
+                onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
+                className="input"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Cargo
+              </label>
+              <input
+                type="text"
+                value={editForm.position}
+                onChange={(e) => setEditForm({ ...editForm, position: e.target.value })}
+                className="input"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Fuente
+              </label>
+              <select
+                value={editForm.source}
+                onChange={(e) => setEditForm({ ...editForm, source: e.target.value as LeadSource })}
+                className="input"
+              >
+                {Object.entries(LEAD_SOURCE_LABELS).map(([value, label]) => (
+                  <option key={value} value={value}>{label}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Rango de Presupuesto
+              </label>
+              <input
+                type="text"
+                value={editForm.budgetRange}
+                onChange={(e) => setEditForm({ ...editForm, budgetRange: e.target.value })}
+                className="input"
+                placeholder="Ej: $100.000 - $500.000"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Timeline
+              </label>
+              <input
+                type="text"
+                value={editForm.timeline}
+                onChange={(e) => setEditForm({ ...editForm, timeline: e.target.value })}
+                className="input"
+                placeholder="Ej: 3 meses"
+              />
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Necesidades
+            </label>
+            <textarea
+              value={editForm.needs}
+              onChange={(e) => setEditForm({ ...editForm, needs: e.target.value })}
+              className="input min-h-[80px]"
+              placeholder="Necesidades del lead..."
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Notas
+            </label>
+            <textarea
+              value={editForm.notes}
+              onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })}
+              className="input min-h-[80px]"
+              placeholder="Notas adicionales..."
+            />
+          </div>
+          <div className="flex justify-end gap-3 pt-4">
+            <button
+              type="button"
+              onClick={() => setIsEditModalOpen(false)}
+              className="btn-secondary"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={isSavingEdit}
+              className="btn-primary"
+            >
+              {isSavingEdit ? 'Guardando...' : 'Guardar Cambios'}
             </button>
           </div>
         </form>

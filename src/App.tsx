@@ -3,6 +3,7 @@ import {
   Login,
   Register,
   Dashboard,
+  TableroControl,
   FinanceDashboard,
   Clients,
   ClientForm,
@@ -27,6 +28,7 @@ import {
   TaskBoard,
   Landing,
   AgroLanding,
+  AgroGuiaLanding,
   Meetings,
   Manual,
   PlaybookDashboard,
@@ -86,6 +88,12 @@ function LandingRedirect() {
   return <Landing />;
 }
 
+function AgroGuiaRoute() {
+  const isAgro = window.location.hostname.startsWith('agro.');
+  if (isAgro) return <AgroGuiaLanding />;
+  return <Navigate to="/" replace />;
+}
+
 function AppRoutes() {
   const { user, loading } = useAuth();
 
@@ -96,6 +104,7 @@ function AppRoutes() {
   return (
     <Routes>
       <Route path="/" element={<LandingRedirect />} />
+      <Route path="/manual-prospeccion" element={<AgroGuiaRoute />} />
       <Route
         path="/login"
         element={user ? <Navigate to="/home" replace /> : <Login />}
@@ -117,6 +126,7 @@ function AppRoutes() {
       >
         {/* General / OKR Routes */}
         <Route path="/home" element={<HomeRedirect />} />
+        <Route path="/dashboard" element={<TableroControl />} />
         <Route path="/okrs" element={<Dashboard />} />
         <Route path="/okrs/initiatives" element={<OKRInitiatives />} />
         <Route path="/tareas" element={<TaskBoard />} />

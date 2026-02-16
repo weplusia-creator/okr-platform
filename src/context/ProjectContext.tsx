@@ -14,6 +14,7 @@ import type {
   ProjectDocument,
   ProjectActivityLog,
   ProjectPayment,
+  ProjectNovedad,
   ModuleStatus,
   AlumniProfile,
   AttendanceSession,
@@ -98,6 +99,14 @@ interface ProjectContextType {
   saveAlumniProfile: (data: Omit<AlumniProfile, 'id' | 'completedAt' | 'updatedAt'>) => Promise<AlumniProfile | null>;
   fetchAllAlumniProfiles: (projectId: string) => Promise<AlumniProfile[]>;
 
+  // Novedades
+  novedades: ProjectNovedad[];
+  fetchNovedades: (projectId: string) => Promise<void>;
+  addNovedad: (projectId: string, content: string) => Promise<ProjectNovedad>;
+  updateNovedad: (id: string, content: string) => Promise<void>;
+  deleteNovedad: (id: string) => Promise<void>;
+  togglePinNovedad: (id: string, pinned: boolean) => Promise<void>;
+
   // Attendance
   attendanceSessions: AttendanceSession[];
   fetchAttendanceSessions: (projectId: string) => Promise<void>;
@@ -167,6 +176,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
   const [documents, setDocuments] = useState<ProjectDocument[]>([]);
   const [activityLog, setActivityLog] = useState<ProjectActivityLog[]>([]);
   const [alumniProfile, setAlumniProfile] = useState<AlumniProfile | null>(null);
+  const [novedades, setNovedades] = useState<ProjectNovedad[]>([]);
   const [attendanceSessions, setAttendanceSessions] = useState<AttendanceSession[]>([]);
   const [npsSurveys, setNpsSurveys] = useState<NPSSurvey[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
@@ -1722,6 +1732,116 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  // ===== NOVEDADES =====
+
+  const fetchNovedades = useCallback(async (projectId: string) => {
+    try {
+      const { data, error: err } = await db
+        .from('project_novedades')
+        .select('*')
+        .eq('project_id', projectId)
+        .order('pinned', { ascending: false })
+        .order('created_at', { ascending: false });
+
+      if (err) throw err;
+
+      const rows = data || [];
+
+      // Fetch user names
+      const userIds = [...new Set(rows.map((n: any) => n.user_id))];
+      const { data: users } = userIds.length > 0
+        ? await db.from('users').select('id, full_name').in('id', userIds)
+        : { data: [] };
+      const userMap: Record<string, string> = {};
+      for (const u of (users || [])) {
+        userMap[u.id] = u.full_name;
+      }
+
+      setNovedades(rows.map((n: any) => ({
+        id: n.id,
+        projectId: n.project_id,
+        userId: n.user_id,
+        userName: userMap[n.user_id] || null,
+        content: n.content,
+        pinned: n.pinned || false,
+        createdAt: n.created_at,
+      })));
+    } catch (err) {
+      console.error('Error fetching novedades:', err);
+    }
+  }, []);
+
+  const addNovedad = useCallback(async (projectId: string, content: string): Promise<ProjectNovedad> => {
+    if (!appUser?.id) throw new Error('No user');
+
+    const { data, error: err } = await db
+      .from('project_novedades')
+      .insert({
+        project_id: projectId,
+        user_id: appUser.id,
+        content,
+        pinned: false,
+      })
+      .select('*')
+      .single();
+
+    if (err) throw err;
+
+    const novedad: ProjectNovedad = {
+      id: data.id,
+      projectId: data.project_id,
+      userId: data.user_id,
+      userName: appUser.fullName || null,
+      content: data.content,
+      pinned: data.pinned || false,
+      createdAt: data.created_at,
+    };
+
+    setNovedades(prev => [novedad, ...prev]);
+    await logActivity(projectId, 'created', 'novedad', novedad.id);
+    return novedad;
+  }, [appUser?.id, appUser?.fullName, logActivity]);
+
+  const updateNovedad = useCallback(async (id: string, content: string) => {
+    const { error: err } = await db
+      .from('project_novedades')
+      .update({ content })
+      .eq('id', id);
+
+    if (err) throw err;
+
+    setNovedades(prev => prev.map(n => n.id === id ? { ...n, content } : n));
+  }, []);
+
+  const deleteNovedad = useCallback(async (id: string) => {
+    const { error: err } = await db
+      .from('project_novedades')
+      .delete()
+      .eq('id', id);
+
+    if (err) throw err;
+
+    setNovedades(prev => prev.filter(n => n.id !== id));
+  }, []);
+
+  const togglePinNovedad = useCallback(async (id: string, pinned: boolean) => {
+    const { error: err } = await db
+      .from('project_novedades')
+      .update({ pinned })
+      .eq('id', id);
+
+    if (err) throw err;
+
+    setNovedades(prev => {
+      const updated = prev.map(n => n.id === id ? { ...n, pinned } : n);
+      // Re-sort: pinned first, then by date
+      return updated.sort((a, b) => {
+        if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      });
+    });
+  }, []);
+
   // ===== ATTENDANCE =====
 
   const fetchAttendanceSessions = useCallback(async (projectId: string) => {
@@ -2850,6 +2970,12 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     fetchAlumniProfile,
     saveAlumniProfile,
     fetchAllAlumniProfiles,
+    novedades,
+    fetchNovedades,
+    addNovedad,
+    updateNovedad,
+    deleteNovedad,
+    togglePinNovedad,
     attendanceSessions,
     fetchAttendanceSessions,
     fetchAttendanceRecords,
@@ -2939,6 +3065,12 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     fetchAlumniProfile,
     saveAlumniProfile,
     fetchAllAlumniProfiles,
+    novedades,
+    fetchNovedades,
+    addNovedad,
+    updateNovedad,
+    deleteNovedad,
+    togglePinNovedad,
     attendanceSessions,
     fetchAttendanceSessions,
     fetchAttendanceRecords,

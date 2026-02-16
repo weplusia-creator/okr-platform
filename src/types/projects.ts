@@ -238,6 +238,18 @@ export interface NPSResponse {
   createdAt: string;
 }
 
+// ===== Novedades (Project News/Comments) =====
+
+export interface ProjectNovedad {
+  id: string;
+  projectId: string;
+  userId: string;
+  userName?: string;
+  content: string;
+  pinned: boolean;
+  createdAt: string;
+}
+
 // ===== Products =====
 
 export type ProductStatus = 'active' | 'inactive';

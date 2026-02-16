@@ -86,15 +86,19 @@ export function TaskDetail({ task, onClose }: Props) {
   }, [task]);
 
   const handleSave = async () => {
-    await updateTask(task.id, {
-      title: title.trim() || task.title,
-      description: description.trim() || null,
-      status,
-      dueDate: dueDate || null,
-      responsibleId: responsibleId || null,
-    });
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+    try {
+      await updateTask(task.id, {
+        title: title.trim() || task.title,
+        description: description.trim() || null,
+        status,
+        dueDate: dueDate || null,
+        responsibleId: responsibleId || null,
+      });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch (err: any) {
+      alert('Error al guardar tarea: ' + (err?.message || 'Error desconocido'));
+    }
   };
 
   const handleSaveAndClose = async () => {
@@ -102,15 +106,23 @@ export function TaskDetail({ task, onClose }: Props) {
     onClose();
   };
 
-  const handleDelete = () => {
-    deleteTask(task.id);
-    onClose();
+  const handleDelete = async () => {
+    try {
+      await deleteTask(task.id);
+      onClose();
+    } catch (err: any) {
+      alert('Error al eliminar tarea: ' + (err?.message || 'Error desconocido'));
+    }
   };
 
   const handleAddComment = async () => {
     if (!commentText.trim()) return;
-    await addTaskComment(task.id, commentText.trim());
-    setCommentText('');
+    try {
+      await addTaskComment(task.id, commentText.trim());
+      setCommentText('');
+    } catch (err: any) {
+      alert('Error al agregar comentario: ' + (err?.message || 'Error desconocido'));
+    }
   };
 
   const handleCreateLabel = async () => {

@@ -109,11 +109,12 @@ export function PlaybookEditor() {
   const groupedItems = useMemo(() => {
     const map: Record<string, PlaybookItem[]> = {};
     for (const item of items) {
+      if (item.stageId && item.stageId !== selectedStageId) continue;
       if (!map[item.itemType]) map[item.itemType] = [];
       map[item.itemType].push(item);
     }
     return map;
-  }, [items]);
+  }, [items, selectedStageId]);
 
   // Helpers
   const startEdit = (id: string, field: string, value: string) => {
@@ -211,7 +212,8 @@ export function PlaybookEditor() {
     await addItem(playbookId, {
       title: 'Nuevo recurso',
       itemType: newItemType,
-      sortOrder: items.length,
+      stageId: selectedStageId || null,
+      sortOrder: items.filter(i => !i.stageId || i.stageId === selectedStageId).length,
     });
   };
 
@@ -749,7 +751,7 @@ export function PlaybookEditor() {
 
               {activeTab === 'recursos' && (
                 <div className="space-y-4">
-                  <p className="text-xs text-gray-400 dark:text-gray-500 mb-2">Recursos globales del playbook agrupados por tipo.</p>
+                  <p className="text-xs text-gray-400 dark:text-gray-500 mb-2">Recursos de esta etapa agrupados por tipo.</p>
                   {Object.entries(ITEM_TYPE_CONFIG).map(([type, cfg]) => {
                     const typeItems = groupedItems[type] || [];
                     return (

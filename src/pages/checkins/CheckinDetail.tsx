@@ -82,6 +82,8 @@ export function CheckinDetail() {
     try {
       await cerrarCheckin(id, closeForm);
       setShowClose(false);
+    } catch (err: any) {
+      alert('Error al cerrar check-in: ' + (err?.message || 'Error desconocido'));
     } finally {
       setSaving(false);
     }
@@ -105,6 +107,8 @@ export function CheckinDetail() {
       });
       setCompromisoForm({ descripcion: '', responsable: 'cliente', fechaLimite: '', prioridad: 'media' });
       setShowAddCompromiso(false);
+    } catch (err: any) {
+      alert('Error al agregar compromiso: ' + (err?.message || 'Error desconocido'));
     } finally {
       setSaving(false);
     }

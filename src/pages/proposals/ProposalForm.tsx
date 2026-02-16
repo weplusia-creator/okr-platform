@@ -497,6 +497,9 @@ ${aiRawText}`,
           navigate(`/proposals/${newProposal.id}`);
         }
       }
+    } catch (err: any) {
+      console.error('Error saving proposal:', err);
+      alert('Error al guardar propuesta: ' + (err?.message || 'Error desconocido'));
     } finally {
       setLoading(false);
     }

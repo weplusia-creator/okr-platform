@@ -24,6 +24,7 @@ import {
   QUESTION_CATEGORY_LABELS,
   OBJECTION_CATEGORY_LABELS,
   OBJECTION_SEVERITY_LABELS,
+  ITEM_TYPE_CONFIG,
 } from '../../types/playbook';
 
 // ---- Icon helper for step types ----
@@ -170,6 +171,14 @@ export function PlaybookView() {
         .filter((o) => o.playbookId === id)
         .sort((a, b) => a.sortOrder - b.sortOrder),
     [objections, id],
+  );
+
+  const stageItems = useMemo(
+    () =>
+      items
+        .filter((i) => i.stageId === selectedStageId)
+        .sort((a, b) => a.sortOrder - b.sortOrder),
+    [items, selectedStageId],
   );
 
   // Search filtering
@@ -435,6 +444,44 @@ export function PlaybookView() {
                     </div>
                   ),
                 )}
+              </div>
+            </Collapsible>
+          )}
+          {/* Recursos / Checklists */}
+          {stageItems.length > 0 && (
+            <Collapsible
+              title="Checklists y Recursos"
+              icon={<CheckCircle size={16} className="text-green-500" />}
+              defaultOpen
+              count={stageItems.length}
+            >
+              <div className="space-y-4">
+                {stageItems.map((item) => {
+                  const cfg = ITEM_TYPE_CONFIG[item.itemType as keyof typeof ITEM_TYPE_CONFIG];
+                  const contentItems = (item.content as any)?.items as string[] | undefined;
+                  const note = (item.content as any)?.note as string | undefined;
+                  return (
+                    <div key={item.id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+                      <h4 className="font-semibold text-gray-900 dark:text-white mb-2 flex items-center gap-2">
+                        {cfg && <span className="text-xs px-1.5 py-0.5 rounded" style={{ backgroundColor: cfg.color + '20', color: cfg.color }}>{cfg.name}</span>}
+                        {item.title}
+                      </h4>
+                      {contentItems && contentItems.length > 0 && (
+                        <ul className="space-y-1.5">
+                          {contentItems.map((ci, idx) => (
+                            <li key={idx} className="flex gap-2 text-sm text-gray-700 dark:text-gray-300">
+                              <span className="text-gray-400 flex-shrink-0">{item.itemType === 'checklist' ? '☐' : '•'}</span>
+                              {ci}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                      {note && (
+                        <p className="mt-2 text-xs text-gray-500 dark:text-gray-400 italic">{note}</p>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </Collapsible>
           )}

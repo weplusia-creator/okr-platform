@@ -1,0 +1,679 @@
+import { useMemo, useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import {
+  DollarSign, TrendingUp, TrendingDown, Handshake, FolderKanban, Target,
+  FileText, CheckCircle2, Clock, AlertTriangle, Loader2, Users,
+  ListChecks, BarChart3, ArrowRight,
+} from 'lucide-react';
+import {
+  BarChart, Bar, PieChart, Pie, Cell, AreaChart, Area,
+  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+} from 'recharts';
+import { useAuth } from '../context/AuthContext';
+import { useFinance } from '../context/FinanceContext';
+import { useCRM } from '../context/CRMContext';
+import { useProjects } from '../context/ProjectContext';
+import { useOKR } from '../context/OKRContext';
+import { useTask } from '../context/TaskContext';
+import { useProposals } from '../context/ProposalContext';
+
+const formatCurrency = (amount: number) =>
+  new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(amount);
+
+const CHART_COLORS = {
+  income: '#10B981',
+  expense: '#EF4444',
+  primary: '#3B82F6',
+  warning: '#F59E0B',
+  purple: '#8B5CF6',
+  pink: '#EC4899',
+  gray: '#6B7280',
+  brand: '#D4FC59',
+};
+
+const INVOICE_COLORS: Record<string, string> = {
+  draft: '#6B7280',
+  issued: '#3B82F6',
+  paid: '#10B981',
+  overdue: '#EF4444',
+  cancelled: '#9CA3AF',
+};
+
+const INVOICE_LABELS: Record<string, string> = {
+  draft: 'Borrador',
+  issued: 'Emitida',
+  paid: 'Cobrada',
+  overdue: 'Vencida',
+  cancelled: 'Cancelada',
+};
+
+const PROJECT_COLORS: Record<string, string> = {
+  proposal: '#6B7280',
+  approved: '#3B82F6',
+  in_progress: '#F59E0B',
+  paused: '#8B5CF6',
+  completed: '#10B981',
+  cancelled: '#EF4444',
+};
+
+const PROJECT_LABELS: Record<string, string> = {
+  proposal: 'Propuesta',
+  approved: 'Aprobado',
+  in_progress: 'En progreso',
+  paused: 'Pausado',
+  completed: 'Completado',
+  cancelled: 'Cancelado',
+};
+
+const PROPOSAL_COLORS: Record<string, string> = {
+  draft: '#6B7280',
+  sent: '#3B82F6',
+  viewed: '#8B5CF6',
+  accepted: '#10B981',
+  rejected: '#EF4444',
+};
+
+const PROPOSAL_LABELS: Record<string, string> = {
+  draft: 'Borrador',
+  sent: 'Enviada',
+  viewed: 'Vista',
+  accepted: 'Aceptada',
+  rejected: 'Rechazada',
+};
+
+export function TableroControl() {
+  const { organization } = useAuth();
+  const { getFinanceSummary, getMonthlyData, invoices, transactions, loadingInvoices, loadingCashFlow } = useFinance();
+  const { leads, deals, activities, getStats: getCRMStats, getPipelineByStage, loading: crmLoading } = useCRM();
+  const { projects, loading: projectsLoading } = useProjects();
+  const { objectives, initiatives, loading: okrLoading } = useOKR();
+  const { tasks, loading: tasksLoading } = useTask();
+  const { proposals, getStats: getProposalStats, loading: proposalsLoading } = useProposals();
+
+  const [isDark, setIsDark] = useState(false);
+
+  useEffect(() => {
+    const check = () => setIsDark(document.documentElement.classList.contains('dark'));
+    check();
+    const observer = new MutationObserver(check);
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+    return () => observer.disconnect();
+  }, []);
+
+  const isLoading = loadingInvoices || loadingCashFlow || crmLoading || projectsLoading || okrLoading || tasksLoading || proposalsLoading;
+
+  // ===== Computed Data =====
+  const financeSummary = useMemo(() => getFinanceSummary(), [getFinanceSummary]);
+  const currentYear = new Date().getFullYear();
+  const monthlyData = useMemo(() => getMonthlyData(currentYear), [getMonthlyData, currentYear]);
+  const crmStats = useMemo(() => getCRMStats(), [getCRMStats, leads, deals, activities]);
+  const pipelineData = useMemo(() => getPipelineByStage(), [getPipelineByStage, deals]);
+  const proposalStats = useMemo(() => getProposalStats(), [getProposalStats, proposals]);
+
+  // Current month income
+  const currentMonthIncome = useMemo(() => {
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    return transactions
+      .filter(t => t.type === 'income' && new Date(t.date).getMonth() === currentMonth && new Date(t.date).getFullYear() === currentYear)
+      .reduce((sum, t) => sum + t.amount, 0);
+  }, [transactions, currentYear]);
+
+  // Invoice status breakdown
+  const invoiceStatusData = useMemo(() => {
+    const counts: Record<string, number> = {};
+    invoices.forEach(inv => { counts[inv.status] = (counts[inv.status] || 0) + 1; });
+    return Object.entries(counts)
+      .map(([status, value]) => ({
+        name: INVOICE_LABELS[status] || status,
+        value,
+        color: INVOICE_COLORS[status] || '#6B7280',
+      }))
+      .filter(d => d.value > 0);
+  }, [invoices]);
+
+  // Project status breakdown
+  const projectStatusData = useMemo(() => {
+    const counts: Record<string, number> = {};
+    projects.forEach(p => { counts[p.status] = (counts[p.status] || 0) + 1; });
+    return Object.entries(counts)
+      .map(([status, value]) => ({
+        name: PROJECT_LABELS[status] || status,
+        value,
+        color: PROJECT_COLORS[status] || '#6B7280',
+      }))
+      .filter(d => d.value > 0);
+  }, [projects]);
+
+  const activeProjects = useMemo(() => projects.filter(p => p.status === 'in_progress').length, [projects]);
+
+  // OKR progress
+  const avgOKRProgress = useMemo(() => {
+    const allKRs = objectives.flatMap(o => o.keyResults);
+    if (allKRs.length === 0) return 0;
+    return Math.round(allKRs.reduce((s, kr) => s + kr.progress, 0) / allKRs.length);
+  }, [objectives]);
+
+  const okrProgressData = useMemo(() => {
+    return objectives.slice(0, 6).map(obj => {
+      const avg = obj.keyResults.length > 0
+        ? Math.round(obj.keyResults.reduce((s, kr) => s + kr.progress, 0) / obj.keyResults.length)
+        : 0;
+      return {
+        name: obj.title.length > 30 ? obj.title.substring(0, 30) + '...' : obj.title,
+        progress: avg,
+        fill: avg >= 70 ? '#10B981' : avg >= 30 ? '#F59E0B' : '#EF4444',
+      };
+    });
+  }, [objectives]);
+
+  const initiativeStats = useMemo(() => ({
+    todo: initiatives.filter(i => i.status === 'todo').length,
+    inProgress: initiatives.filter(i => i.status === 'in_progress').length,
+    done: initiatives.filter(i => i.status === 'done').length,
+  }), [initiatives]);
+
+  // Task stats
+  const taskStats = useMemo(() => {
+    const todo = tasks.filter(t => t.status === 'todo').length;
+    const inProgress = tasks.filter(t => t.status === 'in_progress').length;
+    const done = tasks.filter(t => t.status === 'done').length;
+    const total = tasks.length;
+    const today = new Date().toISOString().split('T')[0];
+    const overdue = tasks.filter(t => t.status !== 'done' && t.dueDate && t.dueDate < today).length;
+    return { todo, inProgress, done, total, overdue, completionRate: total > 0 ? Math.round((done / total) * 100) : 0 };
+  }, [tasks]);
+
+  // Proposal status breakdown
+  const proposalStatusData = useMemo(() => {
+    const statuses = ['draft', 'sent', 'viewed', 'accepted', 'rejected'] as const;
+    const counts: Record<string, number> = {};
+    proposals.forEach(p => { counts[p.status] = (counts[p.status] || 0) + 1; });
+    return statuses
+      .map(s => ({ name: PROPOSAL_LABELS[s], value: counts[s] || 0, color: PROPOSAL_COLORS[s] }))
+      .filter(d => d.value > 0);
+  }, [proposals]);
+
+  // Proposals pending (sent + viewed)
+  const proposalsPending = proposalStats.sentCount + proposalStats.viewedCount;
+
+  // Chart tooltip style
+  const tooltipStyle = {
+    backgroundColor: isDark ? '#363233' : '#fff',
+    border: `1px solid ${isDark ? '#443f40' : '#E5E7EB'}`,
+    borderRadius: '8px',
+    color: isDark ? '#fff' : '#1f2937',
+    fontSize: '13px',
+  };
+
+  const gridStroke = isDark ? '#443f40' : '#E5E7EB';
+  const axisColor = '#6B7280';
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="w-8 h-8 animate-spin text-primary-500" />
+      </div>
+    );
+  }
+
+  const today = new Date();
+  const todayStr = today.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white tracking-tight flex items-center gap-2">
+          <BarChart3 className="w-7 h-7 text-accent-600 dark:text-accent-400" />
+          Tablero de Control
+        </h1>
+        <p className="text-gray-500 dark:text-gray-400 capitalize">
+          {organization?.name ? `${organization.name} · ` : ''}{todayStr}
+        </p>
+      </div>
+
+      {/* KPI Strip */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+        <Link to="/finance" className="card p-4 hover:shadow-md transition-shadow">
+          <div className="flex items-center gap-2 mb-1">
+            <div className="p-1.5 rounded-lg bg-green-100 dark:bg-green-900/30">
+              <DollarSign className="w-4 h-4 text-green-600 dark:text-green-400" />
+            </div>
+            <span className="text-xs text-gray-500 dark:text-gray-400">Balance</span>
+          </div>
+          <p className={`text-lg font-bold ${financeSummary.balance >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+            {formatCurrency(financeSummary.balance)}
+          </p>
+        </Link>
+
+        <Link to="/finance/cash-flow" className="card p-4 hover:shadow-md transition-shadow">
+          <div className="flex items-center gap-2 mb-1">
+            <div className="p-1.5 rounded-lg bg-blue-100 dark:bg-blue-900/30">
+              <TrendingUp className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+            </div>
+            <span className="text-xs text-gray-500 dark:text-gray-400">Ingresos mes</span>
+          </div>
+          <p className="text-lg font-bold text-gray-900 dark:text-white">{formatCurrency(currentMonthIncome)}</p>
+        </Link>
+
+        <Link to="/crm/pipeline" className="card p-4 hover:shadow-md transition-shadow">
+          <div className="flex items-center gap-2 mb-1">
+            <div className="p-1.5 rounded-lg bg-pink-100 dark:bg-pink-900/30">
+              <Handshake className="w-4 h-4 text-pink-600 dark:text-pink-400" />
+            </div>
+            <span className="text-xs text-gray-500 dark:text-gray-400">Pipeline CRM</span>
+          </div>
+          <p className="text-lg font-bold text-gray-900 dark:text-white">{formatCurrency(crmStats.pipelineValue)}</p>
+        </Link>
+
+        <Link to="/projects/list" className="card p-4 hover:shadow-md transition-shadow">
+          <div className="flex items-center gap-2 mb-1">
+            <div className="p-1.5 rounded-lg bg-yellow-100 dark:bg-yellow-900/30">
+              <FolderKanban className="w-4 h-4 text-yellow-600 dark:text-yellow-400" />
+            </div>
+            <span className="text-xs text-gray-500 dark:text-gray-400">Proyectos activos</span>
+          </div>
+          <p className="text-lg font-bold text-gray-900 dark:text-white">{activeProjects}</p>
+        </Link>
+
+        <Link to="/okrs" className="card p-4 hover:shadow-md transition-shadow">
+          <div className="flex items-center gap-2 mb-1">
+            <div className="p-1.5 rounded-lg bg-purple-100 dark:bg-purple-900/30">
+              <Target className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+            </div>
+            <span className="text-xs text-gray-500 dark:text-gray-400">Progreso OKRs</span>
+          </div>
+          <p className="text-lg font-bold text-gray-900 dark:text-white">{avgOKRProgress}%</p>
+        </Link>
+
+        <Link to="/proposals" className="card p-4 hover:shadow-md transition-shadow">
+          <div className="flex items-center gap-2 mb-1">
+            <div className="p-1.5 rounded-lg bg-indigo-100 dark:bg-indigo-900/30">
+              <FileText className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+            </div>
+            <span className="text-xs text-gray-500 dark:text-gray-400">Propuestas pendientes</span>
+          </div>
+          <p className="text-lg font-bold text-gray-900 dark:text-white">{proposalsPending}</p>
+        </Link>
+      </div>
+
+      {/* Financial Section */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Cash Flow Chart */}
+        <div className="lg:col-span-2 card p-5">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Flujo de caja {currentYear}</h2>
+            <Link to="/finance/cash-flow" className="text-sm text-primary-600 hover:underline flex items-center gap-1">
+              Ver detalle <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+          {monthlyData.some(m => m.income > 0 || m.expenses > 0) ? (
+            <ResponsiveContainer width="100%" height={280}>
+              <AreaChart data={monthlyData}>
+                <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} />
+                <XAxis dataKey="month" tick={{ fill: axisColor, fontSize: 12 }} />
+                <YAxis tick={{ fill: axisColor, fontSize: 12 }} tickFormatter={(v: number) => `$${(v / 1000).toFixed(0)}k`} />
+                <Tooltip contentStyle={tooltipStyle} formatter={(value: number) => formatCurrency(value)} />
+                <Area type="monotone" dataKey="income" name="Ingresos" stroke={CHART_COLORS.income} fill={CHART_COLORS.income} fillOpacity={0.15} strokeWidth={2} />
+                <Area type="monotone" dataKey="expenses" name="Gastos" stroke={CHART_COLORS.expense} fill={CHART_COLORS.expense} fillOpacity={0.15} strokeWidth={2} />
+              </AreaChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="flex items-center justify-center h-[280px] text-gray-400 dark:text-gray-500">
+              <p>Sin datos financieros para {currentYear}</p>
+            </div>
+          )}
+        </div>
+
+        {/* Invoice Status Donut */}
+        <div className="card p-5">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Facturas</h2>
+            <Link to="/finance/invoices" className="text-sm text-primary-600 hover:underline flex items-center gap-1">
+              Ver <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+          {invoiceStatusData.length > 0 ? (
+            <div className="flex flex-col items-center">
+              <ResponsiveContainer width="100%" height={200}>
+                <PieChart>
+                  <Pie
+                    data={invoiceStatusData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={55}
+                    outerRadius={85}
+                    paddingAngle={3}
+                    dataKey="value"
+                  >
+                    {invoiceStatusData.map((entry, i) => (
+                      <Cell key={i} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip contentStyle={tooltipStyle} />
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="flex flex-wrap gap-3 justify-center mt-2">
+                {invoiceStatusData.map((d, i) => (
+                  <div key={i} className="flex items-center gap-1.5">
+                    <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: d.color }} />
+                    <span className="text-xs text-gray-600 dark:text-gray-400">{d.name} ({d.value})</span>
+                  </div>
+                ))}
+              </div>
+              {/* Key finance alerts */}
+              <div className="w-full mt-4 space-y-2">
+                {financeSummary.overdueInvoices > 0 && (
+                  <div className="flex items-center gap-2 text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/10 px-3 py-2 rounded-lg">
+                    <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+                    <span>{financeSummary.overdueInvoices} vencida{financeSummary.overdueInvoices > 1 ? 's' : ''} ({formatCurrency(financeSummary.overdueAmount)})</span>
+                  </div>
+                )}
+                {financeSummary.pendingInvoices > 0 && (
+                  <div className="flex items-center gap-2 text-sm text-yellow-600 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-900/10 px-3 py-2 rounded-lg">
+                    <Clock className="w-4 h-4 flex-shrink-0" />
+                    <span>{financeSummary.pendingInvoices} pendiente{financeSummary.pendingInvoices > 1 ? 's' : ''} ({formatCurrency(financeSummary.pendingAmount)})</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center justify-center h-[200px] text-gray-400 dark:text-gray-500">
+              <p>Sin facturas</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* CRM Section */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Pipeline Chart */}
+        <div className="lg:col-span-2 card p-5">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Pipeline Comercial</h2>
+            <Link to="/crm/pipeline" className="text-sm text-primary-600 hover:underline flex items-center gap-1">
+              Ver pipeline <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+          {pipelineData.length > 0 && pipelineData.some(p => p.count > 0) ? (
+            <ResponsiveContainer width="100%" height={250}>
+              <BarChart data={pipelineData} layout="vertical" margin={{ left: 20 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} />
+                <XAxis type="number" tick={{ fill: axisColor, fontSize: 12 }} tickFormatter={(v: number) => formatCurrency(v)} />
+                <YAxis type="category" dataKey="stage" tick={{ fill: axisColor, fontSize: 12 }} width={100} />
+                <Tooltip contentStyle={tooltipStyle} formatter={(value: number) => formatCurrency(value)} />
+                <Bar dataKey="value" name="Valor" fill={CHART_COLORS.primary} radius={[0, 4, 4, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="flex items-center justify-center h-[250px] text-gray-400 dark:text-gray-500">
+              <p>Sin deals en pipeline</p>
+            </div>
+          )}
+        </div>
+
+        {/* CRM KPIs */}
+        <div className="card p-5">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Metricas CRM</h2>
+            <Link to="/crm/control" className="text-sm text-primary-600 hover:underline flex items-center gap-1">
+              Ver <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+          <div className="space-y-3">
+            <KPIRow icon={<Users className="w-4 h-4 text-blue-500" />} label="Total leads" value={String(crmStats.totalLeads)} />
+            <KPIRow icon={<TrendingUp className="w-4 h-4 text-green-500" />} label="Tasa conversion" value={`${crmStats.conversionRate.toFixed(1)}%`} />
+            <KPIRow icon={<CheckCircle2 className="w-4 h-4 text-green-500" />} label="Deals ganados" value={`${crmStats.wonDeals} (${formatCurrency(crmStats.wonValue)})`} />
+            <KPIRow icon={<TrendingDown className="w-4 h-4 text-red-500" />} label="Deals perdidos" value={String(crmStats.lostDeals)} />
+            <KPIRow icon={<DollarSign className="w-4 h-4 text-purple-500" />} label="Pipeline ponderado" value={formatCurrency(crmStats.weightedPipelineValue)} />
+            <KPIRow icon={<Target className="w-4 h-4 text-yellow-500" />} label="Ticket promedio" value={formatCurrency(crmStats.avgDealSize)} />
+            {crmStats.overdueActivities > 0 && (
+              <div className="flex items-center gap-2 text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/10 px-3 py-2 rounded-lg">
+                <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+                <span>{crmStats.overdueActivities} actividad{crmStats.overdueActivities > 1 ? 'es' : ''} vencida{crmStats.overdueActivities > 1 ? 's' : ''}</span>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Projects & OKRs Section */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Projects */}
+        <div className="card p-5">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Proyectos</h2>
+            <Link to="/projects/list" className="text-sm text-primary-600 hover:underline flex items-center gap-1">
+              Ver todos <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+          {projectStatusData.length > 0 ? (
+            <div className="flex flex-col items-center">
+              <ResponsiveContainer width="100%" height={200}>
+                <PieChart>
+                  <Pie
+                    data={projectStatusData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={50}
+                    outerRadius={80}
+                    paddingAngle={3}
+                    dataKey="value"
+                  >
+                    {projectStatusData.map((entry, i) => (
+                      <Cell key={i} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip contentStyle={tooltipStyle} />
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="flex flex-wrap gap-3 justify-center mt-2">
+                {projectStatusData.map((d, i) => (
+                  <div key={i} className="flex items-center gap-1.5">
+                    <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: d.color }} />
+                    <span className="text-xs text-gray-600 dark:text-gray-400">{d.name} ({d.value})</span>
+                  </div>
+                ))}
+              </div>
+              <div className="w-full grid grid-cols-2 gap-3 mt-4">
+                <div className="bg-gray-50 dark:bg-[#272324] rounded-lg p-3 text-center">
+                  <p className="text-2xl font-bold text-gray-900 dark:text-white">{projects.length}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Total proyectos</p>
+                </div>
+                <div className="bg-gray-50 dark:bg-[#272324] rounded-lg p-3 text-center">
+                  <p className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">{activeProjects}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">En progreso</p>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center justify-center h-[200px] text-gray-400 dark:text-gray-500">
+              <p>Sin proyectos</p>
+            </div>
+          )}
+        </div>
+
+        {/* OKR Progress */}
+        <div className="card p-5">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Progreso OKRs</h2>
+            <Link to="/okrs" className="text-sm text-primary-600 hover:underline flex items-center gap-1">
+              Ver OKRs <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+          {okrProgressData.length > 0 ? (
+            <>
+              <ResponsiveContainer width="100%" height={200}>
+                <BarChart data={okrProgressData} layout="vertical" margin={{ left: 10 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} />
+                  <XAxis type="number" domain={[0, 100]} tick={{ fill: axisColor, fontSize: 12 }} tickFormatter={(v: number) => `${v}%`} />
+                  <YAxis type="category" dataKey="name" tick={{ fill: axisColor, fontSize: 11 }} width={140} />
+                  <Tooltip contentStyle={tooltipStyle} formatter={(value: number) => `${value}%`} />
+                  <Bar dataKey="progress" name="Progreso" radius={[0, 4, 4, 0]}>
+                    {okrProgressData.map((entry, i) => (
+                      <Cell key={i} fill={entry.fill} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+              <div className="grid grid-cols-3 gap-3 mt-4">
+                <div className="bg-gray-50 dark:bg-[#272324] rounded-lg p-3 text-center">
+                  <p className="text-lg font-bold text-gray-500">{initiativeStats.todo}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Pendientes</p>
+                </div>
+                <div className="bg-gray-50 dark:bg-[#272324] rounded-lg p-3 text-center">
+                  <p className="text-lg font-bold text-blue-600">{initiativeStats.inProgress}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">En curso</p>
+                </div>
+                <div className="bg-gray-50 dark:bg-[#272324] rounded-lg p-3 text-center">
+                  <p className="text-lg font-bold text-green-600">{initiativeStats.done}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Completadas</p>
+                </div>
+              </div>
+            </>
+          ) : (
+            <div className="flex items-center justify-center h-[200px] text-gray-400 dark:text-gray-500">
+              <p>Sin objetivos definidos</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Tasks & Proposals Section */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Tasks */}
+        <div className="card p-5">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+              <ListChecks className="w-5 h-5 text-primary-500" />
+              Gestion de Tareas
+            </h2>
+            <Link to="/tareas" className="text-sm text-primary-600 hover:underline flex items-center gap-1">
+              Ver tablero <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+          {taskStats.total > 0 ? (
+            <>
+              <div className="grid grid-cols-3 gap-3 mb-4">
+                <div className="bg-gray-50 dark:bg-[#272324] rounded-lg p-3 text-center">
+                  <p className="text-2xl font-bold text-gray-500">{taskStats.todo}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Pendientes</p>
+                </div>
+                <div className="bg-gray-50 dark:bg-[#272324] rounded-lg p-3 text-center">
+                  <p className="text-2xl font-bold text-blue-600">{taskStats.inProgress}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">En curso</p>
+                </div>
+                <div className="bg-gray-50 dark:bg-[#272324] rounded-lg p-3 text-center">
+                  <p className="text-2xl font-bold text-green-600">{taskStats.done}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Completadas</p>
+                </div>
+              </div>
+              {/* Progress bar */}
+              <div className="mb-3">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-sm text-gray-500 dark:text-gray-400">Completadas</span>
+                  <span className="text-sm font-medium text-gray-900 dark:text-white">{taskStats.completionRate}%</span>
+                </div>
+                <div className="h-2.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-green-500 rounded-full transition-all duration-500"
+                    style={{ width: `${taskStats.completionRate}%` }}
+                  />
+                </div>
+              </div>
+              {taskStats.overdue > 0 && (
+                <div className="flex items-center gap-2 text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/10 px-3 py-2 rounded-lg">
+                  <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+                  <span>{taskStats.overdue} tarea{taskStats.overdue > 1 ? 's' : ''} vencida{taskStats.overdue > 1 ? 's' : ''}</span>
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="flex items-center justify-center h-[120px] text-gray-400 dark:text-gray-500">
+              <p>Sin tareas</p>
+            </div>
+          )}
+        </div>
+
+        {/* Proposals */}
+        <div className="card p-5">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+              <FileText className="w-5 h-5 text-indigo-500" />
+              Propuestas
+            </h2>
+            <Link to="/proposals" className="text-sm text-primary-600 hover:underline flex items-center gap-1">
+              Ver todas <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+          {proposalStats.totalProposals > 0 ? (
+            <>
+              {/* Status bar */}
+              {proposalStatusData.length > 0 && (
+                <div className="mb-4">
+                  <div className="flex rounded-full overflow-hidden h-4">
+                    {proposalStatusData.map((d, i) => (
+                      <div
+                        key={i}
+                        className="h-full transition-all"
+                        style={{
+                          backgroundColor: d.color,
+                          width: `${(d.value / proposalStats.totalProposals) * 100}%`,
+                        }}
+                        title={`${d.name}: ${d.value}`}
+                      />
+                    ))}
+                  </div>
+                  <div className="flex flex-wrap gap-3 mt-2">
+                    {proposalStatusData.map((d, i) => (
+                      <div key={i} className="flex items-center gap-1.5">
+                        <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: d.color }} />
+                        <span className="text-xs text-gray-600 dark:text-gray-400">{d.name} ({d.value})</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-gray-50 dark:bg-[#272324] rounded-lg p-3 text-center">
+                  <p className="text-lg font-bold text-gray-900 dark:text-white">{formatCurrency(proposalStats.totalValue)}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Valor total</p>
+                </div>
+                <div className="bg-gray-50 dark:bg-[#272324] rounded-lg p-3 text-center">
+                  <p className="text-lg font-bold text-green-600">{formatCurrency(proposalStats.acceptedValue)}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Valor aceptado</p>
+                </div>
+                <div className="bg-gray-50 dark:bg-[#272324] rounded-lg p-3 text-center">
+                  <p className="text-lg font-bold text-gray-900 dark:text-white">{proposalStats.totalProposals}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Total propuestas</p>
+                </div>
+                <div className="bg-gray-50 dark:bg-[#272324] rounded-lg p-3 text-center">
+                  <p className="text-lg font-bold text-green-600">{proposalStats.conversionRate.toFixed(1)}%</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Tasa cierre</p>
+                </div>
+              </div>
+            </>
+          ) : (
+            <div className="flex items-center justify-center h-[120px] text-gray-400 dark:text-gray-500">
+              <p>Sin propuestas</p>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Small reusable row for CRM KPIs
+function KPIRow({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between py-2 border-b border-gray-100 dark:border-gray-700/50 last:border-0">
+      <div className="flex items-center gap-2">
+        {icon}
+        <span className="text-sm text-gray-600 dark:text-gray-400">{label}</span>
+      </div>
+      <span className="text-sm font-semibold text-gray-900 dark:text-white">{value}</span>
+    </div>
+  );
+}

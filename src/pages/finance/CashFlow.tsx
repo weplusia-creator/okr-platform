@@ -22,6 +22,8 @@ import {
   ToggleLeft,
   ToggleRight,
   Check,
+  Download,
+  FileSpreadsheet,
 } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
 import { useProjects } from '../../context/ProjectContext';
@@ -76,6 +78,7 @@ export function CashFlow() {
     clientId: '',
     projectId: '',
     paidBy: '',
+    invoicedBy: '',
   });
 
   const [categoryForm, setCategoryForm] = useState({
@@ -216,6 +219,34 @@ export function CashFlow() {
     return date.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' });
   };
 
+  const handleDownloadCSV = () => {
+    const headers = ['Fecha', 'Tipo', 'Categoría', 'Descripción', 'Monto', 'Cliente', 'Proyecto', 'Cobrado/Pagado por', 'Facturado por'];
+    const rows = filteredTransactions.map(t => [
+      t.date,
+      t.type === 'income' ? 'Ingreso' : 'Egreso',
+      t.category?.name || '',
+      t.description,
+      t.type === 'income' ? t.amount : -t.amount,
+      t.clientName || '',
+      t.projectName || '',
+      t.paidBy || '',
+      t.invoicedBy || '',
+    ]);
+
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')),
+    ].join('\n');
+
+    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `flujo-de-caja-${period}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
   const handleGanttTogglePaid = async (payment: ProjectPayment & { projectName: string; clientId?: string }) => {
     const isPaid = payment.status === 'paid';
     try {
@@ -268,6 +299,7 @@ export function CashFlow() {
       clientId: '',
       projectId: '',
       paidBy: '',
+      invoicedBy: '',
     });
     setShowTransactionModal(true);
   };
@@ -283,6 +315,7 @@ export function CashFlow() {
       clientId: transaction.clientId || '',
       projectId: transaction.projectId || '',
       paidBy: transaction.paidBy || '',
+      invoicedBy: transaction.invoicedBy || '',
     });
     setShowTransactionModal(true);
   };
@@ -305,6 +338,7 @@ export function CashFlow() {
           clientId: transactionForm.clientId || null,
           projectId: transactionForm.projectId || null,
           paidBy: transactionForm.paidBy || null,
+          invoicedBy: transactionForm.invoicedBy || null,
         });
       } else {
         await addTransaction({
@@ -317,6 +351,7 @@ export function CashFlow() {
           clientId: transactionForm.clientId || null,
           projectId: transactionForm.projectId || null,
           paidBy: transactionForm.paidBy || null,
+          invoicedBy: transactionForm.invoicedBy || null,
         });
       }
       setShowTransactionModal(false);
@@ -1422,7 +1457,7 @@ export function CashFlow() {
       )}
 
       {/* Filters */}
-      <div className="flex flex-wrap gap-4">
+      <div className="flex flex-wrap gap-4 items-center">
         <div className="flex items-center gap-2">
           <Calendar className="w-5 h-5 text-gray-400" />
           <select
@@ -1451,6 +1486,14 @@ export function CashFlow() {
             <option value="expense">Egresos</option>
           </select>
         </div>
+        <button
+          onClick={handleDownloadCSV}
+          className="btn-secondary flex items-center gap-2 ml-auto"
+          title="Descargar CSV"
+        >
+          <Download className="w-4 h-4" />
+          Descargar
+        </button>
       </div>
 
       {/* Transactions List */}
@@ -1503,6 +1546,11 @@ export function CashFlow() {
                       {transaction.paidBy && (
                         <span className="px-2 py-0.5 rounded-full text-xs bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
                           {transaction.type === 'expense' ? 'Pagó' : 'Cobró'}: {transaction.paidBy}
+                        </span>
+                      )}
+                      {transaction.invoicedBy && (
+                        <span className="px-2 py-0.5 rounded-full text-xs bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                          Facturó: {transaction.invoicedBy}
                         </span>
                       )}
                       {transaction.clientName && (
@@ -1655,6 +1703,20 @@ export function CashFlow() {
                 <select
                   value={transactionForm.paidBy}
                   onChange={(e) => setTransactionForm(prev => ({ ...prev, paidBy: e.target.value }))}
+                  className="input"
+                >
+                  <option value="">Sin asignar</option>
+                  {SOCIOS.map(s => (
+                    <option key={s.id} value={s.name}>{s.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="label">Facturado por</label>
+                <select
+                  value={transactionForm.invoicedBy}
+                  onChange={(e) => setTransactionForm(prev => ({ ...prev, invoicedBy: e.target.value }))}
                   className="input"
                 >
                   <option value="">Sin asignar</option>

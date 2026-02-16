@@ -598,6 +598,7 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
         projectId: t.project_id || null,
         paymentId: t.payment_id || null,
         paidBy: t.paid_by || null,
+        invoicedBy: t.invoiced_by || null,
         recurringExpenseId: t.recurring_expense_id || null,
         clientName: usedFullQuery ? ((t as any).clients?.name || undefined) : undefined,
         projectName: usedFullQuery ? ((t as any).projects?.name || (t as any).projects?.client_name || undefined) : undefined,
@@ -685,6 +686,7 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
           project_id: transaction.projectId || null,
           payment_id: transaction.paymentId || null,
           paid_by: transaction.paidBy || null,
+          invoiced_by: transaction.invoicedBy || null,
         };
         if (transaction.recurringExpenseId) fullPayload.recurring_expense_id = transaction.recurringExpenseId;
         const res = await supabase
@@ -728,6 +730,7 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
         projectId: data.project_id || null,
         paymentId: data.payment_id || null,
         paidBy: data.paid_by || null,
+        invoicedBy: data.invoiced_by || null,
         createdAt: data.created_at,
       };
 
@@ -773,6 +776,7 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
       if (updates.date !== undefined) dbUpdates.date = updates.date;
 
       if (updates.paidBy !== undefined) dbUpdates.paid_by = updates.paidBy;
+      if (updates.invoicedBy !== undefined) dbUpdates.invoiced_by = updates.invoicedBy;
 
       // Try with optional FK columns; fall back without them
       const optionalUpdates: Record<string, unknown> = {};

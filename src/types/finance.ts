@@ -81,6 +81,7 @@ export interface CashFlowTransaction {
   projectId: string | null;
   paymentId: string | null;
   paidBy: string | null;
+  invoicedBy: string | null;
   recurringExpenseId?: string | null;
   clientName?: string;
   projectName?: string;

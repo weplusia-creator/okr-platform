@@ -407,7 +407,7 @@ export function Layout() {
         {appUser?.userType !== 'client' && <InfoBar />}
 
         {/* Page content */}
-        <main className="p-6 min-h-[calc(100vh-4px)]">
+        <main className="p-3 sm:p-4 md:p-6 min-h-[calc(100vh-4px)]">
           <Outlet />
         </main>
       </div>

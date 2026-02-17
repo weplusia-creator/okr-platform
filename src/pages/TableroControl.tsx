@@ -221,87 +221,87 @@ export function TableroControl() {
   const todayStr = today.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white tracking-tight flex items-center gap-2">
-          <BarChart3 className="w-7 h-7 text-accent-600 dark:text-accent-400" />
+        <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white tracking-tight flex items-center gap-2">
+          <BarChart3 className="w-6 h-6 sm:w-7 sm:h-7 text-accent-600 dark:text-accent-400" />
           Tablero de Control
         </h1>
-        <p className="text-gray-500 dark:text-gray-400 capitalize">
+        <p className="text-sm sm:text-base text-gray-500 dark:text-gray-400 capitalize">
           {organization?.name ? `${organization.name} · ` : ''}{todayStr}
         </p>
       </div>
 
       {/* KPI Strip */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-        <Link to="/finance" className="card p-4 hover:shadow-md transition-shadow">
-          <div className="flex items-center gap-2 mb-1">
-            <div className="p-1.5 rounded-lg bg-green-100 dark:bg-green-900/30">
-              <DollarSign className="w-4 h-4 text-green-600 dark:text-green-400" />
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-4">
+        <Link to="/finance" className="card p-3 sm:p-4 hover:shadow-md transition-shadow">
+          <div className="flex items-center gap-1.5 sm:gap-2 mb-1">
+            <div className="p-1 sm:p-1.5 rounded-lg bg-green-100 dark:bg-green-900/30">
+              <DollarSign className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-green-600 dark:text-green-400" />
             </div>
-            <span className="text-xs text-gray-500 dark:text-gray-400">Balance</span>
+            <span className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400">Balance</span>
           </div>
-          <p className={`text-lg font-bold ${financeSummary.balance >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+          <p className={`text-sm sm:text-lg font-bold truncate ${financeSummary.balance >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
             {formatCurrency(financeSummary.balance)}
           </p>
         </Link>
 
-        <Link to="/finance/cash-flow" className="card p-4 hover:shadow-md transition-shadow">
-          <div className="flex items-center gap-2 mb-1">
-            <div className="p-1.5 rounded-lg bg-blue-100 dark:bg-blue-900/30">
-              <TrendingUp className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+        <Link to="/finance/cash-flow" className="card p-3 sm:p-4 hover:shadow-md transition-shadow">
+          <div className="flex items-center gap-1.5 sm:gap-2 mb-1">
+            <div className="p-1 sm:p-1.5 rounded-lg bg-blue-100 dark:bg-blue-900/30">
+              <TrendingUp className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-600 dark:text-blue-400" />
             </div>
-            <span className="text-xs text-gray-500 dark:text-gray-400">Ingresos mes</span>
+            <span className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400">Ingresos mes</span>
           </div>
-          <p className="text-lg font-bold text-gray-900 dark:text-white">{formatCurrency(currentMonthIncome)}</p>
+          <p className="text-sm sm:text-lg font-bold text-gray-900 dark:text-white truncate">{formatCurrency(currentMonthIncome)}</p>
         </Link>
 
-        <Link to="/crm/pipeline" className="card p-4 hover:shadow-md transition-shadow">
-          <div className="flex items-center gap-2 mb-1">
-            <div className="p-1.5 rounded-lg bg-pink-100 dark:bg-pink-900/30">
-              <Handshake className="w-4 h-4 text-pink-600 dark:text-pink-400" />
+        <Link to="/crm/pipeline" className="card p-3 sm:p-4 hover:shadow-md transition-shadow">
+          <div className="flex items-center gap-1.5 sm:gap-2 mb-1">
+            <div className="p-1 sm:p-1.5 rounded-lg bg-pink-100 dark:bg-pink-900/30">
+              <Handshake className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-pink-600 dark:text-pink-400" />
             </div>
-            <span className="text-xs text-gray-500 dark:text-gray-400">Pipeline CRM</span>
+            <span className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400">Pipeline CRM</span>
           </div>
-          <p className="text-lg font-bold text-gray-900 dark:text-white">{formatCurrency(crmStats.pipelineValue)}</p>
+          <p className="text-sm sm:text-lg font-bold text-gray-900 dark:text-white truncate">{formatCurrency(crmStats.pipelineValue)}</p>
         </Link>
 
-        <Link to="/projects/list" className="card p-4 hover:shadow-md transition-shadow">
-          <div className="flex items-center gap-2 mb-1">
-            <div className="p-1.5 rounded-lg bg-yellow-100 dark:bg-yellow-900/30">
-              <FolderKanban className="w-4 h-4 text-yellow-600 dark:text-yellow-400" />
+        <Link to="/projects/list" className="card p-3 sm:p-4 hover:shadow-md transition-shadow">
+          <div className="flex items-center gap-1.5 sm:gap-2 mb-1">
+            <div className="p-1 sm:p-1.5 rounded-lg bg-yellow-100 dark:bg-yellow-900/30">
+              <FolderKanban className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-yellow-600 dark:text-yellow-400" />
             </div>
-            <span className="text-xs text-gray-500 dark:text-gray-400">Proyectos activos</span>
+            <span className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400">Proyectos activos</span>
           </div>
-          <p className="text-lg font-bold text-gray-900 dark:text-white">{activeProjects}</p>
+          <p className="text-sm sm:text-lg font-bold text-gray-900 dark:text-white">{activeProjects}</p>
         </Link>
 
-        <Link to="/okrs" className="card p-4 hover:shadow-md transition-shadow">
-          <div className="flex items-center gap-2 mb-1">
-            <div className="p-1.5 rounded-lg bg-purple-100 dark:bg-purple-900/30">
-              <Target className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+        <Link to="/okrs" className="card p-3 sm:p-4 hover:shadow-md transition-shadow">
+          <div className="flex items-center gap-1.5 sm:gap-2 mb-1">
+            <div className="p-1 sm:p-1.5 rounded-lg bg-purple-100 dark:bg-purple-900/30">
+              <Target className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-purple-600 dark:text-purple-400" />
             </div>
-            <span className="text-xs text-gray-500 dark:text-gray-400">Progreso OKRs</span>
+            <span className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400">Progreso OKRs</span>
           </div>
-          <p className="text-lg font-bold text-gray-900 dark:text-white">{avgOKRProgress}%</p>
+          <p className="text-sm sm:text-lg font-bold text-gray-900 dark:text-white">{avgOKRProgress}%</p>
         </Link>
 
-        <Link to="/proposals" className="card p-4 hover:shadow-md transition-shadow">
-          <div className="flex items-center gap-2 mb-1">
-            <div className="p-1.5 rounded-lg bg-indigo-100 dark:bg-indigo-900/30">
-              <FileText className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+        <Link to="/proposals" className="card p-3 sm:p-4 hover:shadow-md transition-shadow">
+          <div className="flex items-center gap-1.5 sm:gap-2 mb-1">
+            <div className="p-1 sm:p-1.5 rounded-lg bg-indigo-100 dark:bg-indigo-900/30">
+              <FileText className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-indigo-600 dark:text-indigo-400" />
             </div>
-            <span className="text-xs text-gray-500 dark:text-gray-400">Propuestas pendientes</span>
+            <span className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400">Propuestas pend.</span>
           </div>
-          <p className="text-lg font-bold text-gray-900 dark:text-white">{proposalsPending}</p>
+          <p className="text-sm sm:text-lg font-bold text-gray-900 dark:text-white">{proposalsPending}</p>
         </Link>
       </div>
 
       {/* Financial Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
         {/* Cash Flow Chart */}
-        <div className="lg:col-span-2 card p-5">
+        <div className="lg:col-span-2 card p-3 sm:p-5">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Flujo de caja {currentYear}</h2>
             <Link to="/finance/cash-flow" className="text-sm text-primary-600 hover:underline flex items-center gap-1">
@@ -309,25 +309,25 @@ export function TableroControl() {
             </Link>
           </div>
           {monthlyData.some(m => m.income > 0 || m.expenses > 0) ? (
-            <ResponsiveContainer width="100%" height={280}>
-              <AreaChart data={monthlyData}>
+            <ResponsiveContainer width="100%" height={220}>
+              <AreaChart data={monthlyData} margin={{ left: -10, right: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} />
-                <XAxis dataKey="month" tick={{ fill: axisColor, fontSize: 12 }} />
-                <YAxis tick={{ fill: axisColor, fontSize: 12 }} tickFormatter={(v: number) => `$${(v / 1000).toFixed(0)}k`} />
+                <XAxis dataKey="month" tick={{ fill: axisColor, fontSize: 10 }} />
+                <YAxis tick={{ fill: axisColor, fontSize: 10 }} tickFormatter={(v: number) => `$${(v / 1000).toFixed(0)}k`} width={45} />
                 <Tooltip contentStyle={tooltipStyle} formatter={(value: number) => formatCurrency(value)} />
                 <Area type="monotone" dataKey="income" name="Ingresos" stroke={CHART_COLORS.income} fill={CHART_COLORS.income} fillOpacity={0.15} strokeWidth={2} />
                 <Area type="monotone" dataKey="expenses" name="Gastos" stroke={CHART_COLORS.expense} fill={CHART_COLORS.expense} fillOpacity={0.15} strokeWidth={2} />
               </AreaChart>
             </ResponsiveContainer>
           ) : (
-            <div className="flex items-center justify-center h-[280px] text-gray-400 dark:text-gray-500">
+            <div className="flex items-center justify-center h-[220px] text-gray-400 dark:text-gray-500">
               <p>Sin datos financieros para {currentYear}</p>
             </div>
           )}
         </div>
 
         {/* Invoice Status Donut */}
-        <div className="card p-5">
+        <div className="card p-3 sm:p-5">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Facturas</h2>
             <Link to="/finance/invoices" className="text-sm text-primary-600 hover:underline flex items-center gap-1">
@@ -387,9 +387,9 @@ export function TableroControl() {
       </div>
 
       {/* CRM Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
         {/* Pipeline Chart */}
-        <div className="lg:col-span-2 card p-5">
+        <div className="lg:col-span-2 card p-3 sm:p-5">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Pipeline Comercial</h2>
             <Link to="/crm/pipeline" className="text-sm text-primary-600 hover:underline flex items-center gap-1">
@@ -397,26 +397,26 @@ export function TableroControl() {
             </Link>
           </div>
           {pipelineData.length > 0 && pipelineData.some(p => p.count > 0) ? (
-            <ResponsiveContainer width="100%" height={250}>
-              <BarChart data={pipelineData} layout="vertical" margin={{ left: 20 }}>
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart data={pipelineData} layout="vertical" margin={{ left: -10, right: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} />
-                <XAxis type="number" tick={{ fill: axisColor, fontSize: 12 }} tickFormatter={(v: number) => formatCurrency(v)} />
-                <YAxis type="category" dataKey="stage" tick={{ fill: axisColor, fontSize: 12 }} width={100} />
+                <XAxis type="number" tick={{ fill: axisColor, fontSize: 10 }} tickFormatter={(v: number) => `$${(v / 1000).toFixed(0)}k`} />
+                <YAxis type="category" dataKey="stage" tick={{ fill: axisColor, fontSize: 10 }} width={80} />
                 <Tooltip contentStyle={tooltipStyle} formatter={(value: number) => formatCurrency(value)} />
                 <Bar dataKey="value" name="Valor" fill={CHART_COLORS.primary} radius={[0, 4, 4, 0]} />
               </BarChart>
             </ResponsiveContainer>
           ) : (
-            <div className="flex items-center justify-center h-[250px] text-gray-400 dark:text-gray-500">
+            <div className="flex items-center justify-center h-[220px] text-gray-400 dark:text-gray-500">
               <p>Sin deals en pipeline</p>
             </div>
           )}
         </div>
 
         {/* CRM KPIs */}
-        <div className="card p-5">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Metricas CRM</h2>
+        <div className="card p-3 sm:p-5">
+          <div className="flex items-center justify-between mb-3 sm:mb-4">
+            <h2 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white">Metricas CRM</h2>
             <Link to="/crm/control" className="text-sm text-primary-600 hover:underline flex items-center gap-1">
               Ver <ArrowRight className="w-3.5 h-3.5" />
             </Link>
@@ -439,9 +439,9 @@ export function TableroControl() {
       </div>
 
       {/* Projects & OKRs Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
         {/* Projects */}
-        <div className="card p-5">
+        <div className="card p-3 sm:p-5">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Proyectos</h2>
             <Link to="/projects/list" className="text-sm text-primary-600 hover:underline flex items-center gap-1">
@@ -495,7 +495,7 @@ export function TableroControl() {
         </div>
 
         {/* OKR Progress */}
-        <div className="card p-5">
+        <div className="card p-3 sm:p-5">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Progreso OKRs</h2>
             <Link to="/okrs" className="text-sm text-primary-600 hover:underline flex items-center gap-1">
@@ -505,10 +505,10 @@ export function TableroControl() {
           {okrProgressData.length > 0 ? (
             <>
               <ResponsiveContainer width="100%" height={200}>
-                <BarChart data={okrProgressData} layout="vertical" margin={{ left: 10 }}>
+                <BarChart data={okrProgressData} layout="vertical" margin={{ left: -10, right: 5 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} />
-                  <XAxis type="number" domain={[0, 100]} tick={{ fill: axisColor, fontSize: 12 }} tickFormatter={(v: number) => `${v}%`} />
-                  <YAxis type="category" dataKey="name" tick={{ fill: axisColor, fontSize: 11 }} width={140} />
+                  <XAxis type="number" domain={[0, 100]} tick={{ fill: axisColor, fontSize: 10 }} tickFormatter={(v: number) => `${v}%`} />
+                  <YAxis type="category" dataKey="name" tick={{ fill: axisColor, fontSize: 9 }} width={100} />
                   <Tooltip contentStyle={tooltipStyle} formatter={(value: number) => `${value}%`} />
                   <Bar dataKey="progress" name="Progreso" radius={[0, 4, 4, 0]}>
                     {okrProgressData.map((entry, i) => (
@@ -517,18 +517,18 @@ export function TableroControl() {
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
-              <div className="grid grid-cols-3 gap-3 mt-4">
-                <div className="bg-gray-50 dark:bg-[#272324] rounded-lg p-3 text-center">
-                  <p className="text-lg font-bold text-gray-500">{initiativeStats.todo}</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Pendientes</p>
+              <div className="grid grid-cols-3 gap-2 sm:gap-3 mt-3 sm:mt-4">
+                <div className="bg-gray-50 dark:bg-[#272324] rounded-lg p-2 sm:p-3 text-center">
+                  <p className="text-base sm:text-lg font-bold text-gray-500">{initiativeStats.todo}</p>
+                  <p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400">Pendientes</p>
                 </div>
-                <div className="bg-gray-50 dark:bg-[#272324] rounded-lg p-3 text-center">
-                  <p className="text-lg font-bold text-blue-600">{initiativeStats.inProgress}</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">En curso</p>
+                <div className="bg-gray-50 dark:bg-[#272324] rounded-lg p-2 sm:p-3 text-center">
+                  <p className="text-base sm:text-lg font-bold text-blue-600">{initiativeStats.inProgress}</p>
+                  <p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400">En curso</p>
                 </div>
-                <div className="bg-gray-50 dark:bg-[#272324] rounded-lg p-3 text-center">
-                  <p className="text-lg font-bold text-green-600">{initiativeStats.done}</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Completadas</p>
+                <div className="bg-gray-50 dark:bg-[#272324] rounded-lg p-2 sm:p-3 text-center">
+                  <p className="text-base sm:text-lg font-bold text-green-600">{initiativeStats.done}</p>
+                  <p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400">Completadas</p>
                 </div>
               </div>
             </>
@@ -541,9 +541,9 @@ export function TableroControl() {
       </div>
 
       {/* Tasks & Proposals Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
         {/* Tasks */}
-        <div className="card p-5">
+        <div className="card p-3 sm:p-5">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
               <ListChecks className="w-5 h-5 text-primary-500" />
@@ -555,18 +555,18 @@ export function TableroControl() {
           </div>
           {taskStats.total > 0 ? (
             <>
-              <div className="grid grid-cols-3 gap-3 mb-4">
-                <div className="bg-gray-50 dark:bg-[#272324] rounded-lg p-3 text-center">
-                  <p className="text-2xl font-bold text-gray-500">{taskStats.todo}</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Pendientes</p>
+              <div className="grid grid-cols-3 gap-2 sm:gap-3 mb-3 sm:mb-4">
+                <div className="bg-gray-50 dark:bg-[#272324] rounded-lg p-2 sm:p-3 text-center">
+                  <p className="text-xl sm:text-2xl font-bold text-gray-500">{taskStats.todo}</p>
+                  <p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400">Pendientes</p>
                 </div>
-                <div className="bg-gray-50 dark:bg-[#272324] rounded-lg p-3 text-center">
-                  <p className="text-2xl font-bold text-blue-600">{taskStats.inProgress}</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">En curso</p>
+                <div className="bg-gray-50 dark:bg-[#272324] rounded-lg p-2 sm:p-3 text-center">
+                  <p className="text-xl sm:text-2xl font-bold text-blue-600">{taskStats.inProgress}</p>
+                  <p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400">En curso</p>
                 </div>
-                <div className="bg-gray-50 dark:bg-[#272324] rounded-lg p-3 text-center">
-                  <p className="text-2xl font-bold text-green-600">{taskStats.done}</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Completadas</p>
+                <div className="bg-gray-50 dark:bg-[#272324] rounded-lg p-2 sm:p-3 text-center">
+                  <p className="text-xl sm:text-2xl font-bold text-green-600">{taskStats.done}</p>
+                  <p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400">Completadas</p>
                 </div>
               </div>
               {/* Progress bar */}
@@ -597,7 +597,7 @@ export function TableroControl() {
         </div>
 
         {/* Proposals */}
-        <div className="card p-5">
+        <div className="card p-3 sm:p-5">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
               <FileText className="w-5 h-5 text-indigo-500" />
@@ -635,22 +635,22 @@ export function TableroControl() {
                   </div>
                 </div>
               )}
-              <div className="grid grid-cols-2 gap-3">
-                <div className="bg-gray-50 dark:bg-[#272324] rounded-lg p-3 text-center">
-                  <p className="text-lg font-bold text-gray-900 dark:text-white">{formatCurrency(proposalStats.totalValue)}</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Valor total</p>
+              <div className="grid grid-cols-2 gap-2 sm:gap-3">
+                <div className="bg-gray-50 dark:bg-[#272324] rounded-lg p-2 sm:p-3 text-center">
+                  <p className="text-sm sm:text-lg font-bold text-gray-900 dark:text-white truncate">{formatCurrency(proposalStats.totalValue)}</p>
+                  <p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400">Valor total</p>
                 </div>
-                <div className="bg-gray-50 dark:bg-[#272324] rounded-lg p-3 text-center">
-                  <p className="text-lg font-bold text-green-600">{formatCurrency(proposalStats.acceptedValue)}</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Valor aceptado</p>
+                <div className="bg-gray-50 dark:bg-[#272324] rounded-lg p-2 sm:p-3 text-center">
+                  <p className="text-sm sm:text-lg font-bold text-green-600 truncate">{formatCurrency(proposalStats.acceptedValue)}</p>
+                  <p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400">Valor aceptado</p>
                 </div>
-                <div className="bg-gray-50 dark:bg-[#272324] rounded-lg p-3 text-center">
-                  <p className="text-lg font-bold text-gray-900 dark:text-white">{proposalStats.totalProposals}</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Total propuestas</p>
+                <div className="bg-gray-50 dark:bg-[#272324] rounded-lg p-2 sm:p-3 text-center">
+                  <p className="text-sm sm:text-lg font-bold text-gray-900 dark:text-white">{proposalStats.totalProposals}</p>
+                  <p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400">Total propuestas</p>
                 </div>
-                <div className="bg-gray-50 dark:bg-[#272324] rounded-lg p-3 text-center">
-                  <p className="text-lg font-bold text-green-600">{proposalStats.conversionRate.toFixed(1)}%</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Tasa cierre</p>
+                <div className="bg-gray-50 dark:bg-[#272324] rounded-lg p-2 sm:p-3 text-center">
+                  <p className="text-sm sm:text-lg font-bold text-green-600">{proposalStats.conversionRate.toFixed(1)}%</p>
+                  <p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400">Tasa cierre</p>
                 </div>
               </div>
             </>

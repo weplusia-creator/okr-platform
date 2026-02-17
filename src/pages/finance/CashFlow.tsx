@@ -1522,68 +1522,68 @@ export function CashFlow() {
             {filteredTransactions.map(transaction => (
               <div
                 key={transaction.id}
-                className="flex items-center justify-between p-4 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 gap-2 sm:gap-4 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
               >
-                <div className="flex items-center gap-4">
+                <div className="flex items-start sm:items-center gap-3 sm:gap-4 min-w-0">
                   <div
-                    className={`p-2 rounded-lg ${
+                    className={`p-1.5 sm:p-2 rounded-lg flex-shrink-0 ${
                       transaction.type === 'income'
                         ? 'bg-success-100 dark:bg-success-900/30'
                         : 'bg-danger-100 dark:bg-danger-900/30'
                     }`}
                   >
                     {transaction.type === 'income' ? (
-                      <TrendingUp className="w-5 h-5 text-success-600" />
+                      <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 text-success-600" />
                     ) : (
-                      <TrendingDown className="w-5 h-5 text-danger-600" />
+                      <TrendingDown className="w-4 h-4 sm:w-5 sm:h-5 text-danger-600" />
                     )}
                   </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <p className="font-medium text-gray-900 dark:text-white">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                      <p className="font-medium text-sm sm:text-base text-gray-900 dark:text-white truncate max-w-[200px] sm:max-w-none">
                         {transaction.description}
                       </p>
                       {transaction.paidBy && (
-                        <span className="px-2 py-0.5 rounded-full text-xs bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
+                        <span className="px-1.5 sm:px-2 py-0.5 rounded-full text-[10px] sm:text-xs bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 whitespace-nowrap">
                           {transaction.type === 'expense' ? 'Pagó' : 'Cobró'}: {transaction.paidBy}
                         </span>
                       )}
                       {transaction.invoicedBy && (
-                        <span className="px-2 py-0.5 rounded-full text-xs bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                        <span className="px-1.5 sm:px-2 py-0.5 rounded-full text-[10px] sm:text-xs bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 whitespace-nowrap">
                           Facturó: {transaction.invoicedBy}
                         </span>
                       )}
                       {transaction.clientName && (
-                        <span className="text-sm font-medium text-blue-600 dark:text-blue-400">
+                        <span className="text-xs sm:text-sm font-medium text-blue-600 dark:text-blue-400 truncate">
                           {transaction.clientName}
                         </span>
                       )}
                     </div>
-                    <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 flex-wrap">
+                    <div className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm text-gray-500 dark:text-gray-400 flex-wrap mt-0.5">
                       <span
-                        className="px-2 py-0.5 rounded-full text-xs"
+                        className="px-1.5 sm:px-2 py-0.5 rounded-full text-[10px] sm:text-xs"
                         style={{ backgroundColor: `${transaction.category?.color}20`, color: transaction.category?.color }}
                       >
                         {transaction.category?.name}
                       </span>
-                      <span>{formatDate(transaction.date)}</span>
+                      <span className="text-[10px] sm:text-sm">{formatDate(transaction.date)}</span>
                       {transaction.projectName && (
-                        <span className="px-2 py-0.5 rounded-full text-xs bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400">
+                        <span className="px-1.5 sm:px-2 py-0.5 rounded-full text-[10px] sm:text-xs bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400 truncate max-w-[120px] sm:max-w-none">
                           {transaction.projectName}
                         </span>
                       )}
                     </div>
                   </div>
                 </div>
-                <div className="flex items-center gap-4">
+                <div className="flex items-center justify-between sm:justify-end gap-2 sm:gap-4 pl-9 sm:pl-0">
                   <span
-                    className={`text-lg font-semibold ${
+                    className={`text-sm sm:text-lg font-semibold whitespace-nowrap ${
                       transaction.type === 'income' ? 'text-success-600' : 'text-danger-600'
                     }`}
                   >
                     {transaction.type === 'income' ? '+' : '-'}{formatCurrency(transaction.amount)}
                   </span>
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-1 flex-shrink-0">
                     <button
                       onClick={() => openEditTransaction(transaction)}
                       className="p-2 text-gray-400 hover:text-primary-600 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"

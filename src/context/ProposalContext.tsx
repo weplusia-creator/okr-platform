@@ -108,11 +108,15 @@ export function ProposalProvider({ children }: { children: ReactNode }) {
           clientCompany: p.client_company,
           clientEmail: p.client_email,
           clientPhone: p.client_phone,
+          clientLogoUrl: p.client_logo_url,
           introduction: p.introduction,
           objective: p.objective,
           strengths: p.strengths || [],
           specificObjectives: p.specific_objectives || [],
           centralGap: p.central_gap || [],
+          gapTitle: p.gap_title || null,
+          gapDescription: p.gap_description || null,
+          phases: p.phases || null,
           termsAndConditions: p.terms_and_conditions,
           validityDays: p.validity_days,
           subtotal: parseFloat(p.subtotal) || 0,
@@ -177,11 +181,15 @@ export function ProposalProvider({ children }: { children: ReactNode }) {
         clientCompany: data.client_company,
         clientEmail: data.client_email,
         clientPhone: data.client_phone,
+        clientLogoUrl: data.client_logo_url,
         introduction: data.introduction,
         objective: data.objective,
         strengths: data.strengths || [],
         specificObjectives: data.specific_objectives || [],
         centralGap: data.central_gap || [],
+        gapTitle: data.gap_title || null,
+        gapDescription: data.gap_description || null,
+        phases: data.phases || null,
         termsAndConditions: data.terms_and_conditions,
         validityDays: data.validity_days,
         subtotal: parseFloat(data.subtotal) || 0,
@@ -310,11 +318,15 @@ export function ProposalProvider({ children }: { children: ReactNode }) {
         if (updates.clientCompany !== undefined) dbUpdates.client_company = updates.clientCompany;
         if (updates.clientEmail !== undefined) dbUpdates.client_email = updates.clientEmail;
         if (updates.clientPhone !== undefined) dbUpdates.client_phone = updates.clientPhone;
+        if (updates.clientLogoUrl !== undefined) dbUpdates.client_logo_url = updates.clientLogoUrl;
         if (updates.introduction !== undefined) dbUpdates.introduction = updates.introduction;
         if (updates.objective !== undefined) dbUpdates.objective = updates.objective;
         if (updates.strengths !== undefined) dbUpdates.strengths = updates.strengths;
         if (updates.specificObjectives !== undefined) dbUpdates.specific_objectives = updates.specificObjectives;
         if (updates.centralGap !== undefined) dbUpdates.central_gap = updates.centralGap;
+        if (updates.gapTitle !== undefined) dbUpdates.gap_title = updates.gapTitle;
+        if (updates.gapDescription !== undefined) dbUpdates.gap_description = updates.gapDescription;
+        if (updates.phases !== undefined) dbUpdates.phases = updates.phases;
         if (updates.termsAndConditions !== undefined) dbUpdates.terms_and_conditions = updates.termsAndConditions;
         if (updates.validityDays !== undefined) dbUpdates.validity_days = updates.validityDays;
         if (updates.discountPercent !== undefined) dbUpdates.discount_percent = updates.discountPercent;
@@ -751,11 +763,15 @@ export function ProposalProvider({ children }: { children: ReactNode }) {
           clientCompany: p.client_company,
           clientEmail: p.client_email,
           clientPhone: p.client_phone,
+          clientLogoUrl: p.client_logo_url,
           introduction: p.introduction,
           objective: p.objective,
           strengths: p.strengths || [],
           specificObjectives: p.specific_objectives || [],
           centralGap: p.central_gap || [],
+          gapTitle: p.gap_title || null,
+          gapDescription: p.gap_description || null,
+          phases: p.phases || null,
           termsAndConditions: p.terms_and_conditions,
           validityDays: p.validity_days,
           subtotal: parseFloat(p.subtotal) || 0,

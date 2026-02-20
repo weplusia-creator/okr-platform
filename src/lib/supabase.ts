@@ -11,7 +11,7 @@ if (!supabaseUrl || !supabaseAnonKey) {
   );
 }
 
-// Mutex with timeout to serialize auth token refresh operations
+// Mutex to serialize auth token refresh operations
 const locks = new Map<string, Promise<any>>();
 
 export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
@@ -19,12 +19,11 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
     detectSessionInUrl: true,
     persistSession: true,
     autoRefreshToken: true,
-    // Mutex-based lock with timeout to prevent deadlocks
     lock: async (name: string, acquireTimeout: number, fn: () => Promise<any>) => {
-      const timeout = Math.min(acquireTimeout || 5000, 10000); // Max 10s
+      const timeout = Math.max(acquireTimeout || 30000, 30000);
       const existing = locks.get(name);
       if (existing) {
-        // Wait for existing lock with timeout
+        // Wait for existing lock — don't reject on timeout, just continue
         await Promise.race([
           existing.catch(() => {}),
           new Promise((resolve) => setTimeout(resolve, timeout)),
@@ -33,13 +32,7 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
       const promise = fn();
       locks.set(name, promise);
       try {
-        // Also timeout the lock function itself
-        return await Promise.race([
-          promise,
-          new Promise<never>((_, reject) =>
-            setTimeout(() => reject(new Error('Auth lock timeout')), timeout)
-          ),
-        ]);
+        return await promise;
       } finally {
         if (locks.get(name) === promise) locks.delete(name);
       }

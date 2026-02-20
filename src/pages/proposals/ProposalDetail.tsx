@@ -21,6 +21,7 @@ import {
   ChevronUp,
   DollarSign,
   AlertCircle,
+  Presentation,
 } from 'lucide-react';
 import { useProposals } from '../../context/ProposalContext';
 import { PROPOSAL_STATUS_CONFIG, type Proposal, type ProposalItem } from '../../types/proposals';
@@ -239,6 +240,13 @@ export function ProposalDetail() {
                 <Edit className="w-5 h-5" />
                 Editar
               </Link>
+              <Link
+                to={`/proposals/${proposal.id}/slides`}
+                className="inline-flex items-center gap-2 px-4 py-2 text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+              >
+                <Presentation className="w-5 h-5" />
+                Editar filminas
+              </Link>
               <button
                 onClick={() => setShowSendModal(true)}
                 className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
@@ -247,6 +255,17 @@ export function ProposalDetail() {
                 Enviar Propuesta
               </button>
             </>
+          )}
+
+          {/* Edit slides - show for sent proposals too */}
+          {!isDraft && (
+            <Link
+              to={`/proposals/${proposal.id}/slides`}
+              className="inline-flex items-center gap-2 px-4 py-2 text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+            >
+              <Presentation className="w-5 h-5" />
+              Editar filminas
+            </Link>
           )}
 
           {/* Share/Copy link - show for any proposal that has been sent */}

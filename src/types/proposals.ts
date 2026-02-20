@@ -47,13 +47,17 @@ export interface Proposal {
   clientCompany: string | null;
   clientEmail: string | null;
   clientPhone: string | null;
+  clientLogoUrl: string | null;
 
   // Content
   introduction: string | null;
   objective: string | null;
   strengths: string[];
   specificObjectives: string[];
-  centralGap: { current: string; desired: string }[];
+  centralGap: { current: string; desired: string; cost?: string }[];
+  gapTitle: string | null;
+  gapDescription: string | null;
+  phases: { name: string; periodo: string; objetivo: string; entregables: string[] }[] | null;
   termsAndConditions: string | null;
   validityDays: number;
 

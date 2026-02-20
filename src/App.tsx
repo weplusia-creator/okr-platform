@@ -47,7 +47,7 @@ import {
   ActivityList,
 } from './pages/crm';
 import { BMCDashboard, BMCTemplates, BMCCanvasView, BMCRespond } from './pages/bmc';
-import { ProposalsDashboard, ProposalForm, ProposalDetail, ProposalPublicView } from './pages/proposals';
+import { ProposalsDashboard, ProposalForm, ProposalDetail, ProposalPublicView, ProposalSlideEditor } from './pages/proposals';
 import { PresentationsDashboard, PresentationForm, PresentationDetail, PresentationPublicView } from './pages/presentations';
 import { ArcaConfig, ArcaPuntosVenta, ArcaInvoices } from './pages/finance/arca';
 import {
@@ -186,6 +186,7 @@ function AppRoutes() {
         <Route path="/proposals/new" element={<ProposalForm />} />
         <Route path="/proposals/:id" element={<ProposalDetail />} />
         <Route path="/proposals/:id/edit" element={<ProposalForm />} />
+        <Route path="/proposals/:id/slides" element={<ProposalSlideEditor />} />
         {/* Presentation Routes */}
         <Route path="/presentations" element={<PresentationsDashboard />} />
         <Route path="/presentations/new" element={<PresentationForm />} />

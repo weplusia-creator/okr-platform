@@ -135,9 +135,24 @@ export function ProposalSlideEditor() {
         setObjective(p.objective || '');
         setSpecificObjectives(p.specificObjectives || []);
         setStrengths(p.strengths || []);
-        setCentralGap(p.centralGap || []);
-        setGapTitle(p.gapTitle || p.centralGap?.[0]?.current || '');
-        setGapDescription(p.gapDescription || p.centralGap?.[0]?.desired || '');
+        // Separate GAP title from centralGap table data
+        const rawGap = p.centralGap || [];
+        if (p.gapTitle) {
+          // Already migrated – remove duplicate first row if it matches gapTitle
+          const isDupe = rawGap.length > 0 && rawGap[0].current === p.gapTitle;
+          setCentralGap(isDupe ? rawGap.slice(1) : rawGap);
+          setGapTitle(p.gapTitle);
+          setGapDescription(p.gapDescription || '');
+        } else if (rawGap.length > 0) {
+          // Old data: migrate first row to GAP fields, remove from table
+          setGapTitle(rawGap[0].current || '');
+          setGapDescription(rawGap[0].desired || '');
+          setCentralGap(rawGap.slice(1));
+        } else {
+          setCentralGap([]);
+          setGapTitle('');
+          setGapDescription('');
+        }
         setTotalAmount(p.totalAmount);
         setDiscountPercent(p.discountPercent);
         setPaymentTerms(p.paymentTerms || '');
@@ -199,9 +214,12 @@ export function ProposalSlideEditor() {
         return;
       }
 
-      // Sync local state from what DB actually saved
-      setCentralGap(row.central_gap || []);
-      setGapTitle(row.gap_title || '');
+      // Sync local state from what DB actually saved (deduplicate GAP row)
+      const savedGap = row.central_gap || [];
+      const savedGapTitle = row.gap_title || '';
+      const savedDupe = savedGapTitle && savedGap.length > 0 && savedGap[0].current === savedGapTitle;
+      setCentralGap(savedDupe ? savedGap.slice(1) : savedGap);
+      setGapTitle(savedGapTitle);
       setGapDescription(row.gap_description || '');
       setPhases(row.phases && row.phases.length > 0 ? row.phases : DEFAULT_PHASES);
       setStrengths(row.strengths || []);

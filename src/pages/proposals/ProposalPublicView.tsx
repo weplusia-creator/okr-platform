@@ -539,7 +539,10 @@ export function ProposalPublicView() {
 
     // ═══ COSTO DE NO CAMBIAR (Red bg) ═══
     if (key === 'costo') {
-      const gap = proposal.centralGap || [];
+      const rawGap = proposal.centralGap || [];
+      // Remove first row if it duplicates the GAP title (migrated data)
+      const isDupe = proposal.gapTitle && rawGap.length > 0 && rawGap[0].current === proposal.gapTitle;
+      const gap = isDupe ? rawGap.slice(1) : rawGap;
       return (
         <div className={pad}>
           <p className="font-display italic text-[#D4FC59] text-lg sm:text-xl">el costo oculto de</p>

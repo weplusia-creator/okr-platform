@@ -90,29 +90,42 @@ export function FinanceDashboard() {
     };
   }, [allPayments]);
 
-  // Merge future payments into monthly chart data (only current + future months)
+  // Pending amounts by month = cuotas pendientes + facturas pendientes (issued/overdue)
   const currentMonthIndex = new Date().getMonth(); // 0-indexed
-  const paymentsByMonth = useMemo(() => {
-    const map: Record<string, number> = {};
+  const pendingByMonth = useMemo(() => {
+    const map: Record<number, number> = {};
+
+    // Cuotas de proyecto pendientes
     allPayments.forEach(p => {
       if (p.status === 'pending') {
         const [yearStr, mm] = p.month.split('-');
-        const yearOfPayment = Number(yearStr);
-        const monthIdx = Number(mm) - 1; // 0-indexed
-        if (yearOfPayment === currentYear && monthIdx >= currentMonthIndex) {
+        if (Number(yearStr) === currentYear) {
+          const monthIdx = Number(mm) - 1;
           map[monthIdx] = (map[monthIdx] || 0) + p.amount;
         }
       }
     });
+
+    // Facturas pendientes (issued / overdue) por fecha de vencimiento
+    invoices.forEach(inv => {
+      if (inv.status === 'issued' || inv.status === 'overdue') {
+        const d = new Date(inv.dueDate);
+        if (d.getFullYear() === currentYear) {
+          const monthIdx = d.getMonth();
+          map[monthIdx] = (map[monthIdx] || 0) + (inv.total || 0);
+        }
+      }
+    });
+
     return map;
-  }, [allPayments, currentYear, currentMonthIndex]);
+  }, [allPayments, invoices, currentYear]);
 
   const maxMonthlyValue = useMemo(() => {
     return Math.max(
-      ...monthlyData.map((m, i) => Math.max(m.income + (paymentsByMonth[i] || 0), m.expenses)),
+      ...monthlyData.map((m, i) => Math.max(m.income + (pendingByMonth[i] || 0), m.expenses)),
       1
     );
-  }, [monthlyData, paymentsByMonth]);
+  }, [monthlyData, pendingByMonth]);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('es-AR', {
@@ -272,7 +285,7 @@ export function FinanceDashboard() {
           <div className="h-72">
             <div className="flex items-end justify-between h-full gap-2">
               {monthlyData.map((month, index) => {
-                const projected = paymentsByMonth[index] || 0;
+                const projected = pendingByMonth[index] || 0;
                 const isFuture = index > currentMonthIndex;
                 const isCurrent = index === currentMonthIndex;
                 return (
@@ -283,7 +296,7 @@ export function FinanceDashboard() {
                           <div
                             className="w-full bg-purple-400 dark:bg-purple-500 rounded-t transition-all opacity-60"
                             style={{ height: `${(projected / maxMonthlyValue) * 100}%` }}
-                            title={`Cuotas pendientes: ${formatCurrency(projected)}`}
+                            title={`Por cobrar: ${formatCurrency(projected)}`}
                           />
                         )}
                         {month.income > 0 && (
@@ -321,7 +334,7 @@ export function FinanceDashboard() {
             </div>
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded bg-purple-400 opacity-60" />
-              <span className="text-sm text-gray-600 dark:text-gray-400">Cuotas proyectadas</span>
+              <span className="text-sm text-gray-600 dark:text-gray-400">Por cobrar</span>
             </div>
           </div>
         </div>

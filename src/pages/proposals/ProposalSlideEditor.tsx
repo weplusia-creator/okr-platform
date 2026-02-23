@@ -14,6 +14,8 @@ import {
   BarChart3,
   Home,
   CheckCircle2,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import { useProposals } from '../../context/ProposalContext';
 import type { Proposal, ProposalItem } from '../../types/proposals';
@@ -118,6 +120,7 @@ export function ProposalSlideEditor() {
   const [introduction, setIntroduction] = useState('');
   const [clientLogoUrl, setClientLogoUrl] = useState('');
   const [phases, setPhases] = useState<{ name: string; periodo: string; objetivo: string; entregables: string[] }[]>(DEFAULT_PHASES);
+  const [hiddenSlides, setHiddenSlides] = useState<string[]>([]);
 
   // ── Load Data ────────────────────────────────────────
 
@@ -159,6 +162,7 @@ export function ProposalSlideEditor() {
         setIntroduction(p.introduction || '');
         setClientLogoUrl(p.clientLogoUrl || '');
         setPhases(p.phases && p.phases.length > 0 ? p.phases : DEFAULT_PHASES);
+        setHiddenSlides(p.hiddenSlides || []);
       }
       setItems(its);
     } finally {
@@ -201,6 +205,7 @@ export function ProposalSlideEditor() {
         gap_title: gapTitle || null,
         gap_description: gapDescription || null,
         phases: phases,
+        hidden_slides: hiddenSlides,
         total_amount: totalAmount,
         discount_percent: discountPercent,
         payment_terms: paymentTerms || null,
@@ -849,6 +854,7 @@ export function ProposalSlideEditor() {
             }`}
           >
             {!step.editable && <Lock className="w-3 h-3 opacity-50" />}
+            {hiddenSlides.includes(step.key) && <EyeOff className="w-3 h-3 opacity-50" />}
             {step.label}
           </button>
         ))}
@@ -866,14 +872,39 @@ export function ProposalSlideEditor() {
 
       {/* Edit Panel */}
       <div className="card p-6">
-        <div className="flex items-center gap-2 mb-4">
-          <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-            Filmina {currentStep + 1} de {totalSteps}: {activeStep.label}
-          </span>
-          {activeStep.editable && (
-            <span className="px-2 py-0.5 text-xs font-medium bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 rounded-full">Editable</span>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+              Filmina {currentStep + 1} de {totalSteps}: {activeStep.label}
+            </span>
+            {activeStep.editable && (
+              <span className="px-2 py-0.5 text-xs font-medium bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 rounded-full">Editable</span>
+            )}
+          </div>
+          {activeStep.key !== 'cover' && (
+            <button
+              onClick={() => {
+                const key = activeStep.key;
+                setHiddenSlides(prev =>
+                  prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]
+                );
+              }}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                hiddenSlides.includes(activeStep.key)
+                  ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300 hover:bg-red-200'
+                  : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 hover:bg-gray-200'
+              }`}
+            >
+              {hiddenSlides.includes(activeStep.key) ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+              {hiddenSlides.includes(activeStep.key) ? 'Oculta en link público' : 'Visible en link público'}
+            </button>
           )}
         </div>
+        {hiddenSlides.includes(activeStep.key) && (
+          <div className="mb-4 px-3 py-2 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-300 text-xs">
+            Esta filmina no se mostrará en el link público. Hacé click en el botón de arriba para volver a mostrarla.
+          </div>
+        )}
         {renderEditPanel()}
       </div>
 

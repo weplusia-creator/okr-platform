@@ -212,7 +212,8 @@ export function ProposalPublicView() {
           clientLogoUrl: p.client_logo_url, introduction: p.introduction, objective: p.objective,
           strengths: p.strengths || [], specificObjectives: p.specific_objectives || [],
           centralGap: p.central_gap || [], gapTitle: p.gap_title || null, gapDescription: p.gap_description || null,
-          phases: p.phases || null, termsAndConditions: p.terms_and_conditions,
+          phases: p.phases || null, hiddenSlides: p.hidden_slides || [],
+          termsAndConditions: p.terms_and_conditions,
           validityDays: p.validity_days, subtotal: parseFloat(p.subtotal) || 0,
           discountPercent: parseFloat(p.discount_percent) || 0,
           totalAmount: parseFloat(p.total_amount) || 0, currency: p.currency,
@@ -343,25 +344,28 @@ export function ProposalPublicView() {
 
   // ── Build Steps ──────────────────────────────────────
 
-  const steps: { key: string; label: string }[] = [];
-  steps.push({ key: 'cover', label: 'Inicio' });
-  if (proposal.objective) steps.push({ key: 'objetivo', label: 'Objetivo' });
-  if (proposal.specificObjectives?.length) steps.push({ key: 'objetivos_esp', label: 'Objetivos' });
-  steps.push({ key: 'brand', label: 'WAU' });
-  if (proposal.strengths?.length) steps.push({ key: 'fortalezas', label: 'Fortalezas' });
+  const hidden = proposal.hiddenSlides || [];
+  const allSteps: { key: string; label: string }[] = [];
+  allSteps.push({ key: 'cover', label: 'Inicio' });
+  if (proposal.objective) allSteps.push({ key: 'objetivo', label: 'Objetivo' });
+  if (proposal.specificObjectives?.length) allSteps.push({ key: 'objetivos_esp', label: 'Objetivos' });
+  allSteps.push({ key: 'brand', label: 'WAU' });
+  if (proposal.strengths?.length) allSteps.push({ key: 'fortalezas', label: 'Fortalezas' });
   if (proposal.centralGap?.length) {
-    steps.push({ key: 'gap', label: 'GAP' });
-    steps.push({ key: 'costo', label: 'Diagnóstico' });
+    allSteps.push({ key: 'gap', label: 'GAP' });
+    allSteps.push({ key: 'costo', label: 'Diagnóstico' });
   }
-  steps.push({ key: 'plan_accion', label: 'Plan' });
-  resolvedPhases.forEach((_, i) => steps.push({ key: `fase_${i}`, label: `Fase ${i + 1}` }));
-  steps.push({ key: 'claves', label: 'Claves' });
-  steps.push({ key: 'metodologia', label: 'Método' });
-  if (orgClients.length > 0) steps.push({ key: 'clientes', label: 'Clientes' });
-  steps.push({ key: 'inversion', label: 'Inversión' });
-  steps.push({ key: 'impacto', label: 'Impacto' });
-  steps.push({ key: 'gracias', label: 'Cierre' });
+  allSteps.push({ key: 'plan_accion', label: 'Plan' });
+  resolvedPhases.forEach((_, i) => allSteps.push({ key: `fase_${i}`, label: `Fase ${i + 1}` }));
+  allSteps.push({ key: 'claves', label: 'Claves' });
+  allSteps.push({ key: 'metodologia', label: 'Método' });
+  if (orgClients.length > 0) allSteps.push({ key: 'clientes', label: 'Clientes' });
+  allSteps.push({ key: 'inversion', label: 'Inversión' });
+  allSteps.push({ key: 'impacto', label: 'Impacto' });
+  allSteps.push({ key: 'gracias', label: 'Cierre' });
 
+  // Filter out hidden slides
+  const steps = allSteps.filter(s => !hidden.includes(s.key));
   const totalSteps = steps.length;
   const activeStepKey = steps[currentStep]?.key || 'cover';
 

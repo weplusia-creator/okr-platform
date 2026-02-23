@@ -58,6 +58,7 @@ export interface Proposal {
   gapTitle: string | null;
   gapDescription: string | null;
   phases: { name: string; periodo: string; objetivo: string; entregables: string[] }[] | null;
+  hiddenSlides: string[];
   termsAndConditions: string | null;
   validityDays: number;
 

@@ -117,6 +117,7 @@ export function ProposalProvider({ children }: { children: ReactNode }) {
           gapTitle: p.gap_title || null,
           gapDescription: p.gap_description || null,
           phases: p.phases || null,
+          planAccion: p.plan_accion || null,
           hiddenSlides: p.hidden_slides || [],
           termsAndConditions: p.terms_and_conditions,
           validityDays: p.validity_days,
@@ -191,6 +192,7 @@ export function ProposalProvider({ children }: { children: ReactNode }) {
         gapTitle: data.gap_title || null,
         gapDescription: data.gap_description || null,
         phases: data.phases || null,
+        planAccion: data.plan_accion || null,
         hiddenSlides: data.hidden_slides || [],
         termsAndConditions: data.terms_and_conditions,
         validityDays: data.validity_days,
@@ -329,6 +331,7 @@ export function ProposalProvider({ children }: { children: ReactNode }) {
         if (updates.gapTitle !== undefined) dbUpdates.gap_title = updates.gapTitle;
         if (updates.gapDescription !== undefined) dbUpdates.gap_description = updates.gapDescription;
         if (updates.phases !== undefined) dbUpdates.phases = updates.phases;
+        if (updates.planAccion !== undefined) dbUpdates.plan_accion = updates.planAccion;
         if (updates.hiddenSlides !== undefined) dbUpdates.hidden_slides = updates.hiddenSlides;
         if (updates.termsAndConditions !== undefined) dbUpdates.terms_and_conditions = updates.termsAndConditions;
         if (updates.validityDays !== undefined) dbUpdates.validity_days = updates.validityDays;
@@ -775,6 +778,7 @@ export function ProposalProvider({ children }: { children: ReactNode }) {
           gapTitle: p.gap_title || null,
           gapDescription: p.gap_description || null,
           phases: p.phases || null,
+          planAccion: p.plan_accion || null,
           hiddenSlides: p.hidden_slides || [],
           termsAndConditions: p.terms_and_conditions,
           validityDays: p.validity_days,

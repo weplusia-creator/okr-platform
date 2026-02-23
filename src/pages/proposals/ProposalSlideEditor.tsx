@@ -36,6 +36,13 @@ const DEFAULT_PHASES = [
   { name: 'EJECUCIÓN + ACOMPAÑAMIENTO', periodo: 'Mes 4', objetivo: 'Pasar del diseño a la ejecución real del sistema. Medir resultados, ajustar y acompañar los primeros cierres.', entregables: ['Seguimiento de OKRs', 'Ajustes tácticos según resultados', 'Acompañamiento en los primeros cierres', 'Informe de resultados y recomendaciones', 'Plan de continuidad'] },
 ];
 
+const DEFAULT_PLAN_ACCION = [
+  { pilar: 'Diagnóstico', enfoque: 'Entender en profundidad el negocio, los clientes y las oportunidades reales.' },
+  { pilar: 'Diseño', enfoque: 'Construir la estrategia comercial, los procesos y los OKRs adecuados al contexto del negocio.' },
+  { pilar: 'Ejecución', enfoque: 'Implementar el sistema comercial, roles, rutinas y prioridades.' },
+  { pilar: 'Medición', enfoque: 'Gestionar con métricas claras y foco en resultados.' },
+];
+
 const CLAVES_EXITO = [
   { icon: 'star', title: 'APLICACIÓN INMEDIATA Y SOSTENIDA', desc: 'Prácticas concretas que se aplican desde el día siguiente.' },
   { icon: 'chart', title: 'SIMPLICIDAD Y FOCO', desc: 'Sistema claro, entendible y gestionable.' },
@@ -120,6 +127,7 @@ export function ProposalSlideEditor() {
   const [introduction, setIntroduction] = useState('');
   const [clientLogoUrl, setClientLogoUrl] = useState('');
   const [phases, setPhases] = useState<{ name: string; periodo: string; objetivo: string; entregables: string[] }[]>(DEFAULT_PHASES);
+  const [planAccion, setPlanAccion] = useState<{ pilar: string; enfoque: string }[]>(DEFAULT_PLAN_ACCION);
   const [hiddenSlides, setHiddenSlides] = useState<string[]>([]);
 
   // ── Load Data ────────────────────────────────────────
@@ -162,6 +170,7 @@ export function ProposalSlideEditor() {
         setIntroduction(p.introduction || '');
         setClientLogoUrl(p.clientLogoUrl || '');
         setPhases(p.phases && p.phases.length > 0 ? p.phases : DEFAULT_PHASES);
+        setPlanAccion(p.planAccion && p.planAccion.length > 0 ? p.planAccion : DEFAULT_PLAN_ACCION);
         setHiddenSlides(p.hiddenSlides || []);
       }
       setItems(its);
@@ -196,6 +205,7 @@ export function ProposalSlideEditor() {
         gap_title: gapTitle || null,
         gap_description: gapDescription || null,
         phases: phases,
+        plan_accion: planAccion,
         hidden_slides: hiddenSlides,
         total_amount: totalAmount,
         discount_percent: discountPercent,
@@ -288,7 +298,7 @@ export function ProposalSlideEditor() {
     steps.push({ key: 'gap', label: 'GAP Central', editable: true });
     steps.push({ key: 'costo', label: 'Costo No Cambiar', editable: true });
   }
-  steps.push({ key: 'plan_accion', label: 'Plan de Acción', editable: false });
+  steps.push({ key: 'plan_accion', label: 'Plan de Acción', editable: true });
   phases.forEach((_, i) => steps.push({ key: `fase_${i}`, label: `Fase ${i + 1}`, editable: true }));
   steps.push({ key: 'claves', label: 'Claves Éxito', editable: false });
   steps.push({ key: 'metodologia', label: 'Metodología', editable: false });
@@ -416,12 +426,23 @@ export function ProposalSlideEditor() {
         <div className="py-6 px-2">
           <p className="font-display italic text-[#D4FC59] text-base">( Plan de )</p>
           <h2 className="text-[#D4FC59] text-2xl font-bold uppercase mb-3">ACCIÓN</h2>
-          <div className="space-y-1 text-white/70 text-xs">
-            <p>• Diagnóstico → Entender el negocio</p>
-            <p>• Diseño → Construir la estrategia</p>
-            <p>• Ejecución → Implementar el sistema</p>
-            <p>• Medición → Gestionar con métricas</p>
-          </div>
+          <table className="w-full text-xs" style={{ borderCollapse: 'collapse' }}>
+            <thead>
+              <tr>
+                <th className="text-left px-2 py-1.5 text-[10px] font-bold uppercase text-white/50 border-b border-white/15 w-1/4">Pilar</th>
+                <th className="text-left px-2 py-1.5 text-[10px] font-bold uppercase text-white/50 border-b border-white/15">Enfoque</th>
+              </tr>
+            </thead>
+            <tbody>
+              {planAccion.map((row, idx) => (
+                <tr key={idx} className="border-b border-white/10">
+                  <td className="px-2 py-1.5 text-white font-medium">{row.pilar}</td>
+                  <td className="px-2 py-1.5 text-white/70">{row.enfoque}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {planAccion.length === 0 && <p className="text-[#D4FC59]/50 text-xs mt-2">Sin pilares definidos</p>}
         </div>
       );
     }
@@ -713,6 +734,38 @@ export function ProposalSlideEditor() {
           ))}
           {centralGap.length === 0 && (
             <p className="text-sm text-gray-400">Sin filas. Hacé click en "Agregar fila".</p>
+          )}
+        </div>
+      );
+    }
+
+    if (key === 'plan_accion') {
+      return (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <label className="label mb-0">Tabla Pilar / Enfoque</label>
+            <button onClick={() => setPlanAccion([...planAccion, { pilar: '', enfoque: '' }])} className="text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1">
+              <Plus className="w-4 h-4" /> Agregar fila
+            </button>
+          </div>
+          {planAccion.length > 0 && (
+            <div className="grid grid-cols-[1fr_3fr_auto] gap-2 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase px-1">
+              <span>Pilar</span>
+              <span>Enfoque</span>
+              <span className="w-8" />
+            </div>
+          )}
+          {planAccion.map((row, idx) => (
+            <div key={idx} className="grid grid-cols-[1fr_3fr_auto] gap-2">
+              <input className="input" value={row.pilar} onChange={e => { const next = [...planAccion]; next[idx] = { ...next[idx], pilar: e.target.value }; setPlanAccion(next); }} placeholder="Ej: Diagnóstico" />
+              <textarea className="input" rows={2} value={row.enfoque} onChange={e => { const next = [...planAccion]; next[idx] = { ...next[idx], enfoque: e.target.value }; setPlanAccion(next); }} placeholder="Descripción del enfoque..." />
+              <button onClick={() => setPlanAccion(planAccion.filter((_, i) => i !== idx))} className="p-2 text-gray-400 hover:text-red-500">
+                <Trash2 className="w-4 h-4" />
+              </button>
+            </div>
+          ))}
+          {planAccion.length === 0 && (
+            <p className="text-sm text-gray-400">Sin pilares. Hacé click en "Agregar fila".</p>
           )}
         </div>
       );

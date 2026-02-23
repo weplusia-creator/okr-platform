@@ -212,7 +212,8 @@ export function ProposalPublicView() {
           clientLogoUrl: p.client_logo_url, introduction: p.introduction, objective: p.objective,
           strengths: p.strengths || [], specificObjectives: p.specific_objectives || [],
           centralGap: p.central_gap || [], gapTitle: p.gap_title || null, gapDescription: p.gap_description || null,
-          phases: p.phases || null, hiddenSlides: p.hidden_slides || [],
+          phases: p.phases || null, planAccion: p.plan_accion || null,
+          hiddenSlides: p.hidden_slides || [],
           termsAndConditions: p.terms_and_conditions,
           validityDays: p.validity_days, subtotal: parseFloat(p.subtotal) || 0,
           discountPercent: parseFloat(p.discount_percent) || 0,
@@ -596,6 +597,14 @@ export function ProposalPublicView() {
 
     // ═══ PLAN DE ACCIÓN (Dark bg) ═══
     if (key === 'plan_accion') {
+      const rows = proposal.planAccion && proposal.planAccion.length > 0
+        ? proposal.planAccion
+        : [
+            { pilar: 'Diagnóstico', enfoque: 'Entender en profundidad el negocio, los clientes y las oportunidades reales.' },
+            { pilar: 'Diseño', enfoque: 'Construir la estrategia comercial, los procesos y los OKRs adecuados al contexto del negocio.' },
+            { pilar: 'Ejecución', enfoque: 'Implementar el sistema comercial, roles, rutinas y prioridades.' },
+            { pilar: 'Medición', enfoque: 'Gestionar con métricas claras y foco en resultados.' },
+          ];
       return (
         <div className={pad}>
           <p className="font-display italic text-[#D4FC59] text-xl sm:text-2xl">( Plan de )</p>
@@ -620,22 +629,12 @@ export function ProposalPublicView() {
                 </tr>
               </thead>
               <tbody>
-                <tr className="border-b border-white/10">
-                  <td className="px-4 py-3 text-white font-medium text-sm">Diagnóstico</td>
-                  <td className="px-4 py-3 text-white/80 text-sm">Entender en profundidad el negocio, los clientes y las oportunidades reales.</td>
-                </tr>
-                <tr className="border-b border-white/10">
-                  <td className="px-4 py-3 text-white font-medium text-sm">Diseño</td>
-                  <td className="px-4 py-3 text-white/80 text-sm">Construir la estrategia comercial, los procesos y los OKRs adecuados al contexto del negocio.</td>
-                </tr>
-                <tr className="border-b border-white/10">
-                  <td className="px-4 py-3 text-white font-medium text-sm">Ejecución</td>
-                  <td className="px-4 py-3 text-white/80 text-sm">Implementar el sistema comercial, roles, rutinas y prioridades.</td>
-                </tr>
-                <tr className="border-b border-white/10">
-                  <td className="px-4 py-3 text-white font-medium text-sm">Medición</td>
-                  <td className="px-4 py-3 text-white/80 text-sm">Gestionar con métricas claras y foco en resultados.</td>
-                </tr>
+                {rows.map((row, idx) => (
+                  <tr key={idx} className="border-b border-white/10">
+                    <td className="px-4 py-3 text-white font-medium text-sm">{row.pilar}</td>
+                    <td className="px-4 py-3 text-white/80 text-sm">{row.enfoque}</td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>

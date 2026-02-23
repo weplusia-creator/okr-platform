@@ -121,7 +121,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const refreshUser = useCallback(async () => {
     if (user) {
-      await fetchUserData(user.id);
+      setLoading(true);
+      setAuthError(null);
+      try {
+        await fetchUserData(user.id);
+      } finally {
+        setLoading(false);
+      }
     }
   }, [user, fetchUserData]);
 

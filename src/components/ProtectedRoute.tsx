@@ -1,7 +1,7 @@
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Loader2 } from 'lucide-react';
-import { useState, useEffect, type ReactNode } from 'react';
+import { useRef, useEffect, type ReactNode } from 'react';
 
 interface ProtectedRouteProps {
   children: ReactNode;
@@ -9,15 +9,20 @@ interface ProtectedRouteProps {
 
 export function ProtectedRoute({ children }: ProtectedRouteProps) {
   const { user, loading, appUser, organization, signOut, refreshUser, authError } = useAuth();
-  const [retried, setRetried] = useState(false);
+  const autoRetried = useRef(false);
 
-  // If user exists but appUser is null and we're done loading, retry once
+  // If user exists but appUser is null and we're done loading, auto-retry once
   useEffect(() => {
-    if (!loading && user && !appUser && !retried) {
-      setRetried(true);
+    if (!loading && user && !appUser && !autoRetried.current) {
+      autoRetried.current = true;
       refreshUser();
     }
-  }, [loading, user, appUser, retried, refreshUser]);
+  }, [loading, user, appUser, refreshUser]);
+
+  // Reset auto-retry flag when appUser loads successfully
+  useEffect(() => {
+    if (appUser) autoRetried.current = false;
+  }, [appUser]);
 
   if (loading) {
     return (
@@ -34,19 +39,8 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
     return <Navigate to="/login" replace />;
   }
 
-  // Wait for appUser to load, but if already retried, show error
+  // Show error when appUser failed to load (auto-retry already happened)
   if (!appUser) {
-    if (!retried) {
-      return (
-        <div className="min-h-screen bg-gray-50 dark:bg-[#2e2a2b] flex items-center justify-center">
-          <div className="text-center">
-            <Loader2 className="w-10 h-10 animate-spin text-primary-500 mx-auto mb-4" />
-            <p className="text-gray-500 dark:text-gray-400">Cargando perfil...</p>
-          </div>
-        </div>
-      );
-    }
-
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-[#2e2a2b] flex items-center justify-center p-4">
         <div className="card p-8 max-w-md w-full text-center">
@@ -64,7 +58,7 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
           <div className="flex gap-3 justify-center">
             <button
               onClick={() => {
-                setRetried(false);
+                autoRetried.current = false;
                 refreshUser();
               }}
               className="btn-secondary"

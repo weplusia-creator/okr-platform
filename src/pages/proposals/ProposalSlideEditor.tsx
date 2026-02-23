@@ -175,6 +175,18 @@ export function ProposalSlideEditor() {
     setSaving(true);
     setSaved(false);
     try {
+      // Read token directly from localStorage to avoid auth lock hang
+      const storageKey = 'okr-platform-auth';
+      let accessToken = '';
+      try {
+        const raw = localStorage.getItem(`sb-${new URL(import.meta.env.VITE_SUPABASE_URL).hostname.split('.')[0]}-auth-token`)
+          || localStorage.getItem(storageKey);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          accessToken = parsed?.access_token || parsed?.currentSession?.access_token || '';
+        }
+      } catch { /* ignore */ }
+
       const dbUpdates: Record<string, any> = {
         client_name: clientName,
         client_company: clientCompany || null,
@@ -195,18 +207,27 @@ export function ProposalSlideEditor() {
         updated_at: new Date().toISOString(),
       };
 
-      const { data: row, error: err } = await supabase
-        .from('proposals')
-        .update(dbUpdates)
-        .eq('id', id)
-        .select('id, central_gap, gap_title, gap_description, phases, strengths, specific_objectives')
-        .single();
+      const url = `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/proposals?id=eq.${id}&select=id,central_gap,gap_title,gap_description,phases,strengths,specific_objectives`;
+      const resp = await fetch(url, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+          'Authorization': `Bearer ${accessToken || import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          'Prefer': 'return=representation',
+        },
+        body: JSON.stringify(dbUpdates),
+      });
 
-      if (err) {
-        setSaveError('Error: ' + err.message);
+      if (!resp.ok) {
+        const errText = await resp.text();
+        setSaveError('Error: ' + errText);
         setTimeout(() => setSaveError(null), 5000);
         return;
       }
+
+      const rows = await resp.json();
+      const row = rows?.[0];
 
       if (!row) {
         setSaveError('No se actualizó la propuesta. Recargá la página.');

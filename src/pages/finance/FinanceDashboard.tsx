@@ -90,21 +90,22 @@ export function FinanceDashboard() {
     };
   }, [allPayments]);
 
-  // Merge future payments into monthly chart data
+  // Merge future payments into monthly chart data (only current + future months)
+  const currentMonthIndex = new Date().getMonth(); // 0-indexed
   const paymentsByMonth = useMemo(() => {
     const map: Record<string, number> = {};
     allPayments.forEach(p => {
       if (p.status === 'pending') {
-        const [, mm] = p.month.split('-');
-        const yearOfPayment = Number(p.month.split('-')[0]);
-        if (yearOfPayment === currentYear) {
-          const key = Number(mm) - 1; // 0-indexed month
-          map[key] = (map[key] || 0) + p.amount;
+        const [yearStr, mm] = p.month.split('-');
+        const yearOfPayment = Number(yearStr);
+        const monthIdx = Number(mm) - 1; // 0-indexed
+        if (yearOfPayment === currentYear && monthIdx >= currentMonthIndex) {
+          map[monthIdx] = (map[monthIdx] || 0) + p.amount;
         }
       }
     });
     return map;
-  }, [allPayments, currentYear]);
+  }, [allPayments, currentYear, currentMonthIndex]);
 
   const maxMonthlyValue = useMemo(() => {
     return Math.max(
@@ -272,31 +273,36 @@ export function FinanceDashboard() {
             <div className="flex items-end justify-between h-full gap-2">
               {monthlyData.map((month, index) => {
                 const projected = paymentsByMonth[index] || 0;
-                const totalIncome = month.income + projected;
+                const isFuture = index > currentMonthIndex;
+                const isCurrent = index === currentMonthIndex;
                 return (
                   <div key={month.month} className="flex-1 flex flex-col items-center gap-1">
-                    <div className="w-full flex gap-0.5 h-56 items-end">
+                    <div className={`w-full flex gap-0.5 h-56 items-end ${isFuture ? 'opacity-50' : ''}`}>
                       <div className="flex-1 flex flex-col items-end justify-end h-full">
                         {projected > 0 && (
                           <div
                             className="w-full bg-purple-400 dark:bg-purple-500 rounded-t transition-all opacity-60"
                             style={{ height: `${(projected / maxMonthlyValue) * 100}%` }}
-                            title={`Proyectado: ${formatCurrency(projected)}`}
+                            title={`Cuotas pendientes: ${formatCurrency(projected)}`}
                           />
                         )}
-                        <div
-                          className="w-full bg-success-500 rounded-t transition-all"
-                          style={{ height: `${(month.income / maxMonthlyValue) * 100}%` }}
-                          title={`Ingresos: ${formatCurrency(month.income)}`}
-                        />
+                        {month.income > 0 && (
+                          <div
+                            className="w-full bg-success-500 rounded-t transition-all"
+                            style={{ height: `${(month.income / maxMonthlyValue) * 100}%` }}
+                            title={`Ingresos: ${formatCurrency(month.income)}`}
+                          />
+                        )}
                       </div>
-                      <div
-                        className="flex-1 bg-danger-500 rounded-t transition-all"
-                        style={{ height: `${(month.expenses / maxMonthlyValue) * 100}%` }}
-                        title={`Egresos: ${formatCurrency(month.expenses)}`}
-                      />
+                      {month.expenses > 0 && (
+                        <div
+                          className="flex-1 bg-danger-500 rounded-t transition-all"
+                          style={{ height: `${(month.expenses / maxMonthlyValue) * 100}%` }}
+                          title={`Egresos: ${formatCurrency(month.expenses)}`}
+                        />
+                      )}
                     </div>
-                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                    <span className={`text-xs ${isCurrent ? 'font-bold text-primary-600' : 'text-gray-500 dark:text-gray-400'}`}>
                       {month.month}
                     </span>
                   </div>

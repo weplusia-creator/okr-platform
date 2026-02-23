@@ -940,7 +940,9 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
 
       // Check which recurring expenses already have transactions for this month
       const monthStart = `${month}-01`;
-      const monthEnd = `${month}-31`;
+      const [mYear, mMonth] = month.split('-').map(Number);
+      const lastDay = new Date(mYear, mMonth, 0).getDate();
+      const monthEnd = `${month}-${String(lastDay).padStart(2, '0')}`;
 
       const { data: existing, error: existErr } = await supabase
         .from('cash_flow_transactions')
@@ -1027,7 +1029,9 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
     return months.map((month, index) => {
       const monthStr = String(index + 1).padStart(2, '0');
       const startDate = `${year}-${monthStr}-01`;
-      const endDate = `${year}-${monthStr}-31`;
+      // Last day of month: day 0 of next month = last day of current month
+      const lastDay = new Date(year, index + 1, 0).getDate();
+      const endDate = `${year}-${monthStr}-${String(lastDay).padStart(2, '0')}`;
 
       const monthTransactions = transactions.filter(t =>
         t.date >= startDate && t.date <= endDate

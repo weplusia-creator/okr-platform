@@ -125,7 +125,7 @@ export function CashFlow() {
           startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
           break;
         case 'month':
-          startDate = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
+          startDate = new Date(now.getFullYear(), now.getMonth(), 1);
           break;
         case 'year':
           startDate = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate());
@@ -249,22 +249,27 @@ export function CashFlow() {
 
   const handleGanttTogglePaid = async (payment: ProjectPayment & { projectName: string; clientId?: string }) => {
     const isPaid = payment.status === 'paid';
+
+    if (isPaid) {
+      if (!confirm(`¿Marcar cuota de ${payment.projectName} como pendiente y eliminar la transacción?`)) return;
+    } else {
+      if (!confirm(`¿Marcar cuota de ${payment.projectName} como cobrada y registrar ingreso de $${payment.amount.toLocaleString('es-AR')}?`)) return;
+    }
+
     try {
       if (isPaid) {
-        // Mark as pending + delete associated transaction
         await markPaymentPending(payment.id);
         setAllPayments(prev => prev.map(p => p.id === payment.id ? { ...p, status: 'pending' as const, paidDate: null } : p));
+        // Delete associated transaction
         const existingTx = transactions.find(t => t.paymentId === payment.id);
         if (existingTx) await deleteTransaction(existingTx.id);
       } else {
-        // Mark as paid + create cash flow transaction
         await markPaymentPaid(payment.id);
         setAllPayments(prev => prev.map(p => p.id === payment.id ? { ...p, status: 'paid' as const, paidDate: new Date().toISOString().slice(0, 10) } : p));
 
-        // Find income category
+        // Create cash flow transaction
         const incomeCategory = categories.find(c => c.type === 'income');
         if (incomeCategory) {
-          // Delete any existing transaction for this payment (re-marking case)
           const existingTx = transactions.find(t => t.paymentId === payment.id);
           if (existingTx) await deleteTransaction(existingTx.id);
 

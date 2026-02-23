@@ -55,7 +55,7 @@ export function FinanceDashboard() {
       const entry = getOrCreate(client.id, getClientName(client));
       if (inv.status === 'paid') {
         entry.paid += inv.total || 0;
-      } else if (inv.status !== 'cancelled') {
+      } else if (inv.status === 'sent' || inv.status === 'overdue' || inv.status === 'partial') {
         entry.pending += inv.total || 0;
       }
     });

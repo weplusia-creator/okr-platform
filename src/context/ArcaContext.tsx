@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
-import { supabase } from '../lib/supabase';
+import { supabase, getAccessTokenDirect } from '../lib/supabase';
 import { useAuth } from './AuthContext';
 import type {
   OrganizationCuit,
@@ -461,8 +461,8 @@ export function ArcaProvider({ children }: { children: ReactNode }) {
         throw new Error('No se pudo leer el contenido de los archivos');
       }
 
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.access_token) {
+      const accessToken = getAccessTokenDirect();
+      if (!accessToken) {
         throw new Error('No hay sesión activa. Recargá la página.');
       }
 
@@ -470,7 +470,7 @@ export function ArcaProvider({ children }: { children: ReactNode }) {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${session.access_token}`,
+          Authorization: `Bearer ${accessToken}`,
         },
         body: JSON.stringify({
           cuitId,

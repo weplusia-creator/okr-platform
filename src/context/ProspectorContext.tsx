@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, useCallback, useMemo, type ReactNode } from 'react';
-import { supabase } from '../lib/supabase';
+import { supabase, getAccessTokenDirect } from '../lib/supabase';
 import { useAuth } from './AuthContext';
 import type {
   Prospect,
@@ -21,8 +21,7 @@ import { calculateProspectScore, DEFAULT_SCORING_CRITERIA } from '../types/prosp
 // ===== API helper =====
 
 async function apiCall<T>(path: string, body: Record<string, unknown>): Promise<T> {
-  const { data: { session } } = await supabase.auth.getSession();
-  const token = session?.access_token || '';
+  const token = getAccessTokenDirect();
   const res = await fetch(path, {
     method: 'POST',
     headers: {

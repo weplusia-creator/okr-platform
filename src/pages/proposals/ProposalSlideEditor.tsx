@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { supabase } from '../../lib/supabase';
+import { supabase, getAccessTokenDirect } from '../../lib/supabase';
 import {
   ArrowLeft,
   ArrowRight,
@@ -180,16 +180,7 @@ export function ProposalSlideEditor() {
     setSaved(false);
     try {
       // Read token directly from localStorage to avoid auth lock hang
-      const storageKey = 'okr-platform-auth';
-      let accessToken = '';
-      try {
-        const raw = localStorage.getItem(`sb-${new URL(import.meta.env.VITE_SUPABASE_URL).hostname.split('.')[0]}-auth-token`)
-          || localStorage.getItem(storageKey);
-        if (raw) {
-          const parsed = JSON.parse(raw);
-          accessToken = parsed?.access_token || parsed?.currentSession?.access_token || '';
-        }
-      } catch { /* ignore */ }
+      const accessToken = getAccessTokenDirect();
 
       const dbUpdates: Record<string, any> = {
         client_name: clientName,

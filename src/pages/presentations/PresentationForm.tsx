@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import { usePresentations } from '../../context/PresentationContext';
 import { useAuth } from '../../context/AuthContext';
-import { supabase } from '../../lib/supabase';
+import { supabase, getAccessTokenDirect } from '../../lib/supabase';
 import { SLIDE_BG_COLORS, SLIDE_LAYOUT_CONFIG, getSlideAccentColor } from '../../types/presentations';
 import type { SlideLayout, PresentationSlide } from '../../types/presentations';
 
@@ -266,19 +266,8 @@ ${aiText}`,
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
   const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-  const getAccessToken = async (): Promise<string> => {
-    // Try to get token from localStorage first (avoids client lock issues)
-    try {
-      const stored = localStorage.getItem('okr-platform-auth');
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        const token = parsed?.access_token || parsed?.session?.access_token;
-        if (token) return token;
-      }
-    } catch {}
-    // Fallback to supabase client
-    const { data } = await supabase.auth.getSession();
-    return data?.session?.access_token || '';
+  const getAccessToken = (): string => {
+    return getAccessTokenDirect();
   };
 
   const directInsert = async (table: string, body: Record<string, any>): Promise<any> => {

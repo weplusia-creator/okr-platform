@@ -34,6 +34,7 @@ import {
   PlaybookDashboard,
   PlaybookEditor,
   PlaybookView,
+  PlaybookPublicView,
 } from './pages';
 import {
   CRMDashboard,
@@ -117,6 +118,7 @@ function AppRoutes() {
       <Route path="/p/:token" element={<ProposalPublicView />} />
       <Route path="/pres/:token" element={<PresentationPublicView />} />
       <Route path="/checkin/:token" element={<CheckinPublicForm />} />
+      <Route path="/playbook/s/:token" element={<PlaybookPublicView />} />
       <Route
         element={
           <ProtectedRoute>

@@ -179,10 +179,10 @@ export function OKRProvider({ children }: { children: ReactNode }) {
 
         setObjectives(prev => [newObjective, ...prev]);
         return newObjective;
-      } catch (err) {
+      } catch (err: any) {
         console.error('Error adding objective:', err);
-        setError('Error al crear el objetivo');
-        return null;
+        setError(err?.message || 'Error al crear el objetivo');
+        throw err;
       }
     },
     [organization?.id]
@@ -220,14 +220,15 @@ export function OKRProvider({ children }: { children: ReactNode }) {
           // Delete removed key results
           const toDelete = existingKRIds.filter(krId => !newKRIds.includes(krId));
           if (toDelete.length > 0) {
-            await supabase.from('key_results').delete().in('id', toDelete);
+            const { error: delError } = await supabase.from('key_results').delete().in('id', toDelete);
+            if (delError) throw delError;
           }
 
           // Upsert key results
           for (const kr of updates.keyResults) {
             if (existingKRIds.includes(kr.id)) {
               // Update existing
-              await supabase
+              const { error: updError } = await supabase
                 .from('key_results')
                 .update({
                   title: kr.title,
@@ -237,9 +238,10 @@ export function OKRProvider({ children }: { children: ReactNode }) {
                   unit: kr.unit,
                 })
                 .eq('id', kr.id);
+              if (updError) throw updError;
             } else {
               // Insert new
-              await supabase.from('key_results').insert({
+              const { error: insError } = await supabase.from('key_results').insert({
                 id: kr.id,
                 objective_id: id,
                 title: kr.title,
@@ -248,6 +250,7 @@ export function OKRProvider({ children }: { children: ReactNode }) {
                 current_value: kr.currentValue,
                 unit: kr.unit,
               });
+              if (insError) throw insError;
             }
           }
         }
@@ -257,6 +260,7 @@ export function OKRProvider({ children }: { children: ReactNode }) {
       } catch (err) {
         console.error('Error updating objective:', err);
         setError('Error al actualizar el objetivo');
+        throw err;
       }
     },
     [objectives, fetchObjectives]

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { supabase, getAccessTokenDirect } from '../../lib/supabase';
+import { supabase, getAccessTokenFresh } from '../../lib/supabase';
 import {
   ArrowLeft,
   ArrowRight,
@@ -188,8 +188,8 @@ export function ProposalSlideEditor() {
     setSaving(true);
     setSaved(false);
     try {
-      // Read token directly from localStorage to avoid auth lock hang
-      const accessToken = getAccessTokenDirect();
+      // Get fresh token (auto-refreshes if expired)
+      const accessToken = await getAccessTokenFresh();
 
       const dbUpdates: Record<string, any> = {
         client_name: clientName,

@@ -5,6 +5,7 @@ import { usePlaybook } from '../../context/PlaybookContext';
 import { useAuth } from '../../context/AuthContext';
 import { useProjects } from '../../context/ProjectContext';
 import { PLAYBOOK_STATUS_LABELS, PLAYBOOK_TYPE_LABELS, DEFAULT_CONSULTIVE_PLAYBOOK } from '../../types/playbook';
+import { EDISUR_DEFINITIVO_PLAYBOOK } from '../../data/edisurPlaybook';
 import { Modal } from '../../components/Modal';
 import type { PlaybookType, PlaybookStatus } from '../../types/playbook';
 
@@ -20,7 +21,7 @@ export function PlaybookDashboard() {
     name: '',
     description: '',
     type: 'generico' as PlaybookType,
-    useTemplate: true,
+    template: 'consultiva' as 'none' | 'consultiva' | 'edisur',
     projectId: '',
   });
   const [saving, setSaving] = useState(false);
@@ -47,12 +48,17 @@ export function PlaybookDashboard() {
         type: form.type,
         projectId: form.projectId || undefined,
       };
-      const playbook = form.useTemplate
-        ? await createPlaybookFromTemplate(data, DEFAULT_CONSULTIVE_PLAYBOOK)
-        : await addPlaybook(data);
+      let playbook;
+      if (form.template === 'consultiva') {
+        playbook = await createPlaybookFromTemplate(data, DEFAULT_CONSULTIVE_PLAYBOOK);
+      } else if (form.template === 'edisur') {
+        playbook = await createPlaybookFromTemplate(data, EDISUR_DEFINITIVO_PLAYBOOK);
+      } else {
+        playbook = await addPlaybook(data);
+      }
       if (playbook) {
         setShowCreate(false);
-        setForm({ name: '', description: '', type: 'generico', useTemplate: true, projectId: '' });
+        setForm({ name: '', description: '', type: 'generico', template: 'consultiva', projectId: '' });
         navigate(`/playbook/${playbook.id}`);
       }
     } finally {
@@ -216,17 +222,23 @@ export function PlaybookDashboard() {
             </select>
           </div>
           <div>
-            <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-              <input
-                type="checkbox"
-                checked={form.useTemplate}
-                onChange={e => setForm(f => ({ ...f, useTemplate: e.target.checked }))}
-                className="rounded"
-              />
-              Usar plantilla Venta Consultiva
-            </label>
+            <label className="label">Plantilla</label>
+            <div className="space-y-2">
+              <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                <input type="radio" name="template" checked={form.template === 'consultiva'} onChange={() => setForm(f => ({ ...f, template: 'consultiva' }))} className="rounded" />
+                Venta Consultiva (genérica)
+              </label>
+              <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                <input type="radio" name="template" checked={form.template === 'edisur'} onChange={() => setForm(f => ({ ...f, template: 'edisur' }))} className="rounded" />
+                EDISUR Definitivo (inmobiliario · high ticket · inbound)
+              </label>
+              <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                <input type="radio" name="template" checked={form.template === 'none'} onChange={() => setForm(f => ({ ...f, template: 'none' }))} className="rounded" />
+                En blanco (sin plantilla)
+              </label>
+            </div>
             <p className="text-xs text-gray-400 mt-1 ml-6">
-              Incluye etapas, scripts, preguntas y objeciones precargadas
+              Las plantillas incluyen etapas, scripts, preguntas y objeciones precargadas
             </p>
           </div>
           <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">

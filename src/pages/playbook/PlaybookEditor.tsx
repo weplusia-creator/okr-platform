@@ -4,6 +4,7 @@ import {
   ArrowLeft, Plus, Trash2, ChevronDown, ChevronRight,
   Play, HelpCircle, CheckCircle, Lightbulb,
   TrendingUp, AlertTriangle, Swords, Trophy, FileText, CheckSquare,
+  Share2, Check,
 } from 'lucide-react';
 import { usePlaybook } from '../../context/PlaybookContext';
 import type {
@@ -206,6 +207,7 @@ export function PlaybookEditor() {
     });
   };
 
+  const [copied, setCopied] = useState(false);
   const [newItemType, setNewItemType] = useState<ItemType>('buying_signal');
   const handleAddItem = async () => {
     if (!playbookId) return;
@@ -275,6 +277,18 @@ export function PlaybookEditor() {
           <span className={`text-xs px-2 py-0.5 rounded-full ${statusCfg.color}`}>
             {statusCfg.label}
           </span>
+          <button
+            onClick={() => {
+              const url = `${window.location.origin}/playbook/s/${playbook.shareToken}`;
+              navigator.clipboard.writeText(url);
+              setCopied(true);
+              setTimeout(() => setCopied(false), 2000);
+            }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors text-sm font-medium"
+          >
+            {copied ? <Check className="w-4 h-4" /> : <Share2 className="w-4 h-4" />}
+            {copied ? 'Copiado!' : 'Compartir'}
+          </button>
         </div>
       </div>
 

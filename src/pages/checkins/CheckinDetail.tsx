@@ -3,7 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   ArrowLeft, AlertTriangle, TrendingUp, TrendingDown, Minus, Copy, ExternalLink,
   Plus, Trash2, Save, Loader2, Clock, CheckCircle2, MessageSquare, BarChart3,
-  Calendar, User, ChevronDown, ChevronRight,
+  Calendar, User, ChevronDown, ChevronRight, Edit2,
 } from 'lucide-react';
 import { useCheckin } from '../../context/CheckinContext';
 import { useProjects } from '../../context/ProjectContext';
@@ -19,7 +19,7 @@ export function CheckinDetail() {
   const navigate = useNavigate();
   const {
     checkins, fetchCheckins, preguntas, fetchPreguntas, compromisos, fetchCompromisos,
-    metricas, fetchMetricas, updateCheckin, addCompromiso, deleteCompromiso, cerrarCheckin,
+    metricas, fetchMetricas, updateCheckin, updateMetrica, addCompromiso, deleteCompromiso, cerrarCheckin,
   } = useCheckin();
   const { projects } = useProjects();
 
@@ -35,6 +35,16 @@ export function CheckinDetail() {
   });
   const [copied, setCopied] = useState(false);
   const [loadTimeout, setLoadTimeout] = useState(false);
+  const [showManualEntry, setShowManualEntry] = useState(false);
+  const [manualForm, setManualForm] = useState({
+    pulsoScore: '',
+    npsScore: '',
+    emoji: '' as string,
+    palabraClave: '',
+    necesitaAyudaUrgente: false,
+    detalleAyudaUrgente: '',
+  });
+  const [metricaValues, setMetricaValues] = useState<Record<string, string>>({});
 
   const checkin = checkins.find(c => c.id === id);
   const project = checkin ? projects.find(p => p.id === checkin.proyectoId) : null;
@@ -119,6 +129,60 @@ export function CheckinDetail() {
     await updateCheckin(id, { estado: 'en_reunion', fechaReunion: new Date().toISOString() });
   };
 
+  // Initialize manual entry form when checkin loads
+  useEffect(() => {
+    if (checkin) {
+      setManualForm({
+        pulsoScore: checkin.pulsoScore?.toString() || '',
+        npsScore: checkin.npsScore?.toString() || '',
+        emoji: checkin.emoji || '',
+        palabraClave: checkin.palabraClave || '',
+        necesitaAyudaUrgente: checkin.necesitaAyudaUrgente || false,
+        detalleAyudaUrgente: checkin.detalleAyudaUrgente || '',
+      });
+    }
+  }, [checkin]);
+
+  useEffect(() => {
+    if (checkinMetricas.length > 0) {
+      const vals: Record<string, string> = {};
+      checkinMetricas.forEach(m => { vals[m.id] = m.valorActual?.toString() || ''; });
+      setMetricaValues(vals);
+    }
+  }, [checkinMetricas]);
+
+  const handleManualSave = async () => {
+    if (!id) return;
+    setSaving(true);
+    try {
+      await updateCheckin(id, {
+        pulsoScore: manualForm.pulsoScore ? parseInt(manualForm.pulsoScore) : null,
+        npsScore: manualForm.npsScore ? parseInt(manualForm.npsScore) : null,
+        emoji: manualForm.emoji || null,
+        palabraClave: manualForm.palabraClave || null,
+        necesitaAyudaUrgente: manualForm.necesitaAyudaUrgente,
+        detalleAyudaUrgente: manualForm.detalleAyudaUrgente || null,
+        estado: 'completado_cliente',
+        fechaCompletadoCliente: new Date().toISOString(),
+      });
+
+      // Update metrics
+      for (const m of checkinMetricas) {
+        const val = metricaValues[m.id];
+        if (val !== undefined) {
+          await updateMetrica(m.id, { valorActual: val ? parseFloat(val) : null });
+        }
+      }
+
+      setShowManualEntry(false);
+      if (id) fetchMetricas(id);
+    } catch (err: any) {
+      alert('Error al guardar: ' + (err?.message || 'Error desconocido'));
+    } finally {
+      setSaving(false);
+    }
+  };
+
   // Group preguntas by section
   const secciones = useMemo(() => {
     const map: Record<string, typeof checkinPreguntas> = {};
@@ -188,10 +252,113 @@ export function CheckinDetail() {
             {project?.name} {checkin.periodo ? `— ${checkin.periodo}` : ''}
           </p>
         </div>
+        {(checkin.estado === 'pendiente' || checkin.estado === 'completado_cliente') && (
+          <button
+            onClick={() => setShowManualEntry(!showManualEntry)}
+            className="btn-secondary flex items-center gap-2"
+          >
+            <Edit2 className="w-4 h-4" />
+            {showManualEntry ? 'Cancelar' : 'Cargar datos'}
+          </button>
+        )}
         <span className={`text-xs px-3 py-1 rounded-full font-medium ${statusCfg?.color || 'bg-gray-100 text-gray-600'}`}>
           {statusCfg?.label || checkin.estado}
         </span>
       </div>
+
+      {/* Manual entry form */}
+      {showManualEntry && (
+        <div className="card p-5 space-y-4 border-2 border-blue-200 dark:border-blue-800">
+          <h2 className="font-semibold text-gray-900 dark:text-white">Cargar datos del check-in</h2>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div>
+              <label className="label">Pulso (1-10)</label>
+              <input
+                type="number" min="1" max="10" className="input"
+                value={manualForm.pulsoScore}
+                onChange={e => setManualForm(f => ({ ...f, pulsoScore: e.target.value }))}
+              />
+            </div>
+            <div>
+              <label className="label">NPS (1-10)</label>
+              <input
+                type="number" min="1" max="10" className="input"
+                value={manualForm.npsScore}
+                onChange={e => setManualForm(f => ({ ...f, npsScore: e.target.value }))}
+              />
+            </div>
+            <div>
+              <label className="label">Emoji</label>
+              <div className="flex gap-2">
+                {(['feliz', 'neutral', 'triste'] as const).map(e => (
+                  <button
+                    key={e}
+                    type="button"
+                    onClick={() => setManualForm(f => ({ ...f, emoji: e }))}
+                    className={`text-2xl p-2 rounded-lg transition-colors ${manualForm.emoji === e ? 'bg-blue-100 dark:bg-blue-900/30 ring-2 ring-blue-500' : 'hover:bg-gray-100 dark:hover:bg-gray-800'}`}
+                  >
+                    {e === 'feliz' ? '😊' : e === 'neutral' ? '😐' : '😟'}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <label className="label">Palabra clave</label>
+              <input
+                type="text" className="input" placeholder="Ej: productivo"
+                value={manualForm.palabraClave}
+                onChange={e => setManualForm(f => ({ ...f, palabraClave: e.target.value }))}
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <label className="label mb-0">¿Necesita ayuda urgente?</label>
+            <button
+              type="button"
+              onClick={() => setManualForm(f => ({ ...f, necesitaAyudaUrgente: !f.necesitaAyudaUrgente }))}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${manualForm.necesitaAyudaUrgente ? 'bg-red-500' : 'bg-gray-300'}`}
+            >
+              <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${manualForm.necesitaAyudaUrgente ? 'translate-x-6' : 'translate-x-1'}`} />
+            </button>
+          </div>
+          {manualForm.necesitaAyudaUrgente && (
+            <input
+              type="text" className="input" placeholder="Detalle de la ayuda urgente..."
+              value={manualForm.detalleAyudaUrgente}
+              onChange={e => setManualForm(f => ({ ...f, detalleAyudaUrgente: e.target.value }))}
+            />
+          )}
+
+          {/* Metrics */}
+          {checkinMetricas.length > 0 && (
+            <div>
+              <label className="label">Métricas</label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {checkinMetricas.map(m => (
+                  <div key={m.id} className="flex items-center gap-2">
+                    <span className="text-sm text-gray-600 dark:text-gray-400 flex-1 truncate">{m.nombreMetrica}</span>
+                    <input
+                      type="number" className="input w-24"
+                      placeholder="Valor"
+                      value={metricaValues[m.id] || ''}
+                      onChange={e => setMetricaValues(prev => ({ ...prev, [m.id]: e.target.value }))}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="flex justify-end gap-3 pt-2">
+            <button onClick={() => setShowManualEntry(false)} className="btn-secondary">Cancelar</button>
+            <button onClick={handleManualSave} disabled={saving} className="btn-primary flex items-center gap-2">
+              {saving && <Loader2 className="w-4 h-4 animate-spin" />}
+              Guardar datos
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Top panel: Pulso + Alerts */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

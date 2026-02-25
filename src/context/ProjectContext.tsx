@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useCallback, useEffect, useMemo, type ReactNode } from 'react';
 import { createClient } from '@supabase/supabase-js';
-import { supabase, getAccessTokenDirect } from '../lib/supabase';
+import { supabase, getAccessTokenFresh } from '../lib/supabase';
 import { useAuth } from './AuthContext';
 import { notify } from '../lib/notify';
 import type {
@@ -602,7 +602,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
           const defaultPassword = 'WAU2026';
 
           // Try serverless function first, fallback to Supabase signUp
-          const token = getAccessTokenDirect();
+          const token = await getAccessTokenFresh();
 
           let created = false;
           try {

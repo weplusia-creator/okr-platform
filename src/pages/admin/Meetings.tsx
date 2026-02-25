@@ -59,10 +59,15 @@ export function Meetings() {
   const handleCreate = async () => {
     if (!title.trim()) return;
     setSaving(true);
-    await addMeeting({ title: title.trim(), description: description.trim() || undefined, dayOfWeek, startTime, durationMinutes: duration, location: location.trim() || undefined });
-    setTitle(''); setDescription(''); setDayOfWeek(1); setStartTime('10:00'); setDuration(60); setLocation('');
-    setShowForm(false);
-    setSaving(false);
+    try {
+      await addMeeting({ title: title.trim(), description: description.trim() || undefined, dayOfWeek, startTime, durationMinutes: duration, location: location.trim() || undefined });
+      setTitle(''); setDescription(''); setDayOfWeek(1); setStartTime('10:00'); setDuration(60); setLocation('');
+      setShowForm(false);
+    } catch (err) {
+      console.error('Error creating meeting:', err);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleStartMinutes = (occ: MeetingOccurrence) => {

@@ -52,29 +52,34 @@ export function MeetingProvider({ children }: { children: ReactNode }) {
   const fetchMeetings = useCallback(async () => {
     if (!appUser?.organizationId) return;
     setLoading(true);
-    const { data } = await supabase
-      .from('meetings')
-      .select('*')
-      .eq('organization_id', appUser.organizationId)
-      .eq('active', true)
-      .order('created_at', { ascending: false });
+    try {
+      const { data } = await supabase
+        .from('meetings')
+        .select('*')
+        .eq('organization_id', appUser.organizationId)
+        .eq('active', true)
+        .order('created_at', { ascending: false });
 
-    if (data) {
-      setMeetings(data.map(m => ({
-        id: m.id,
-        organizationId: m.organization_id,
-        title: m.title,
-        description: m.description,
-        dayOfWeek: m.day_of_week,
-        startTime: m.start_time,
-        durationMinutes: m.duration_minutes,
-        location: m.location,
-        createdBy: m.created_by,
-        active: m.active,
-        createdAt: m.created_at,
-      })));
+      if (data) {
+        setMeetings(data.map(m => ({
+          id: m.id,
+          organizationId: m.organization_id,
+          title: m.title,
+          description: m.description,
+          dayOfWeek: m.day_of_week,
+          startTime: m.start_time,
+          durationMinutes: m.duration_minutes,
+          location: m.location,
+          createdBy: m.created_by,
+          active: m.active,
+          createdAt: m.created_at,
+        })));
+      }
+    } catch (err) {
+      console.error('Error fetching meetings:', err);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }, [appUser?.organizationId]);
 
   const addMeeting = useCallback(async (data: {

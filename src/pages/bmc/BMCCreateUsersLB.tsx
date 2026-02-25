@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
-import { supabase, getAccessTokenDirect } from '../../lib/supabase';
+import { supabase, getAccessTokenFresh } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 
 const TEAM = [
@@ -73,7 +73,7 @@ export function BMCCreateUsersLB() {
       log(`${bmcParticipants?.length || 0} participantes BMC encontrados`);
 
       // Get auth token for API calls (direct from localStorage to avoid lock)
-      const token = getAccessTokenDirect();
+      const token = await getAccessTokenFresh();
 
       // 4. Create users, add to project, link to BMC
       for (const member of TEAM) {

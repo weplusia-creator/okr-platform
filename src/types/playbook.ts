@@ -22,6 +22,7 @@ export interface Playbook {
   status: PlaybookStatus;
   version: number;
   isTemplate: boolean;
+  shareToken: string;
   createdBy: string;
   createdAt: string;
   updatedAt: string;

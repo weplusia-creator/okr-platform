@@ -10,7 +10,7 @@ import type { CheckinFrecuencia, DiaSemana, MetricaConfigItem } from '../../type
 export function CheckinConfigPage() {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
-  const { configs, plantillas, fetchConfigs, fetchPlantillas, addConfig, updateConfig, addCheckin, checkins } = useCheckin();
+  const { configs, plantillas, fetchConfigs, fetchPlantillas, addConfig, updateConfig, addCheckin, addMetrica: addCheckinMetrica, checkins } = useCheckin();
   const { projects } = useProjects();
   const { clients } = useFinance();
 
@@ -79,6 +79,7 @@ export function CheckinConfigPage() {
           creadoPor: null,
         });
       }
+      await fetchConfigs();
     } catch (err: any) {
       alert('Error al guardar config: ' + (err?.message || 'Error desconocido'));
     } finally {
@@ -87,7 +88,10 @@ export function CheckinConfigPage() {
   };
 
   const handleCreateCheckin = async () => {
-    if (!projectId || !config) return;
+    if (!projectId || !config) {
+      alert('Primero guardá la configuración del check-in.');
+      return;
+    }
     setCreating(true);
     try {
       const nextNumero = projectCheckins.length > 0 ? projectCheckins[0].numero + 1 : 1;
@@ -119,6 +123,24 @@ export function CheckinConfigPage() {
       });
 
       if (checkin) {
+        // Crear métricas del config en el nuevo check-in
+        if (config.metricasConfig && config.metricasConfig.length > 0) {
+          for (const metrica of config.metricasConfig) {
+            try {
+              await addCheckinMetrica({
+                checkinId: checkin.id,
+                nombreMetrica: metrica.nombre,
+                unidad: metrica.unidad || 'numero',
+                valorMeta: metrica.meta ?? null,
+                valorActual: null,
+                valorAnterior: null,
+                tendencia: 'igual',
+              });
+            } catch (metErr) {
+              console.error('Error creating metric:', metErr);
+            }
+          }
+        }
         navigate(`/checkins/${checkin.id}`);
       }
     } catch (err: any) {

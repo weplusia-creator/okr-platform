@@ -182,8 +182,9 @@ export function ClientForm() {
     } catch (err: any) {
       console.error('Error saving client:', err);
       setSaveError(err?.message || 'Error inesperado al guardar.');
+    } finally {
+      setSaving(false);
     }
-    setSaving(false);
   };
 
   return (

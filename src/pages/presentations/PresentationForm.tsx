@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import { usePresentations } from '../../context/PresentationContext';
 import { useAuth } from '../../context/AuthContext';
-import { supabase, getAccessTokenDirect } from '../../lib/supabase';
+import { supabase, getAccessTokenFresh } from '../../lib/supabase';
 import { SLIDE_BG_COLORS, SLIDE_LAYOUT_CONFIG, getSlideAccentColor } from '../../types/presentations';
 import type { SlideLayout, PresentationSlide } from '../../types/presentations';
 
@@ -266,8 +266,8 @@ ${aiText}`,
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
   const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-  const getAccessToken = (): string => {
-    return getAccessTokenDirect();
+  const getAccessToken = (): Promise<string> => {
+    return getAccessTokenFresh();
   };
 
   const directInsert = async (table: string, body: Record<string, any>): Promise<any> => {

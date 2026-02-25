@@ -169,7 +169,21 @@ const MEMBER_NAV: NavItem[] = [
     icon: FolderKanban,
     children: [
       { label: 'Proyectos', path: '/projects/list', icon: FolderKanban },
+      { label: 'Check-ins', path: '/checkins', icon: ClipboardCheck },
     ],
+  },
+  {
+    label: 'OKRs',
+    icon: Target,
+    children: [
+      { label: 'Objetivos', path: '/okrs', icon: Target },
+      { label: 'Iniciativas', path: '/okrs/initiatives', icon: Kanban },
+    ],
+  },
+  {
+    label: 'Tareas',
+    icon: ClipboardList,
+    path: '/tareas',
   },
 ];
 

@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
-import { supabase, getAccessTokenDirect } from '../lib/supabase';
+import { supabase, getAccessTokenFresh } from '../lib/supabase';
 import { useAuth } from './AuthContext';
 import type {
   OrganizationCuit,
@@ -461,7 +461,7 @@ export function ArcaProvider({ children }: { children: ReactNode }) {
         throw new Error('No se pudo leer el contenido de los archivos');
       }
 
-      const accessToken = getAccessTokenDirect();
+      const accessToken = await getAccessTokenFresh();
       if (!accessToken) {
         throw new Error('No hay sesión activa. Recargá la página.');
       }

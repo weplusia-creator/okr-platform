@@ -310,43 +310,58 @@ export function KPIDashboard() {
   const handleCreateCategory = async () => {
     if (!newCatName.trim()) return;
     setSaving(true);
-    await addCategory(newCatName.trim(), newCatColor);
-    setNewCatName('');
-    setNewCatColor('#3B82F6');
-    setShowNewCat(false);
-    setSaving(false);
+    try {
+      await addCategory(newCatName.trim(), newCatColor);
+      setNewCatName('');
+      setNewCatColor('#3B82F6');
+      setShowNewCat(false);
+    } catch (err) {
+      console.error('Error creating category:', err);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleCreateKPI = async () => {
     if (!kpiName.trim()) return;
     setSaving(true);
-    await addKPI({
-      name: kpiName.trim(),
-      description: kpiDesc.trim() || undefined,
-      unit: kpiUnit.trim() || undefined,
-      categoryId: kpiCategoryId || undefined,
-      targetValue: kpiTarget ? Number(kpiTarget) : undefined,
-    });
-    setKpiName('');
-    setKpiDesc('');
-    setKpiUnit('');
-    setKpiCategoryId('');
-    setKpiTarget('');
-    setShowNewKPI(false);
-    setSaving(false);
+    try {
+      await addKPI({
+        name: kpiName.trim(),
+        description: kpiDesc.trim() || undefined,
+        unit: kpiUnit.trim() || undefined,
+        categoryId: kpiCategoryId || undefined,
+        targetValue: kpiTarget ? Number(kpiTarget) : undefined,
+      });
+      setKpiName('');
+      setKpiDesc('');
+      setKpiUnit('');
+      setKpiCategoryId('');
+      setKpiTarget('');
+      setShowNewKPI(false);
+    } catch (err) {
+      console.error('Error creating KPI:', err);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleUpdateKPI = async (id: string) => {
     setSaving(true);
-    await updateKPI(id, {
-      name: editName.trim(),
-      description: editDesc.trim() || null,
-      unit: editUnit.trim() || null,
-      categoryId: editCategoryId || null,
-      targetValue: editTarget ? Number(editTarget) : null,
-    });
-    setEditingKPI(null);
-    setSaving(false);
+    try {
+      await updateKPI(id, {
+        name: editName.trim(),
+        description: editDesc.trim() || null,
+        unit: editUnit.trim() || null,
+        categoryId: editCategoryId || null,
+        targetValue: editTarget ? Number(editTarget) : null,
+      });
+      setEditingKPI(null);
+    } catch (err) {
+      console.error('Error updating KPI:', err);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const startEditKPI = (k: KPI) => {
@@ -361,12 +376,17 @@ export function KPIDashboard() {
   const handleAddEntry = async (kpiId: string) => {
     if (!entryValue) return;
     setSaving(true);
-    await addEntry(kpiId, Number(entryValue), entryDate, entryNotes.trim() || undefined);
-    setEntryValue('');
-    setEntryNotes('');
-    setEntryDate(new Date().toISOString().split('T')[0]);
-    setEntryKPI(null);
-    setSaving(false);
+    try {
+      await addEntry(kpiId, Number(entryValue), entryDate, entryNotes.trim() || undefined);
+      setEntryValue('');
+      setEntryNotes('');
+      setEntryDate(new Date().toISOString().split('T')[0]);
+      setEntryKPI(null);
+    } catch (err) {
+      console.error('Error adding entry:', err);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const getCategoryForKPI = (k: KPI): KPICategory | undefined => {

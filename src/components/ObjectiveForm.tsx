@@ -44,6 +44,8 @@ export function ObjectiveForm({ isOpen, onClose, objective }: ObjectiveFormProps
 
   const [keyResults, setKeyResults] = useState<KeyResultInput[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
   useEffect(() => {
     if (objective) {
@@ -81,6 +83,7 @@ export function ObjectiveForm({ isOpen, onClose, objective }: ObjectiveFormProps
       setKeyResults([]);
     }
     setErrors({});
+    setFormError(null);
   }, [objective, isOpen]);
 
   const handleQuarterChange = (quarter: Quarter) => {
@@ -160,33 +163,48 @@ export function ObjectiveForm({ isOpen, onClose, objective }: ObjectiveFormProps
 
     if (!validate()) return;
 
-    const processedKeyResults: KeyResult[] = keyResults
-      .filter((kr) => kr.title.trim())
-      .map((kr) => ({
-        id: kr.id,
-        objectiveId: objective?.id || '',
-        title: kr.title.trim(),
-        progress: kr.progress,
-        ...(kr.targetValue && { targetValue: parseFloat(kr.targetValue) }),
-        ...(kr.currentValue && { currentValue: parseFloat(kr.currentValue) }),
-        ...(kr.unit && { unit: kr.unit }),
-      }));
+    setSaving(true);
+    setFormError(null);
 
-    if (isEditing && objective) {
-      await updateObjective(objective.id, {
-        ...formData,
-        keyResults: processedKeyResults.map(kr => ({ ...kr, objectiveId: objective.id })),
-      });
-    } else {
-      const newObjective = await addObjective(formData);
-      if (newObjective && processedKeyResults.length > 0) {
-        await updateObjective(newObjective.id, {
-          keyResults: processedKeyResults.map(kr => ({ ...kr, objectiveId: newObjective.id })),
+    try {
+      const processedKeyResults: KeyResult[] = keyResults
+        .filter((kr) => kr.title.trim())
+        .map((kr) => ({
+          id: kr.id,
+          objectiveId: objective?.id || '',
+          title: kr.title.trim(),
+          progress: kr.progress,
+          ...(kr.targetValue && { targetValue: parseFloat(kr.targetValue) }),
+          ...(kr.currentValue && { currentValue: parseFloat(kr.currentValue) }),
+          ...(kr.unit && { unit: kr.unit }),
+        }));
+
+      if (isEditing && objective) {
+        await updateObjective(objective.id, {
+          ...formData,
+          keyResults: processedKeyResults.map(kr => ({ ...kr, objectiveId: objective.id })),
         });
+      } else {
+        const newObjective = await addObjective(formData);
+        if (processedKeyResults.length > 0 && newObjective) {
+          await updateObjective(newObjective.id, {
+            keyResults: processedKeyResults.map(kr => ({ ...kr, objectiveId: newObjective.id })),
+          });
+        }
       }
-    }
 
-    onClose();
+      onClose();
+    } catch (err: any) {
+      console.error('Error saving objective:', err);
+      const msg = err?.message || '';
+      if (msg.includes('row-level security') || msg.includes('policy')) {
+        setFormError('Sin permisos para guardar. Contactá al administrador.');
+      } else {
+        setFormError(`Error al guardar: ${msg || 'intentá de nuevo'}`);
+      }
+    } finally {
+      setSaving(false);
+    }
   };
 
   const years = [currentYear - 1, currentYear, currentYear + 1];
@@ -434,13 +452,20 @@ export function ObjectiveForm({ isOpen, onClose, objective }: ObjectiveFormProps
           )}
         </div>
 
+        {/* Error message */}
+        {formError && (
+          <div className="p-3 bg-danger-50 dark:bg-danger-900/20 border border-danger-200 dark:border-danger-800 rounded-lg text-sm text-danger-700 dark:text-danger-400">
+            {formError}
+          </div>
+        )}
+
         {/* Actions */}
         <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
-          <button type="button" onClick={onClose} className="btn-secondary">
+          <button type="button" onClick={onClose} className="btn-secondary" disabled={saving}>
             Cancelar
           </button>
-          <button type="submit" className="btn-primary">
-            {isEditing ? 'Guardar cambios' : 'Crear objetivo'}
+          <button type="submit" className="btn-primary" disabled={saving}>
+            {saving ? 'Guardando...' : isEditing ? 'Guardar cambios' : 'Crear objetivo'}
           </button>
         </div>
       </form>

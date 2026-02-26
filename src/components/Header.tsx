@@ -45,7 +45,7 @@ export function Header() {
               <img src="/wau-logo.png" alt="WAU" className="w-10 h-10 rounded-xl object-contain" />
               <div className="hidden sm:block">
                 <h1 className="text-xl font-bold text-gray-900 dark:text-white">
-                  WAU Platform
+                  WAU Consultora
                 </h1>
                 {organization && (
                   <p className="text-xs text-gray-500 dark:text-gray-400">

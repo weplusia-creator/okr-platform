@@ -263,7 +263,7 @@ export function Layout() {
             <Link to="/home" className="flex items-center gap-3">
               <img src="/wau-logo.png" alt="WAU" className="w-9 h-9 rounded-lg object-contain" />
               <span className="font-bold text-gray-900 dark:text-white tracking-tight">
-                WAU Platform
+                WAU Consultora
               </span>
             </Link>
             <button
@@ -398,7 +398,7 @@ export function Layout() {
             </button>
             <Link to="/home" className="flex items-center gap-2">
               <img src="/wau-logo.png" alt="WAU" className="w-8 h-8 rounded-lg object-contain" />
-              <span className="font-bold text-gray-900 dark:text-white tracking-tight">WAU Platform</span>
+              <span className="font-bold text-gray-900 dark:text-white tracking-tight">WAU Consultora</span>
             </Link>
             <NotificationBell />
           </div>

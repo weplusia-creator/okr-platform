@@ -366,38 +366,38 @@ export function PlaybookPublicView() {
           )}
         </div>
 
-        {/* ===== Stage Navigation (Pipeline) ===== */}
-        {playbookStages.length > 0 && (
-          <div className="mb-8 overflow-x-auto print:overflow-visible">
-            <div className="flex gap-1 min-w-max">
-              {playbookStages.map((stage, idx) => {
-                const isSelected = stage.id === selectedStageId;
-                return (
-                  <button
-                    key={stage.id}
-                    onClick={() => setSelectedStageId(stage.id)}
-                    className={`
-                      relative flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-full transition-all
-                      ${
-                        isSelected
-                          ? 'text-white shadow-md scale-105'
-                          : 'text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700'
-                      }
-                    `}
-                    style={isSelected ? { backgroundColor: stage.color || '#3B82F6' } : undefined}
-                  >
-                    <span className="w-5 h-5 flex items-center justify-center rounded-full text-xs font-bold bg-white/20">
-                      {idx + 1}
-                    </span>
-                    {stage.name}
-                  </button>
-                );
-              })}
+        {/* ===== Layout: Sidebar + Content ===== */}
+        <div className="flex gap-6 print:block">
+          {/* Left Sidebar – Stage list */}
+          {playbookStages.length > 0 && (
+            <div className="w-64 flex-shrink-0 print:hidden">
+              <div className="sticky top-6">
+                <h2 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-3">Etapas</h2>
+                <div className="space-y-1 max-h-[calc(100vh-10rem)] overflow-y-auto pr-1">
+                  {playbookStages.map(stage => {
+                    const isSelected = stage.id === selectedStageId;
+                    return (
+                      <button
+                        key={stage.id}
+                        onClick={() => setSelectedStageId(stage.id)}
+                        className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-left transition-colors ${
+                          isSelected
+                            ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300 font-semibold'
+                            : 'hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300'
+                        }`}
+                      >
+                        <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: stage.color || '#6B7280' }} />
+                        <span className="text-sm truncate">{stage.name}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* ===== Selected Stage Content ===== */}
+          {/* Right Content – Selected stage */}
+          <div className="flex-1 min-w-0">
         {selectedStage && (
           <div className="space-y-6 mb-10">
             {/* Stage Header */}
@@ -655,6 +655,8 @@ export function PlaybookPublicView() {
             </div>
           </div>
         )}
+          </div>
+        </div>
       </div>
     </div>
   );

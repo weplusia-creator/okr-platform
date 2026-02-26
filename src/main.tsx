@@ -18,8 +18,11 @@ import { TaskProvider } from './context/TaskContext';
 import { CheckinProvider } from './context/CheckinContext';
 import { NotificationProvider } from './context/NotificationContext';
 import { PresentationProvider } from './context/PresentationContext';
+import { inject } from '@vercel/analytics';
 import './index.css';
 import App from './App';
+
+inject();
 
 class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
   constructor(props: { children: ReactNode }) {

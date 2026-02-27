@@ -16,6 +16,7 @@ import { useProjects } from '../context/ProjectContext';
 import { useOKR } from '../context/OKRContext';
 import { useTask } from '../context/TaskContext';
 import { useProposals } from '../context/ProposalContext';
+import type { ProjectPayment } from '../types/projects';
 
 const formatCurrency = (amount: number) =>
   new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(amount);
@@ -85,13 +86,18 @@ export function TableroControl() {
   const { organization } = useAuth();
   const { getFinanceSummary, getMonthlyData, getTopClients, invoices, transactions, recurringExpenses, loadingInvoices, loadingCashFlow } = useFinance();
   const { leads, deals, activities, getStats: getCRMStats, getPipelineByStage, loading: crmLoading } = useCRM();
-  const { projects, loading: projectsLoading } = useProjects();
+  const { projects, fetchAllPayments, loading: projectsLoading } = useProjects();
   const { objectives, initiatives, loading: okrLoading } = useOKR();
   const { tasks, loading: tasksLoading } = useTask();
   const { proposals, getStats: getProposalStats, loading: proposalsLoading } = useProposals();
 
   const [isDark, setIsDark] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth()); // 0-11
+  const [allPayments, setAllPayments] = useState<(ProjectPayment & { projectName: string })[]>([]);
+
+  useEffect(() => {
+    fetchAllPayments().then(setAllPayments);
+  }, [fetchAllPayments]);
 
   useEffect(() => {
     const check = () => setIsDark(document.documentElement.classList.contains('dark'));
@@ -107,6 +113,14 @@ export function TableroControl() {
   const financeSummary = useMemo(() => getFinanceSummary(), [getFinanceSummary]);
   const currentYear = new Date().getFullYear();
   const monthlyData = useMemo(() => getMonthlyData(currentYear), [getMonthlyData, currentYear]);
+
+  // Year-filtered balance (matches CashFlow page)
+  const yearBalance = useMemo(() => {
+    const yearTx = transactions.filter(t => new Date(t.date).getFullYear() === currentYear);
+    const income = yearTx.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
+    const expenses = yearTx.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
+    return income - expenses;
+  }, [transactions, currentYear]);
   const crmStats = useMemo(() => getCRMStats(), [getCRMStats, leads, deals, activities]);
   const pipelineData = useMemo(() => getPipelineByStage(), [getPipelineByStage, deals]);
   const proposalStats = useMemo(() => getProposalStats(), [getProposalStats, proposals]);
@@ -133,20 +147,26 @@ export function TableroControl() {
       .reduce((sum, t) => sum + t.amount, 0);
   }, [transactions, selectedMonth, currentYear]);
 
+  // Selected month key for project payments (YYYY-MM format)
+  const selectedMonthKey = `${currentYear}-${String(selectedMonth + 1).padStart(2, '0')}`;
+
   // Billing totals filtered by selected month
   const billingTotals = useMemo(() => {
+    // Facturado: invoices ISSUED in the selected month (by issueDate)
     const monthInvoices = invoices.filter(i => isInSelectedMonth(i.issueDate));
     const totalFacturado = monthInvoices
       .filter(i => i.status !== 'draft' && i.status !== 'cancelled')
       .reduce((s, i) => s + i.total, 0);
-    const totalCobrado = monthInvoices
-      .filter(i => i.status === 'paid')
-      .reduce((s, i) => s + i.total, 0);
-    const porCobrar = invoices
-      .filter(i => i.status === 'issued' || i.status === 'overdue')
-      .reduce((s, i) => s + i.total, 0);
+    // Cobrado: project payments marked as 'paid' in the selected month
+    const totalCobrado = allPayments
+      .filter(p => p.status === 'paid' && p.month === selectedMonthKey)
+      .reduce((s, p) => s + p.amount, 0);
+    // Por cobrar: all pending project payments (not month-filtered)
+    const porCobrar = allPayments
+      .filter(p => p.status === 'pending')
+      .reduce((s, p) => s + p.amount, 0);
     return { totalFacturado, totalCobrado, porCobrar };
-  }, [invoices, selectedMonth, currentYear]);
+  }, [invoices, allPayments, selectedMonth, currentYear, selectedMonthKey]);
 
   // Top clients
   const topClients = useMemo(() => getTopClients(5), [getTopClients]);
@@ -278,10 +298,10 @@ export function TableroControl() {
             <div className="p-1 sm:p-1.5 rounded-lg bg-green-100 dark:bg-green-900/30">
               <DollarSign className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-green-600 dark:text-green-400" />
             </div>
-            <span className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400">Balance</span>
+            <span className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400">Balance {currentYear}</span>
           </div>
-          <p className={`text-sm sm:text-lg font-bold truncate ${financeSummary.balance >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-            {formatCurrency(financeSummary.balance)}
+          <p className={`text-sm sm:text-lg font-bold truncate ${yearBalance >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+            {formatCurrency(yearBalance)}
           </p>
         </Link>
 

@@ -83,7 +83,7 @@ const PROPOSAL_LABELS: Record<string, string> = {
 
 export function TableroControl() {
   const { organization } = useAuth();
-  const { getFinanceSummary, getMonthlyData, invoices, transactions, loadingInvoices, loadingCashFlow } = useFinance();
+  const { getFinanceSummary, getMonthlyData, getTopClients, invoices, transactions, recurringExpenses, loadingInvoices, loadingCashFlow } = useFinance();
   const { leads, deals, activities, getStats: getCRMStats, getPipelineByStage, loading: crmLoading } = useCRM();
   const { projects, loading: projectsLoading } = useProjects();
   const { objectives, initiatives, loading: okrLoading } = useOKR();
@@ -118,6 +118,38 @@ export function TableroControl() {
       .filter(t => t.type === 'income' && new Date(t.date).getMonth() === currentMonth && new Date(t.date).getFullYear() === currentYear)
       .reduce((sum, t) => sum + t.amount, 0);
   }, [transactions, currentYear]);
+
+  // Current month expenses
+  const currentMonthExpenses = useMemo(() => {
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    return transactions
+      .filter(t => t.type === 'expense' && new Date(t.date).getMonth() === currentMonth && new Date(t.date).getFullYear() === currentYear)
+      .reduce((sum, t) => sum + t.amount, 0);
+  }, [transactions, currentYear]);
+
+  // Billing totals
+  const billingTotals = useMemo(() => {
+    const totalFacturado = invoices
+      .filter(i => i.status !== 'draft' && i.status !== 'cancelled')
+      .reduce((s, i) => s + i.total, 0);
+    const totalCobrado = invoices
+      .filter(i => i.status === 'paid')
+      .reduce((s, i) => s + i.total, 0);
+    const porCobrar = invoices
+      .filter(i => i.status === 'issued' || i.status === 'overdue')
+      .reduce((s, i) => s + i.total, 0);
+    return { totalFacturado, totalCobrado, porCobrar };
+  }, [invoices]);
+
+  // Top clients
+  const topClients = useMemo(() => getTopClients(5), [getTopClients]);
+
+  // Recurring expenses total
+  const recurringTotal = useMemo(
+    () => recurringExpenses.filter(r => r.active).reduce((s, r) => s + r.amount, 0),
+    [recurringExpenses],
+  );
 
   // Invoice status breakdown
   const invoiceStatusData = useMemo(() => {
@@ -298,6 +330,29 @@ export function TableroControl() {
         </Link>
       </div>
 
+      {/* Billing KPIs */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4">
+        <Link to="/finance/invoices" className="card p-3 sm:p-4 hover:shadow-md transition-shadow">
+          <span className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400">Total facturado</span>
+          <p className="text-sm sm:text-lg font-bold text-gray-900 dark:text-white truncate">{formatCurrency(billingTotals.totalFacturado)}</p>
+        </Link>
+        <Link to="/finance/invoices" className="card p-3 sm:p-4 hover:shadow-md transition-shadow">
+          <span className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400">Cobrado</span>
+          <p className="text-sm sm:text-lg font-bold text-green-600 dark:text-green-400 truncate">{formatCurrency(billingTotals.totalCobrado)}</p>
+        </Link>
+        <Link to="/finance/invoices" className="card p-3 sm:p-4 hover:shadow-md transition-shadow">
+          <span className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400">Por cobrar</span>
+          <p className={`text-sm sm:text-lg font-bold truncate ${billingTotals.porCobrar > 0 ? 'text-yellow-600 dark:text-yellow-400' : 'text-gray-900 dark:text-white'}`}>{formatCurrency(billingTotals.porCobrar)}</p>
+        </Link>
+        <Link to="/finance/cash-flow" className="card p-3 sm:p-4 hover:shadow-md transition-shadow">
+          <span className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400">Gastos mes</span>
+          <p className="text-sm sm:text-lg font-bold text-red-600 dark:text-red-400 truncate">{formatCurrency(currentMonthExpenses)}</p>
+          {recurringTotal > 0 && (
+            <span className="text-[9px] sm:text-[10px] text-gray-400 dark:text-gray-500">Fijos: {formatCurrency(recurringTotal)}</span>
+          )}
+        </Link>
+      </div>
+
       {/* Financial Section */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
         {/* Cash Flow Chart */}
@@ -326,24 +381,26 @@ export function TableroControl() {
           )}
         </div>
 
-        {/* Invoice Status Donut */}
+        {/* Invoices + Top Clients */}
         <div className="card p-3 sm:p-5">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Facturas</h2>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Facturación</h2>
             <Link to="/finance/invoices" className="text-sm text-primary-600 hover:underline flex items-center gap-1">
               Ver <ArrowRight className="w-3.5 h-3.5" />
             </Link>
           </div>
+
+          {/* Invoice donut */}
           {invoiceStatusData.length > 0 ? (
             <div className="flex flex-col items-center">
-              <ResponsiveContainer width="100%" height={200}>
+              <ResponsiveContainer width="100%" height={160}>
                 <PieChart>
                   <Pie
                     data={invoiceStatusData}
                     cx="50%"
                     cy="50%"
-                    innerRadius={55}
-                    outerRadius={85}
+                    innerRadius={45}
+                    outerRadius={70}
                     paddingAngle={3}
                     dataKey="value"
                   >
@@ -354,33 +411,52 @@ export function TableroControl() {
                   <Tooltip contentStyle={tooltipStyle} />
                 </PieChart>
               </ResponsiveContainer>
-              <div className="flex flex-wrap gap-3 justify-center mt-2">
+              <div className="flex flex-wrap gap-2 justify-center">
                 {invoiceStatusData.map((d, i) => (
-                  <div key={i} className="flex items-center gap-1.5">
-                    <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: d.color }} />
-                    <span className="text-xs text-gray-600 dark:text-gray-400">{d.name} ({d.value})</span>
+                  <div key={i} className="flex items-center gap-1">
+                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: d.color }} />
+                    <span className="text-[10px] text-gray-600 dark:text-gray-400">{d.name} ({d.value})</span>
                   </div>
                 ))}
               </div>
-              {/* Key finance alerts */}
-              <div className="w-full mt-4 space-y-2">
-                {financeSummary.overdueInvoices > 0 && (
-                  <div className="flex items-center gap-2 text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/10 px-3 py-2 rounded-lg">
-                    <AlertTriangle className="w-4 h-4 flex-shrink-0" />
-                    <span>{financeSummary.overdueInvoices} vencida{financeSummary.overdueInvoices > 1 ? 's' : ''} ({formatCurrency(financeSummary.overdueAmount)})</span>
-                  </div>
-                )}
-                {financeSummary.pendingInvoices > 0 && (
-                  <div className="flex items-center gap-2 text-sm text-yellow-600 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-900/10 px-3 py-2 rounded-lg">
-                    <Clock className="w-4 h-4 flex-shrink-0" />
-                    <span>{financeSummary.pendingInvoices} pendiente{financeSummary.pendingInvoices > 1 ? 's' : ''} ({formatCurrency(financeSummary.pendingAmount)})</span>
-                  </div>
-                )}
-              </div>
             </div>
           ) : (
-            <div className="flex items-center justify-center h-[200px] text-gray-400 dark:text-gray-500">
-              <p>Sin facturas</p>
+            <div className="flex items-center justify-center h-[100px] text-gray-400 dark:text-gray-500 text-sm">
+              Sin facturas
+            </div>
+          )}
+
+          {/* Alerts */}
+          <div className="mt-3 space-y-1.5">
+            {financeSummary.overdueInvoices > 0 && (
+              <div className="flex items-center gap-2 text-xs text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/10 px-2.5 py-1.5 rounded-lg">
+                <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />
+                <span>{financeSummary.overdueInvoices} vencida{financeSummary.overdueInvoices > 1 ? 's' : ''} ({formatCurrency(financeSummary.overdueAmount)})</span>
+              </div>
+            )}
+            {financeSummary.pendingInvoices > 0 && (
+              <div className="flex items-center gap-2 text-xs text-yellow-600 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-900/10 px-2.5 py-1.5 rounded-lg">
+                <Clock className="w-3.5 h-3.5 flex-shrink-0" />
+                <span>{financeSummary.pendingInvoices} pendiente{financeSummary.pendingInvoices > 1 ? 's' : ''} ({formatCurrency(financeSummary.pendingAmount)})</span>
+              </div>
+            )}
+          </div>
+
+          {/* Top Clients */}
+          {topClients.length > 0 && (
+            <div className="mt-4 border-t border-gray-200 dark:border-gray-700 pt-3">
+              <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-2">Top clientes</h3>
+              <div className="space-y-1.5">
+                {topClients.map((c, i) => (
+                  <div key={c.clientId} className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="text-[10px] font-bold text-gray-400 w-3">{i + 1}</span>
+                      <span className="text-xs text-gray-700 dark:text-gray-300 truncate">{c.clientName}</span>
+                    </div>
+                    <span className="text-xs font-semibold text-gray-900 dark:text-white flex-shrink-0 ml-2">{formatCurrency(c.total)}</span>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </div>

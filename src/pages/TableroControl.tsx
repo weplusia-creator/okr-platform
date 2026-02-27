@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import {
   DollarSign, TrendingUp, TrendingDown, Handshake, FolderKanban, Target,
   FileText, CheckCircle2, Clock, AlertTriangle, Loader2, Users,
-  ListChecks, BarChart3, ArrowRight,
+  ListChecks, BarChart3, ArrowRight, ChevronLeft, ChevronRight,
 } from 'lucide-react';
 import {
   BarChart, Bar, PieChart, Pie, Cell, AreaChart, Area,
@@ -91,6 +91,7 @@ export function TableroControl() {
   const { proposals, getStats: getProposalStats, loading: proposalsLoading } = useProposals();
 
   const [isDark, setIsDark] = useState(false);
+  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth()); // 0-11
 
   useEffect(() => {
     const check = () => setIsDark(document.documentElement.classList.contains('dark'));
@@ -110,37 +111,42 @@ export function TableroControl() {
   const pipelineData = useMemo(() => getPipelineByStage(), [getPipelineByStage, deals]);
   const proposalStats = useMemo(() => getProposalStats(), [getProposalStats, proposals]);
 
-  // Current month income
-  const currentMonthIncome = useMemo(() => {
-    const now = new Date();
-    const currentMonth = now.getMonth();
-    return transactions
-      .filter(t => t.type === 'income' && new Date(t.date).getMonth() === currentMonth && new Date(t.date).getFullYear() === currentYear)
-      .reduce((sum, t) => sum + t.amount, 0);
-  }, [transactions, currentYear]);
+  const MONTH_NAMES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 
-  // Current month expenses
-  const currentMonthExpenses = useMemo(() => {
-    const now = new Date();
-    const currentMonth = now.getMonth();
-    return transactions
-      .filter(t => t.type === 'expense' && new Date(t.date).getMonth() === currentMonth && new Date(t.date).getFullYear() === currentYear)
-      .reduce((sum, t) => sum + t.amount, 0);
-  }, [transactions, currentYear]);
+  // Helper: check if a date string falls in the selected month/year
+  const isInSelectedMonth = (dateStr: string) => {
+    const d = new Date(dateStr);
+    return d.getMonth() === selectedMonth && d.getFullYear() === currentYear;
+  };
 
-  // Billing totals
+  // Month income
+  const selectedMonthIncome = useMemo(() => {
+    return transactions
+      .filter(t => t.type === 'income' && isInSelectedMonth(t.date))
+      .reduce((sum, t) => sum + t.amount, 0);
+  }, [transactions, selectedMonth, currentYear]);
+
+  // Month expenses
+  const selectedMonthExpenses = useMemo(() => {
+    return transactions
+      .filter(t => t.type === 'expense' && isInSelectedMonth(t.date))
+      .reduce((sum, t) => sum + t.amount, 0);
+  }, [transactions, selectedMonth, currentYear]);
+
+  // Billing totals filtered by selected month
   const billingTotals = useMemo(() => {
-    const totalFacturado = invoices
+    const monthInvoices = invoices.filter(i => isInSelectedMonth(i.issueDate));
+    const totalFacturado = monthInvoices
       .filter(i => i.status !== 'draft' && i.status !== 'cancelled')
       .reduce((s, i) => s + i.total, 0);
-    const totalCobrado = invoices
+    const totalCobrado = monthInvoices
       .filter(i => i.status === 'paid')
       .reduce((s, i) => s + i.total, 0);
     const porCobrar = invoices
       .filter(i => i.status === 'issued' || i.status === 'overdue')
       .reduce((s, i) => s + i.total, 0);
     return { totalFacturado, totalCobrado, porCobrar };
-  }, [invoices]);
+  }, [invoices, selectedMonth, currentYear]);
 
   // Top clients
   const topClients = useMemo(() => getTopClients(5), [getTopClients]);
@@ -286,7 +292,7 @@ export function TableroControl() {
             </div>
             <span className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400">Ingresos mes</span>
           </div>
-          <p className="text-sm sm:text-lg font-bold text-gray-900 dark:text-white truncate">{formatCurrency(currentMonthIncome)}</p>
+          <p className="text-sm sm:text-lg font-bold text-gray-900 dark:text-white truncate">{formatCurrency(selectedMonthIncome)}</p>
         </Link>
 
         <Link to="/crm/pipeline" className="card p-3 sm:p-4 hover:shadow-md transition-shadow">
@@ -330,27 +336,54 @@ export function TableroControl() {
         </Link>
       </div>
 
-      {/* Billing KPIs */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4">
-        <Link to="/finance/invoices" className="card p-3 sm:p-4 hover:shadow-md transition-shadow">
-          <span className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400">Total facturado</span>
-          <p className="text-sm sm:text-lg font-bold text-gray-900 dark:text-white truncate">{formatCurrency(billingTotals.totalFacturado)}</p>
-        </Link>
-        <Link to="/finance/invoices" className="card p-3 sm:p-4 hover:shadow-md transition-shadow">
-          <span className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400">Cobrado</span>
-          <p className="text-sm sm:text-lg font-bold text-green-600 dark:text-green-400 truncate">{formatCurrency(billingTotals.totalCobrado)}</p>
-        </Link>
-        <Link to="/finance/invoices" className="card p-3 sm:p-4 hover:shadow-md transition-shadow">
-          <span className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400">Por cobrar</span>
-          <p className={`text-sm sm:text-lg font-bold truncate ${billingTotals.porCobrar > 0 ? 'text-yellow-600 dark:text-yellow-400' : 'text-gray-900 dark:text-white'}`}>{formatCurrency(billingTotals.porCobrar)}</p>
-        </Link>
-        <Link to="/finance/cash-flow" className="card p-3 sm:p-4 hover:shadow-md transition-shadow">
-          <span className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400">Gastos mes</span>
-          <p className="text-sm sm:text-lg font-bold text-red-600 dark:text-red-400 truncate">{formatCurrency(currentMonthExpenses)}</p>
-          {recurringTotal > 0 && (
-            <span className="text-[9px] sm:text-[10px] text-gray-400 dark:text-gray-500">Fijos: {formatCurrency(recurringTotal)}</span>
+      {/* Month Selector + Billing KPIs */}
+      <div>
+        <div className="flex items-center gap-2 mb-2">
+          <button
+            onClick={() => setSelectedMonth(m => m === 0 ? 11 : m - 1)}
+            className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400 transition-colors"
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+          <span className="text-sm font-semibold text-gray-900 dark:text-white min-w-[120px] text-center">
+            {MONTH_NAMES[selectedMonth]} {currentYear}
+          </span>
+          <button
+            onClick={() => setSelectedMonth(m => m === 11 ? 0 : m + 1)}
+            className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400 transition-colors"
+          >
+            <ChevronRight className="w-4 h-4" />
+          </button>
+          {selectedMonth !== new Date().getMonth() && (
+            <button
+              onClick={() => setSelectedMonth(new Date().getMonth())}
+              className="text-[10px] sm:text-xs text-primary-600 dark:text-primary-400 hover:underline ml-1"
+            >
+              Hoy
+            </button>
           )}
-        </Link>
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4">
+          <Link to="/finance/invoices" className="card p-3 sm:p-4 hover:shadow-md transition-shadow">
+            <span className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400">Facturado</span>
+            <p className="text-sm sm:text-lg font-bold text-gray-900 dark:text-white truncate">{formatCurrency(billingTotals.totalFacturado)}</p>
+          </Link>
+          <Link to="/finance/invoices" className="card p-3 sm:p-4 hover:shadow-md transition-shadow">
+            <span className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400">Cobrado</span>
+            <p className="text-sm sm:text-lg font-bold text-green-600 dark:text-green-400 truncate">{formatCurrency(billingTotals.totalCobrado)}</p>
+          </Link>
+          <Link to="/finance/invoices" className="card p-3 sm:p-4 hover:shadow-md transition-shadow">
+            <span className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400">Por cobrar (total)</span>
+            <p className={`text-sm sm:text-lg font-bold truncate ${billingTotals.porCobrar > 0 ? 'text-yellow-600 dark:text-yellow-400' : 'text-gray-900 dark:text-white'}`}>{formatCurrency(billingTotals.porCobrar)}</p>
+          </Link>
+          <Link to="/finance/cash-flow" className="card p-3 sm:p-4 hover:shadow-md transition-shadow">
+            <span className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400">Gastos</span>
+            <p className="text-sm sm:text-lg font-bold text-red-600 dark:text-red-400 truncate">{formatCurrency(selectedMonthExpenses)}</p>
+            {recurringTotal > 0 && (
+              <span className="text-[9px] sm:text-[10px] text-gray-400 dark:text-gray-500">Fijos: {formatCurrency(recurringTotal)}</span>
+            )}
+          </Link>
+        </div>
       </div>
 
       {/* Financial Section */}

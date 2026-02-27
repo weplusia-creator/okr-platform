@@ -44,7 +44,7 @@ interface ArcaContextType {
 const ArcaContext = createContext<ArcaContextType | undefined>(undefined);
 
 export function ArcaProvider({ children }: { children: ReactNode }) {
-  const { organization, session } = useAuth();
+  const { organization } = useAuth();
   const [cuits, setCuits] = useState<OrganizationCuit[]>([]);
   const [puntosVenta, setPuntosVenta] = useState<PuntoDeVenta[]>([]);
   const [arcaInvoices, setArcaInvoices] = useState<ArcaInvoice[]>([]);
@@ -378,7 +378,8 @@ export function ArcaProvider({ children }: { children: ReactNode }) {
   }, [organization?.id]);
 
   const emitInvoice = useCallback(async (request: EmitArcaInvoiceRequest): Promise<EmitArcaInvoiceResponse> => {
-    if (!session?.access_token) {
+    const token = await getAccessTokenFresh();
+    if (!token) {
       return { success: false, arcaInvoiceId: '', error: 'No autenticado' };
     }
     try {
@@ -386,7 +387,7 @@ export function ArcaProvider({ children }: { children: ReactNode }) {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
+          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify(request),
       });
@@ -410,10 +411,11 @@ export function ArcaProvider({ children }: { children: ReactNode }) {
         error: err.message || 'Error desconocido',
       };
     }
-  }, [session?.access_token, fetchArcaInvoices]);
+  }, [fetchArcaInvoices]);
 
   const retryInvoice = useCallback(async (arcaInvoiceId: string): Promise<EmitArcaInvoiceResponse> => {
-    if (!session?.access_token) {
+    const token = await getAccessTokenFresh();
+    if (!token) {
       return { success: false, arcaInvoiceId: '', error: 'No autenticado' };
     }
     try {
@@ -421,7 +423,7 @@ export function ArcaProvider({ children }: { children: ReactNode }) {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
+          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({ arcaInvoiceId, retry: true }),
       });
@@ -445,7 +447,7 @@ export function ArcaProvider({ children }: { children: ReactNode }) {
         error: err.message || 'Error desconocido',
       };
     }
-  }, [session?.access_token, fetchArcaInvoices]);
+  }, [fetchArcaInvoices]);
 
   // ===== CERTIFICATE UPLOAD =====
   const uploadCertificate = useCallback(async (

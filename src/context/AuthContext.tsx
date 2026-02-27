@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from 'react';
 import type { User, Session } from '@supabase/supabase-js';
-import { supabase } from '../lib/supabase';
+import { supabase, getAccessTokenFresh } from '../lib/supabase';
 import type { AppUser, Organization, UserRole, UserType } from '../types';
 
 interface AuthContextType {
@@ -372,13 +372,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [appUser?.organizationId, fetchOrgUsers]);
 
   const createOrgUser = useCallback(async (email: string, fullName: string, role: UserRole, jobTitle: string | null, userType: UserType = 'consultant', clientId: string | null = null): Promise<AppUser | null> => {
-    if (!appUser?.organizationId || !session?.access_token) return null;
+    if (!appUser?.organizationId) return null;
+    const token = await getAccessTokenFresh();
+    if (!token) return null;
     try {
       const res = await fetch('/api/create-user', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
+          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({
           email,
@@ -414,7 +416,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.error('Error creating user:', err);
       throw err;
     }
-  }, [appUser?.organizationId, session?.access_token]);
+  }, [appUser?.organizationId]);
 
   const updateOrgUser = useCallback(async (id: string, updates: Partial<Pick<AppUser, 'fullName' | 'role' | 'jobTitle' | 'status' | 'userType' | 'clientId' | 'birthDate'>>) => {
     try {
@@ -441,14 +443,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const deleteOrgUser = useCallback(async (id: string): Promise<boolean> => {
-    if (!session?.access_token) return false;
+    const token = await getAccessTokenFresh();
+    if (!token) return false;
     try {
       // Try serverless function first (works on Vercel)
       const res = await fetch('/api/delete-user', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
+          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({ userId: id }),
       });
@@ -465,7 +468,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.error('Error deleting user:', err);
       return false;
     }
-  }, [session?.access_token]);
+  }, []);
 
   const value = {
     user,

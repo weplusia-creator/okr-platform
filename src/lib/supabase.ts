@@ -114,9 +114,8 @@ if (typeof document !== 'undefined') {
 /** Read auth token from localStorage without going through the auth lock */
 export function getAccessTokenDirect(): string {
   try {
-    const hostname = new URL(supabaseUrl).hostname.split('.')[0];
-    const raw = localStorage.getItem(`sb-${hostname}-auth-token`)
-      || localStorage.getItem('okr-platform-auth');
+    // Always read from the configured storageKey to avoid desync
+    const raw = localStorage.getItem('okr-platform-auth');
     if (raw) {
       const parsed = JSON.parse(raw);
       return parsed?.access_token || parsed?.currentSession?.access_token || '';
@@ -125,30 +124,42 @@ export function getAccessTokenDirect(): string {
   return '';
 }
 
+// Coalesce concurrent getAccessTokenFresh calls
+let freshTokenPromise: Promise<string> | null = null;
+
 /**
  * Get a fresh access token, refreshing the session if needed.
  * Use this for direct fetch() calls outside the Supabase client.
+ * Coalesces concurrent calls to avoid multiple simultaneous refreshes.
  */
 export async function getAccessTokenFresh(): Promise<string> {
-  const stored = getAccessTokenDirect();
-  if (stored) {
-    try {
-      const payload = JSON.parse(atob(stored.split('.')[1]));
-      // Token valid for more than 60 seconds — use it
-      if (payload.exp * 1000 > Date.now() + 60_000) {
-        return stored;
+  // If there's already a refresh in flight, reuse it
+  if (freshTokenPromise) return freshTokenPromise;
+
+  const doGetToken = async (): Promise<string> => {
+    const stored = getAccessTokenDirect();
+    if (stored) {
+      try {
+        const payload = JSON.parse(atob(stored.split('.')[1]));
+        // Token valid for more than 60 seconds — use it
+        if (payload.exp * 1000 > Date.now() + 60_000) {
+          return stored;
+        }
+      } catch {
+        // Can't decode — fall through to refresh
       }
-    } catch {
-      return stored; // Can't decode, return as-is
     }
-  }
 
-  // Token is expired or about to expire — refresh
-  try {
-    const { data } = await supabaseClient.auth.refreshSession();
-    if (data?.session?.access_token) return data.session.access_token;
-  } catch { /* refresh failed */ }
+    // Token is expired or about to expire — refresh
+    try {
+      const { data } = await supabaseClient.auth.refreshSession();
+      if (data?.session?.access_token) return data.session.access_token;
+    } catch { /* refresh failed */ }
 
-  // Fallback to stored token (might be stale, but better than nothing)
-  return stored || '';
+    // Fallback to stored token (might be stale, but better than nothing)
+    return stored || '';
+  };
+
+  freshTokenPromise = doGetToken().finally(() => { freshTokenPromise = null; });
+  return freshTokenPromise;
 }

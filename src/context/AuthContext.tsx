@@ -134,9 +134,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let isMounted = true;
 
-    // Safety timeout
+    // Safety timeout: if session hasn't loaded after 5s, retry once before giving up
+    let safetyFired = false;
     const timeout = setTimeout(() => {
-      if (isMounted) setLoading(false);
+      if (!isMounted || session || user) return;
+      safetyFired = true;
+      // One last attempt before giving up
+      supabase.auth.getSession().then(({ data: { session: s } }) => {
+        if (!isMounted) return;
+        if (s?.user) {
+          setSession(s);
+          setUser(s.user);
+          fetchUserData(s.user.id).finally(() => {
+            if (isMounted) setLoading(false);
+          });
+        } else {
+          setLoading(false);
+        }
+      }).catch(() => {
+        if (isMounted) setLoading(false);
+      });
     }, 5000);
 
     // Get initial session with retry on AbortError

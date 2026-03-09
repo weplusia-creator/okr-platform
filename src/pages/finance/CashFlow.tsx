@@ -100,7 +100,7 @@ export function CashFlow() {
   const availableYears = useMemo(() => {
     const years = new Set<number>();
     transactions.forEach(t => {
-      const y = new Date(t.date).getFullYear();
+      const y = parseInt(t.date.split('-')[0]);
       if (y) years.add(y);
     });
     return [...years].sort((a, b) => b - a);
@@ -116,7 +116,7 @@ export function CashFlow() {
 
       // Specific year filter (e.g. '2025')
       if (/^\d{4}$/.test(period)) {
-        return new Date(t.date).getFullYear() === Number(period);
+        return parseInt(t.date.split('-')[0]) === Number(period);
       }
 
       let startDate: Date;
@@ -150,7 +150,7 @@ export function CashFlow() {
 
   // Summary that follows the chart year selector
   const chartSummary = useMemo(() => {
-    const yearTx = transactions.filter(t => new Date(t.date).getFullYear() === chartYear);
+    const yearTx = transactions.filter(t => parseInt(t.date.split('-')[0]) === chartYear);
     const income = yearTx.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
     const expenses = yearTx.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
     return { income, expenses, balance: income - expenses };
@@ -162,7 +162,7 @@ export function CashFlow() {
     SOCIOS.forEach(s => { data[s.name] = { expenses: 0, income: 0 }; });
 
     // Filter transactions by chartYear to match the visible summary
-    const yearTx = transactions.filter(t => new Date(t.date).getFullYear() === chartYear);
+    const yearTx = transactions.filter(t => parseInt(t.date.split('-')[0]) === chartYear);
 
     let totalExpensesWithSocio = 0;
     let totalIncomeWithSocio = 0;
@@ -497,8 +497,17 @@ export function CashFlow() {
   };
 
   useEffect(() => {
-    fetchAllPayments().then(setAllPayments);
+    fetchAllPayments().then(data => {
+      if (data.length > 0) setAllPayments(data);
+    });
   }, [fetchAllPayments]);
+
+  // Re-fetch payments once projects are loaded (auth is ready)
+  useEffect(() => {
+    if (projects.length > 0 && allPayments.length === 0) {
+      fetchAllPayments().then(setAllPayments);
+    }
+  }, [projects.length, allPayments.length, fetchAllPayments]);
 
   const [syncing, setSyncing] = useState(false);
 
@@ -590,13 +599,22 @@ export function CashFlow() {
     });
 
     const months = [...monthsSet].sort();
-    const projects = [...projectsMap.entries()].map(([id, name]) => ({ id, name }));
-
     const grid: Record<string, Record<string, ProjectPayment & { projectName: string }>> = {};
     allPayments.forEach(p => {
       if (!grid[p.projectId]) grid[p.projectId] = {};
       grid[p.projectId][p.month] = p;
     });
+
+    // Sort projects by their first payment month (newest start first)
+    const projects = [...projectsMap.entries()]
+      .map(([id, name]) => ({ id, name }))
+      .sort((a, b) => {
+        const aMonths = Object.keys(grid[a.id] || {}).sort();
+        const bMonths = Object.keys(grid[b.id] || {}).sort();
+        const aFirst = aMonths[0] || '';
+        const bFirst = bMonths[0] || '';
+        return bFirst.localeCompare(aFirst);
+      });
 
     return { months, projects, grid };
   }, [allPayments]);

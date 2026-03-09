@@ -72,7 +72,7 @@ export function CRMProvider({ children }: { children: ReactNode }) {
   const [activities, setActivities] = useState<Activity[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [pipelineStages, setPipelineStages] = useState<PipelineStage[]>([]);
+  const [pipelineStages, setPipelineStages] = useState<PipelineStage[]>(DEFAULT_PIPELINE_STAGES);
 
   // ===== PIPELINE STAGES =====
 
@@ -904,10 +904,12 @@ export function CRMProvider({ children }: { children: ReactNode }) {
 
       // Update last contact on lead/deal
       if (data.leadId) {
-        await supabase.from('crm_leads').update({ last_contact_at: new Date().toISOString() }).eq('id', data.leadId);
+        const { error: leadErr } = await supabase.from('crm_leads').update({ last_contact_at: new Date().toISOString() }).eq('id', data.leadId);
+        if (leadErr) console.error('Error updating lead last_contact_at:', leadErr.message);
       }
       if (data.dealId) {
-        await supabase.from('crm_deals').update({ last_activity_at: new Date().toISOString() }).eq('id', data.dealId);
+        const { error: dealErr } = await supabase.from('crm_deals').update({ last_activity_at: new Date().toISOString() }).eq('id', data.dealId);
+        if (dealErr) console.error('Error updating deal last_activity_at:', dealErr.message);
       }
 
       const newActivity: Activity = {

@@ -18,7 +18,7 @@ interface NotifyParams {
  */
 export async function notify(params: NotifyParams) {
   try {
-    await supabase.from('notifications').insert({
+    const { error } = await supabase.from('notifications').insert({
       organization_id: params.organizationId,
       user_id: params.userId,
       type: params.type,
@@ -28,6 +28,7 @@ export async function notify(params: NotifyParams) {
       entity_id: params.entityId || null,
       action_url: params.actionUrl || null,
     });
+    if (error) console.error('Error inserting notification:', error.message);
   } catch (err) {
     console.error('Error sending notification:', err);
   }
@@ -49,7 +50,8 @@ export async function notifyMany(userIds: string[], params: Omit<NotifyParams, '
       entity_id: params.entityId || null,
       action_url: params.actionUrl || null,
     }));
-    await supabase.from('notifications').insert(rows);
+    const { error } = await supabase.from('notifications').insert(rows);
+    if (error) console.error('Error inserting notifications:', error.message);
   } catch (err) {
     console.error('Error sending notifications:', err);
   }

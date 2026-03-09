@@ -471,7 +471,7 @@ export function ProspectorProvider({ children }: { children: ReactNode }) {
   const initDefaultCriteria = useCallback(async () => {
     if (!organization?.id) return;
     for (const c of DEFAULT_SCORING_CRITERIA) {
-      await supabase.from('prospector_scoring_criteria').insert({
+      const { error } = await supabase.from('prospector_scoring_criteria').insert({
         organization_id: organization.id,
         name: c.name,
         field_name: c.fieldName,
@@ -480,6 +480,7 @@ export function ProspectorProvider({ children }: { children: ReactNode }) {
         weight: c.weight,
         is_active: c.isActive,
       });
+      if (error) console.error('Error inserting scoring criteria:', error.message);
     }
     await fetchScoringCriteria();
   }, [organization?.id, fetchScoringCriteria]);

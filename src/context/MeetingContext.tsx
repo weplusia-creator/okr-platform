@@ -118,7 +118,8 @@ export function MeetingProvider({ children }: { children: ReactNode }) {
       status: 'scheduled' as const,
     }));
 
-    await supabase.from('meeting_occurrences').insert(occRows);
+    const { error: occErr } = await supabase.from('meeting_occurrences').insert(occRows);
+    if (occErr) throw new Error(occErr.message);
     await fetchMeetings();
   }, [appUser, fetchMeetings]);
 
@@ -132,12 +133,14 @@ export function MeetingProvider({ children }: { children: ReactNode }) {
     if (updates.location !== undefined) dbUpdates.location = updates.location;
     if (updates.active !== undefined) dbUpdates.active = updates.active;
 
-    await supabase.from('meetings').update(dbUpdates).eq('id', id);
+    const { error } = await supabase.from('meetings').update(dbUpdates).eq('id', id);
+    if (error) throw new Error(error.message);
     await fetchMeetings();
   }, [fetchMeetings]);
 
   const deleteMeeting = useCallback(async (id: string) => {
-    await supabase.from('meetings').delete().eq('id', id);
+    const { error } = await supabase.from('meetings').delete().eq('id', id);
+    if (error) throw new Error(error.message);
     setOccurrences(prev => {
       const next = { ...prev };
       delete next[id];
@@ -175,7 +178,8 @@ export function MeetingProvider({ children }: { children: ReactNode }) {
     if (updates.minutes !== undefined) dbUpdates.minutes = updates.minutes;
     if (updates.status !== undefined) dbUpdates.status = updates.status;
 
-    await supabase.from('meeting_occurrences').update(dbUpdates).eq('id', id);
+    const { error } = await supabase.from('meeting_occurrences').update(dbUpdates).eq('id', id);
+    if (error) throw new Error(error.message);
 
     // Refresh all occurrences that contain this id
     setOccurrences(prev => {

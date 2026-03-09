@@ -599,7 +599,8 @@ export function ProposalProvider({ children }: { children: ReactNode }) {
       }));
 
       for (const update of updates) {
-        await supabase.from('proposal_items').update({ sort_order: update.sort_order }).eq('id', update.id);
+        const { error } = await supabase.from('proposal_items').update({ sort_order: update.sort_order }).eq('id', update.id);
+        if (error) throw new Error(error.message);
       }
     } catch (err: any) {
       console.error('Error reordering items:', err);

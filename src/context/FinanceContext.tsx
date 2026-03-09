@@ -393,7 +393,8 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
       // Update items if provided
       if (items) {
         // Delete existing items
-        await supabase.from('invoice_items').delete().eq('invoice_id', id);
+        const { error: delItemsErr } = await supabase.from('invoice_items').delete().eq('invoice_id', id);
+        if (delItemsErr) throw delItemsErr;
 
         // Insert new items
         if (items.length > 0) {
@@ -448,7 +449,7 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
       if (invoice && organization?.id) {
         const incomeCategory = categories.find(c => c.type === 'income');
         if (incomeCategory) {
-          await supabase.from('cash_flow_transactions').insert({
+          const { error: txErr } = await supabase.from('cash_flow_transactions').insert({
             organization_id: organization.id,
             category_id: incomeCategory.id,
             type: 'income',
@@ -457,6 +458,7 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
             date: paidDate,
             invoice_id: id,
           });
+          if (txErr) throw txErr;
           await fetchTransactions();
         }
       }

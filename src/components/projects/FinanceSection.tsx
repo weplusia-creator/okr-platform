@@ -114,7 +114,8 @@ export function FinanceSection({ project }: FinanceSectionProps) {
           .eq('payment_id', payment.id);
         if (dbTx && dbTx.length > 0) {
           for (const tx of dbTx) {
-            await supabase.from('cash_flow_transactions').delete().eq('id', tx.id);
+            const { error: delErr } = await supabase.from('cash_flow_transactions').delete().eq('id', tx.id);
+            if (delErr) console.error('Error deleting transaction:', delErr.message);
           }
         }
       }

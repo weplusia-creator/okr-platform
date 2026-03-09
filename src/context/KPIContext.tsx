@@ -335,9 +335,11 @@ export function KPIProvider({ children }: { children: ReactNode }) {
           .maybeSingle();
 
         if (existingEntry) {
-          await supabase.from('kpi_entries').update({ value: mv.value }).eq('id', existingEntry.id);
+          const { error } = await supabase.from('kpi_entries').update({ value: mv.value }).eq('id', existingEntry.id);
+          if (error) throw new Error(error.message);
         } else {
-          await supabase.from('kpi_entries').insert({ kpi_id: kpi.id, value: mv.value, date });
+          const { error } = await supabase.from('kpi_entries').insert({ kpi_id: kpi.id, value: mv.value, date });
+          if (error) throw new Error(error.message);
         }
       }
     }

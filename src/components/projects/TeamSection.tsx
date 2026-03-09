@@ -64,7 +64,8 @@ export function TeamSection({ projectId, participants }: TeamSectionProps) {
       });
       // Update phone if provided
       if (phone.trim() && newParticipant?.userId) {
-        await (supabase as any).from('users').update({ phone: phone.trim() }).eq('id', newParticipant.userId);
+        const { error: phoneErr } = await (supabase as any).from('users').update({ phone: phone.trim() }).eq('id', newParticipant.userId);
+        if (phoneErr) console.error('Error updating phone:', phoneErr.message);
       }
       setShowModal(false);
       setFullName('');

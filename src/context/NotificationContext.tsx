@@ -85,7 +85,8 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
 
   const markAsRead = useCallback(async (id: string) => {
     try {
-      await supabase.from('notifications').update({ is_read: true }).eq('id', id);
+      const { error } = await supabase.from('notifications').update({ is_read: true }).eq('id', id);
+      if (error) throw new Error(error.message);
       setNotifications(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n));
     } catch (err) {
       console.error('Error marking notification as read:', err);
@@ -95,11 +96,12 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   const markAllAsRead = useCallback(async () => {
     if (!appUser?.id) return;
     try {
-      await supabase
+      const { error } = await supabase
         .from('notifications')
         .update({ is_read: true })
         .eq('user_id', appUser.id)
         .eq('is_read', false);
+      if (error) throw new Error(error.message);
       setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
     } catch (err) {
       console.error('Error marking all as read:', err);
@@ -108,7 +110,8 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
 
   const deleteNotification = useCallback(async (id: string) => {
     try {
-      await supabase.from('notifications').delete().eq('id', id);
+      const { error } = await supabase.from('notifications').delete().eq('id', id);
+      if (error) throw new Error(error.message);
       setNotifications(prev => prev.filter(n => n.id !== id));
     } catch (err) {
       console.error('Error deleting notification:', err);

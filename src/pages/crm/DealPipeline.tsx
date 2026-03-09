@@ -227,6 +227,12 @@ export function DealPipeline() {
     filteredDeals.forEach((deal) => {
       if (grouped[deal.stage]) {
         grouped[deal.stage].push(deal);
+      } else {
+        // Fallback: assign to first pipeline stage so the deal is never lost
+        const firstStage = pipelineStageNames[0];
+        if (firstStage && grouped[firstStage]) {
+          grouped[firstStage].push(deal);
+        }
       }
     });
 

@@ -279,7 +279,8 @@ export function ProposalPublicView() {
     if (!proposal) return;
     setSubmitting(true);
     try {
-      await supabase.from('proposals').update({ status: 'accepted', accepted_at: new Date().toISOString() }).eq('id', proposal.id);
+      const { error } = await supabase.from('proposals').update({ status: 'accepted', accepted_at: new Date().toISOString() }).eq('id', proposal.id);
+      if (error) throw error;
       setProposal({ ...proposal, status: 'accepted', acceptedAt: new Date().toISOString() });
       setShowAcceptModal(false);
     } catch (err) { console.error(err); }
@@ -290,7 +291,8 @@ export function ProposalPublicView() {
     if (!proposal || !rejectReason.trim()) return;
     setSubmitting(true);
     try {
-      await supabase.from('proposals').update({ status: 'rejected', rejected_at: new Date().toISOString(), rejection_reason: rejectReason }).eq('id', proposal.id);
+      const { error } = await supabase.from('proposals').update({ status: 'rejected', rejected_at: new Date().toISOString(), rejection_reason: rejectReason }).eq('id', proposal.id);
+      if (error) throw error;
       setProposal({ ...proposal, status: 'rejected', rejectedAt: new Date().toISOString(), rejectionReason: rejectReason });
       setShowRejectModal(false);
     } catch (err) { console.error(err); }

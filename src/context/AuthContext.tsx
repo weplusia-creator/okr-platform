@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from 'react';
 import type { User, Session } from '@supabase/supabase-js';
-import { supabase, getAccessTokenFresh } from '../lib/supabase';
+import { supabase, getAccessTokenFresh, onSessionExpired } from '../lib/supabase';
 import type { AppUser, Organization, UserRole, UserType } from '../types';
 
 interface AuthContextType {
@@ -10,6 +10,7 @@ interface AuthContextType {
   session: Session | null;
   loading: boolean;
   authError: string | null;
+  sessionExpired: boolean;
   signUp: (email: string, password: string, fullName: string, organizationName?: string, inviteCode?: string) => Promise<{ error: Error | null }>;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
@@ -39,6 +40,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [authError, setAuthError] = useState<string | null>(null);
+  const [sessionExpired, setSessionExpired] = useState(false);
+
+  // Listen for irrecoverable session expiry (refresh token dead)
+  useEffect(() => {
+    return onSessionExpired(() => {
+      setSessionExpired(true);
+      setUser(null);
+      setAppUser(null);
+      setOrganization(null);
+      setSession(null);
+    });
+  }, []);
 
   // Super admin impersonation
   const [realUser, setRealUser] = useState<AppUser | null>(null);
@@ -494,6 +507,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     session,
     loading,
     authError,
+    sessionExpired,
     signUp,
     signIn,
     signOut,

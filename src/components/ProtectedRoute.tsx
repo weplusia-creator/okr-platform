@@ -8,7 +8,7 @@ interface ProtectedRouteProps {
 }
 
 export function ProtectedRoute({ children }: ProtectedRouteProps) {
-  const { user, loading, appUser, organization, signOut, refreshUser, authError } = useAuth();
+  const { user, loading, appUser, organization, signOut, refreshUser, authError, sessionExpired } = useAuth();
   const autoRetried = useRef(false);
 
   // If user exists but appUser is null and we're done loading, auto-retry once
@@ -35,7 +35,28 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
     );
   }
 
-  if (!user) {
+  // Session expired — show message and redirect to login
+  if (sessionExpired || !user) {
+    if (sessionExpired) {
+      return (
+        <div className="min-h-screen bg-gray-50 dark:bg-[#2e2a2b] flex items-center justify-center p-4">
+          <div className="card p-8 max-w-md w-full text-center">
+            <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
+              Tu sesion expiro
+            </h2>
+            <p className="text-gray-600 dark:text-gray-400 mb-6">
+              Volve a ingresar para continuar trabajando.
+            </p>
+            <button
+              onClick={() => window.location.href = '/login'}
+              className="btn-primary"
+            >
+              Ir al login
+            </button>
+          </div>
+        </div>
+      );
+    }
     return <Navigate to="/login" replace />;
   }
 

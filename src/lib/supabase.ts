@@ -11,6 +11,18 @@ if (!supabaseUrl || !supabaseAnonKey) {
   );
 }
 
+// ── Session expiry event bus ────────────────────────────────────
+// Components can subscribe to know when session is irrecoverably dead
+type SessionExpiredCallback = () => void;
+const sessionExpiredListeners = new Set<SessionExpiredCallback>();
+export function onSessionExpired(cb: SessionExpiredCallback) {
+  sessionExpiredListeners.add(cb);
+  return () => { sessionExpiredListeners.delete(cb); };
+}
+function notifySessionExpired() {
+  sessionExpiredListeners.forEach(cb => { try { cb(); } catch {} });
+}
+
 // Mutex to serialize auth token refresh operations
 const locks = new Map<string, Promise<any>>();
 
@@ -21,13 +33,14 @@ const rawFetch = globalThis.fetch.bind(globalThis);
 let refreshingPromise: Promise<any> | null = null;
 
 /**
- * Custom fetch that automatically retries once on 401 (expired JWT).
+ * Custom fetch that automatically retries once on 401/403 (expired JWT).
  * Skips retry for auth endpoints to avoid infinite recursion.
+ * If refresh token is also expired, fires session-expired event.
  */
 async function authRetryFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
   const response = await rawFetch(input, init);
 
-  if (response.status === 401) {
+  if (response.status === 401 || response.status === 403) {
     const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : (input as Request).url;
 
     // Don't retry auth endpoints (token refresh, sign in, etc.)
@@ -45,8 +58,11 @@ async function authRetryFetch(input: RequestInfo | URL, init?: RequestInit): Pro
           retryHeaders.set('Authorization', `Bearer ${newToken}`);
           return rawFetch(input, { ...init, headers: retryHeaders });
         }
+        // refresh returned no session → session is dead
+        notifySessionExpired();
       } catch {
-        // Refresh failed — return original 401
+        // Refresh token itself expired → session is dead
+        notifySessionExpired();
       }
     }
   }
@@ -98,19 +114,30 @@ let supabaseClient = createClient<Database>(supabaseUrl, supabaseAnonKey, {
 
 export const supabase = supabaseClient;
 
+// ── Auth state listener: update realtime token & detect signout ──
+supabaseClient.auth.onAuthStateChange((event, session) => {
+  if (event === 'TOKEN_REFRESHED' && session?.access_token) {
+    // Push new token to the realtime WebSocket so it reconnects with valid auth
+    supabaseClient.realtime.setAuth(session.access_token);
+  }
+
+  if (event === 'SIGNED_OUT') {
+    notifySessionExpired();
+  }
+});
+
 // ── Proactive session refresh when tab becomes visible ──────────
 // Handles: user leaves tab open overnight, laptop sleeps, etc.
 if (typeof document !== 'undefined') {
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') {
-      // Check if stored token is expired or about to expire
       const token = getAccessTokenDirect();
       if (!token) return; // not logged in
       try {
         const payload = JSON.parse(atob(token.split('.')[1]));
         const expiresAt = payload.exp * 1000;
-        // Refresh if token expires within 2 minutes
-        if (expiresAt < Date.now() + 120_000) {
+        // Refresh if token expires within 5 minutes
+        if (expiresAt < Date.now() + 300_000) {
           supabaseClient.auth.refreshSession().catch(() => {});
         }
       } catch {
@@ -119,6 +146,27 @@ if (typeof document !== 'undefined') {
       }
     }
   });
+}
+
+// ── Periodic token check (every 4 min) ──────────────────────────
+// Supabase auto-refresh uses setTimeout which gets throttled in
+// background tabs. This interval ensures we catch expired tokens
+// even if the tab was backgrounded for a while.
+if (typeof window !== 'undefined') {
+  setInterval(() => {
+    const token = getAccessTokenDirect();
+    if (!token) return;
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      const expiresAt = payload.exp * 1000;
+      // Refresh if token expires within 5 minutes
+      if (expiresAt < Date.now() + 300_000) {
+        supabaseClient.auth.refreshSession().catch(() => {});
+      }
+    } catch {
+      supabaseClient.auth.refreshSession().catch(() => {});
+    }
+  }, 4 * 60 * 1000); // every 4 minutes
 }
 
 /** Read auth token from localStorage without going through the auth lock */

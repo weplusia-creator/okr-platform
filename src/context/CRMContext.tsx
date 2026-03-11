@@ -23,14 +23,14 @@ interface CRMContextType {
   // Leads CRUD
   fetchLeads: () => Promise<void>;
   addLead: (data: Omit<Lead, 'id' | 'organizationId' | 'createdAt' | 'updatedAt' | 'score'>) => Promise<Lead | null>;
-  updateLead: (id: string, updates: Partial<Lead>) => Promise<void>;
+  updateLead: (id: string, updates: Partial<Lead>) => Promise<boolean>;
   deleteLead: (id: string) => Promise<void>;
   convertLeadToDeal: (leadId: string, dealData: Partial<Deal>) => Promise<Deal | null>;
 
   // Deals CRUD
   fetchDeals: () => Promise<void>;
   addDeal: (data: Omit<Deal, 'id' | 'organizationId' | 'createdAt' | 'updatedAt'>) => Promise<Deal | null>;
-  updateDeal: (id: string, updates: Partial<Deal>) => Promise<void>;
+  updateDeal: (id: string, updates: Partial<Deal>) => Promise<boolean>;
   updateDealStage: (id: string, newStage: DealStage, notes?: string) => Promise<void>;
   deleteDeal: (id: string) => Promise<void>;
   markDealWon: (id: string, options: { createClient: boolean; createProject: boolean; wonNotes?: string }) => Promise<{ clientId?: string; projectId?: string } | null>;
@@ -359,7 +359,7 @@ export function CRMProvider({ children }: { children: ReactNode }) {
     }
   }, [organization?.id, appUser?.id, appUser?.fullName]);
 
-  const updateLead = useCallback(async (id: string, updates: Partial<Lead>) => {
+  const updateLead = useCallback(async (id: string, updates: Partial<Lead>): Promise<boolean> => {
     try {
       const dbUpdates: Record<string, unknown> = {};
       if (updates.contactName !== undefined) dbUpdates.contact_name = updates.contactName;
@@ -378,7 +378,7 @@ export function CRMProvider({ children }: { children: ReactNode }) {
       if (updates.nextContactAt !== undefined) dbUpdates.next_contact_at = updates.nextContactAt;
       if (updates.lastContactAt !== undefined) dbUpdates.last_contact_at = updates.lastContactAt;
 
-      if (Object.keys(dbUpdates).length === 0) return;
+      if (Object.keys(dbUpdates).length === 0) return true;
 
       const { error: err } = await supabase
         .from('crm_leads')
@@ -388,9 +388,11 @@ export function CRMProvider({ children }: { children: ReactNode }) {
       if (err) throw err;
 
       setLeads(prev => prev.map(l => l.id === id ? { ...l, ...updates } : l));
+      return true;
     } catch (err) {
       console.error('Error updating lead:', err);
       setError('Error al actualizar lead');
+      return false;
     }
   }, []);
 
@@ -582,7 +584,7 @@ export function CRMProvider({ children }: { children: ReactNode }) {
     }
   }, [organization?.id, appUser?.id, appUser?.fullName, getStageConfig]);
 
-  const updateDeal = useCallback(async (id: string, updates: Partial<Deal>) => {
+  const updateDeal = useCallback(async (id: string, updates: Partial<Deal>): Promise<boolean> => {
     try {
       const dbUpdates: Record<string, unknown> = {};
       if (updates.name !== undefined) dbUpdates.name = updates.name;
@@ -595,8 +597,9 @@ export function CRMProvider({ children }: { children: ReactNode }) {
       if (updates.expectedCloseDate !== undefined) dbUpdates.expected_close_date = updates.expectedCloseDate;
       if (updates.ownerId !== undefined) dbUpdates.owner_id = updates.ownerId;
       if (updates.clientId !== undefined) dbUpdates.client_id = updates.clientId;
+      if (updates.leadId !== undefined) dbUpdates.lead_id = updates.leadId;
 
-      if (Object.keys(dbUpdates).length === 0) return;
+      if (Object.keys(dbUpdates).length === 0) return true;
 
       const { error: err } = await supabase
         .from('crm_deals')
@@ -606,9 +609,11 @@ export function CRMProvider({ children }: { children: ReactNode }) {
       if (err) throw err;
 
       setDeals(prev => prev.map(d => d.id === id ? { ...d, ...updates } : d));
+      return true;
     } catch (err) {
       console.error('Error updating deal:', err);
       setError('Error al actualizar deal');
+      return false;
     }
   }, []);
 

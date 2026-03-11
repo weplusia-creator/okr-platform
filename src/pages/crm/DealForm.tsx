@@ -79,7 +79,7 @@ export function DealForm() {
 
     try {
       if (isEditing) {
-        await updateDeal(id!, {
+        const success = await updateDeal(id!, {
           name: form.name.trim(),
           description: form.description.trim() || null,
           leadId: form.leadId || null,
@@ -92,7 +92,11 @@ export function DealForm() {
           ownerId: form.ownerId || null,
         });
         clearTimeout(timeout);
-        navigate(`/crm/deals/${id}`);
+        if (success) {
+          navigate(`/crm/deals/${id}`);
+        } else {
+          setFormError('Error al guardar los cambios. Intentá de nuevo.');
+        }
       } else {
         const deal = await addDeal({
           name: form.name.trim(),

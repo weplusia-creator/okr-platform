@@ -108,7 +108,8 @@ export function LeadForm() {
       };
 
       if (isEditing && id) {
-        await updateLead(id, leadData);
+        const success = await updateLead(id, leadData);
+        if (!success) return;
         navigate(`/crm/leads/${id}`);
       } else {
         const newLead = await addLead(leadData);

@@ -115,8 +115,9 @@ export function TableroControl() {
   const monthlyData = useMemo(() => getMonthlyData(currentYear), [getMonthlyData, currentYear]);
 
   // Year-filtered balance (matches CashFlow page)
+  // Parse date string directly to avoid timezone issues
   const yearBalance = useMemo(() => {
-    const yearTx = transactions.filter(t => new Date(t.date).getFullYear() === currentYear);
+    const yearTx = transactions.filter(t => parseInt(t.date.split('-')[0]) === currentYear);
     const income = yearTx.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
     const expenses = yearTx.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
     return income - expenses;
@@ -127,10 +128,11 @@ export function TableroControl() {
 
   const MONTH_NAMES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 
-  // Helper: check if a date string falls in the selected month/year
+  // Helper: check if a date string (YYYY-MM-DD) falls in the selected month/year
+  // Parses string directly to avoid timezone issues with new Date()
   const isInSelectedMonth = (dateStr: string) => {
-    const d = new Date(dateStr);
-    return d.getMonth() === selectedMonth && d.getFullYear() === currentYear;
+    const [y, m] = dateStr.split('-').map(Number);
+    return (m - 1) === selectedMonth && y === currentYear;
   };
 
   // Month income
@@ -157,15 +159,11 @@ export function TableroControl() {
     const totalFacturado = monthInvoices
       .filter(i => i.status !== 'draft' && i.status !== 'cancelled')
       .reduce((s, i) => s + i.total, 0);
-    // Cobrado: project payments marked as 'paid' in the selected month
-    const totalCobrado = allPayments
-      .filter(p => p.status === 'paid' && p.month === selectedMonthKey)
-      .reduce((s, p) => s + p.amount, 0);
-    // Por cobrar: all pending project payments (not month-filtered)
+    // Por cobrar: pending project payments for the selected month
     const porCobrar = allPayments
-      .filter(p => p.status === 'pending')
+      .filter(p => p.status === 'pending' && p.month === selectedMonthKey)
       .reduce((s, p) => s + p.amount, 0);
-    return { totalFacturado, totalCobrado, porCobrar };
+    return { totalFacturado, porCobrar };
   }, [invoices, allPayments, selectedMonth, currentYear, selectedMonthKey]);
 
   // Top clients
@@ -388,12 +386,12 @@ export function TableroControl() {
             <span className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400">Facturado</span>
             <p className="text-sm sm:text-lg font-bold text-gray-900 dark:text-white truncate">{formatCurrency(billingTotals.totalFacturado)}</p>
           </Link>
-          <Link to="/finance/invoices" className="card p-3 sm:p-4 hover:shadow-md transition-shadow">
+          <Link to="/finance/cash-flow" className="card p-3 sm:p-4 hover:shadow-md transition-shadow">
             <span className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400">Cobrado</span>
-            <p className="text-sm sm:text-lg font-bold text-green-600 dark:text-green-400 truncate">{formatCurrency(billingTotals.totalCobrado)}</p>
+            <p className="text-sm sm:text-lg font-bold text-green-600 dark:text-green-400 truncate">{formatCurrency(selectedMonthIncome)}</p>
           </Link>
-          <Link to="/finance/invoices" className="card p-3 sm:p-4 hover:shadow-md transition-shadow">
-            <span className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400">Por cobrar (total)</span>
+          <Link to="/finance/cash-flow" className="card p-3 sm:p-4 hover:shadow-md transition-shadow">
+            <span className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400">Por cobrar</span>
             <p className={`text-sm sm:text-lg font-bold truncate ${billingTotals.porCobrar > 0 ? 'text-yellow-600 dark:text-yellow-400' : 'text-gray-900 dark:text-white'}`}>{formatCurrency(billingTotals.porCobrar)}</p>
           </Link>
           <Link to="/finance/cash-flow" className="card p-3 sm:p-4 hover:shadow-md transition-shadow">

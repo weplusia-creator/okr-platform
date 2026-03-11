@@ -262,6 +262,15 @@
   }
 }
 
+/* Hide scrollbar for horizontal scroll containers */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
 /* Progress bar animation */
 .progress-bar {
   transition: width 0.5s ease-out;

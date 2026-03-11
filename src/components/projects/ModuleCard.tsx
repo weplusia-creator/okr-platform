@@ -10,6 +10,7 @@ interface ModuleCardProps {
   index: number;
   onEdit: () => void;
   onComplete: () => void;
+  onDelete?: () => void;
   isActive: boolean;
 }
 
@@ -20,7 +21,7 @@ const circleColorMap: Record<string, string> = {
   skipped: 'bg-yellow-500',
 };
 
-export function ModuleCard({ module, index, onEdit, onComplete, isActive }: ModuleCardProps) {
+export function ModuleCard({ module, index, onEdit, onComplete, onDelete, isActive }: ModuleCardProps) {
   const { updateModule, completeModuleSession, deleteModuleSession } = useProjects();
   const statusConfig = MODULE_STATUS_CONFIG[module.status];
   const completedSubtasks = module.subtasks.filter((s) => s.checked).length;
@@ -29,6 +30,7 @@ export function ModuleCard({ module, index, onEdit, onComplete, isActive }: Modu
   const [expanded, setExpanded] = useState(false);
   const [sessionFormOpen, setSessionFormOpen] = useState(false);
   const [editingSession, setEditingSession] = useState<ModuleSession | undefined>(undefined);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const sessions = module.sessions || [];
   const completedSessions = sessions.filter(s => s.status === 'completed').length;
@@ -129,6 +131,22 @@ export function ModuleCard({ module, index, onEdit, onComplete, isActive }: Modu
               >
                 <CheckCircle className="w-4 h-4" />
               </button>
+            )}
+            {onDelete && (
+              confirmDelete ? (
+                <div className="flex items-center gap-1 text-xs">
+                  <button onClick={() => { onDelete(); setConfirmDelete(false); }} className="text-red-600 font-medium hover:underline px-1">Sí</button>
+                  <button onClick={() => setConfirmDelete(false)} className="text-gray-500 hover:underline px-1">No</button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setConfirmDelete(true)}
+                  className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                  title="Eliminar modulo"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              )
             )}
           </div>
         </div>

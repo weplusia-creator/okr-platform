@@ -119,6 +119,7 @@ export function ProjectDetail() {
     fetchActivityLog,
     deleteProject,
     completeModule,
+    deleteModule,
     alumniProfile,
     fetchAlumniProfile,
     fetchAllAlumniProfiles,
@@ -210,7 +211,15 @@ export function ProjectDetail() {
   useEffect(() => {
     if (!id) return;
     console.log('[ProjectDetail] Loading project:', id);
-    getProject(id).catch(e => console.error('[ProjectDetail] getProject error:', e));
+    getProject(id).then(result => {
+      if (!result) {
+        console.error('[ProjectDetail] getProject returned null');
+        setLoadError(true);
+      }
+    }).catch(e => {
+      console.error('[ProjectDetail] getProject error:', e);
+      setLoadError(true);
+    });
     fetchParticipants(id).catch(e => console.error('[ProjectDetail] fetchParticipants error:', e));
     fetchDeliverables(id).catch(e => console.error('[ProjectDetail] fetchDeliverables error:', e));
     fetchModules(id).catch(e => console.error('[ProjectDetail] fetchModules error:', e));
@@ -308,17 +317,9 @@ export function ProjectDetail() {
   useEffect(() => {
     if (currentProject?.id === id) {
       setProjectLoaded(true);
+      setLoadError(false);
     }
   }, [currentProject, id]);
-
-  // Timeout: if project hasn't loaded in 8 seconds, show error
-  useEffect(() => {
-    if (projectLoaded) return;
-    const timer = setTimeout(() => {
-      if (!projectLoaded) setLoadError(true);
-    }, 8000);
-    return () => clearTimeout(timer);
-  }, [projectLoaded, id]);
 
   if (!projectLoaded && !currentProject) {
     if (loadError) {
@@ -851,6 +852,7 @@ export function ProjectDetail() {
                       setShowModuleForm(true);
                     }}
                     onComplete={() => handleCompleteModule(module.id)}
+                    onDelete={() => deleteModule(module.id)}
                   />
                 ))}
               </div>

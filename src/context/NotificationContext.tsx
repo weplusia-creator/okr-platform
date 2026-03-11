@@ -78,7 +78,13 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         const newNotif = mapRow(payload.new);
         setNotifications(prev => [newNotif, ...prev].slice(0, 50));
       })
-      .subscribe();
+      .subscribe((status, err) => {
+        if (status === 'CHANNEL_ERROR') {
+          console.warn('Notification realtime subscription error, falling back to polling', err);
+          // Remove the broken channel to stop reconnection attempts
+          supabase.removeChannel(channel);
+        }
+      });
 
     return () => { supabase.removeChannel(channel); };
   }, [appUser?.id]);

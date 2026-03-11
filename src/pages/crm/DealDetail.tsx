@@ -169,8 +169,9 @@ export function DealDetail() {
   const saveContact = async () => {
     setSavingContact(true);
     try {
+      let success = false;
       if (linkedClient) {
-        await updateClient(linkedClient.id, {
+        success = await updateClient(linkedClient.id, {
           name: contactForm.name || linkedClient.name,
           company: contactForm.company || null,
           email: contactForm.email || null,
@@ -185,7 +186,7 @@ export function DealDetail() {
           notes: contactForm.notes || null,
         });
       } else if (linkedLead) {
-        await updateLead(linkedLead.id, {
+        success = await updateLead(linkedLead.id, {
           contactName: contactForm.contactName || linkedLead.contactName,
           company: contactForm.company || null,
           email: contactForm.email || null,
@@ -197,7 +198,9 @@ export function DealDetail() {
           notes: contactForm.notes || null,
         });
       }
-      setEditingContact(false);
+      if (success) {
+        setEditingContact(false);
+      }
     } finally {
       setSavingContact(false);
     }

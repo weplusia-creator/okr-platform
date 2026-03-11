@@ -81,6 +81,16 @@ let supabaseClient = createClient<Database>(supabaseUrl, supabaseAnonKey, {
     },
     storageKey: 'okr-platform-auth',
   } as any,
+  realtime: {
+    params: {
+      eventsPerSecond: 2,
+    },
+    heartbeatIntervalMs: 30000,
+    reconnectAfterMs: (tries: number) => {
+      // Exponential backoff: 1s, 2s, 4s, 8s, 16s, then cap at 30s
+      return Math.min(1000 * Math.pow(2, tries), 30000);
+    },
+  },
   global: {
     fetch: authRetryFetch,
   },

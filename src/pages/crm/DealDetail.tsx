@@ -21,6 +21,10 @@ import {
   MapPin,
   Briefcase,
   Users,
+  MessageSquare,
+  Send,
+  Trash2,
+  Loader2,
 } from 'lucide-react';
 import { useCRM } from '../../context/CRMContext';
 import { useFinance } from '../../context/FinanceContext';
@@ -87,8 +91,12 @@ export function DealDetail() {
     deals,
     leads,
     activities,
+    dealNotes,
     fetchActivities,
     fetchDealHistory,
+    fetchDealNotes,
+    addDealNote,
+    deleteDealNote,
     markDealWon,
     markDealLost,
     addActivity,
@@ -120,6 +128,10 @@ export function DealDetail() {
   // Lost modal state
   const [lostReason, setLostReason] = useState<string>(LOST_REASONS[0]);
   const [lostNotes, setLostNotes] = useState('');
+
+  // Note state
+  const [noteContent, setNoteContent] = useState('');
+  const [postingNote, setPostingNote] = useState(false);
 
   // Activity modal state
   const [activityType, setActivityType] = useState<ActivityType>('llamada');
@@ -219,9 +231,10 @@ export function DealDetail() {
   useEffect(() => {
     if (id) {
       fetchActivities({ dealId: id });
+      fetchDealNotes(id);
       loadHistory();
     }
-  }, [id, fetchActivities]);
+  }, [id, fetchActivities, fetchDealNotes]);
 
   const loadHistory = async () => {
     if (!id) return;
@@ -279,6 +292,21 @@ export function DealDetail() {
     setActivityDueDate('');
     setActivityType('llamada');
     fetchActivities({ dealId: id });
+  };
+
+  const handlePostNote = async () => {
+    if (!id || !noteContent.trim()) return;
+    setPostingNote(true);
+    try {
+      await addDealNote(id, noteContent.trim());
+      setNoteContent('');
+    } finally {
+      setPostingNote(false);
+    }
+  };
+
+  const handleDeleteNote = async (noteId: string) => {
+    await deleteDealNote(noteId);
   };
 
   const handleCompleteActivity = async (activityId: string) => {
@@ -492,6 +520,69 @@ export function DealDetail() {
                 </div>
               )}
             </div>
+          </div>
+
+          {/* Notes Section */}
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+              <MessageSquare className="w-5 h-5" />
+              Notas
+            </h2>
+
+            {/* New note input */}
+            <div className="flex gap-3 mb-4">
+              <textarea
+                value={noteContent}
+                onChange={(e) => setNoteContent(e.target.value)}
+                placeholder="Agregar una nota..."
+                rows={2}
+                className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                    handlePostNote();
+                  }
+                }}
+              />
+              <button
+                onClick={handlePostNote}
+                disabled={!noteContent.trim() || postingNote}
+                className="self-end px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                title="Guardar nota (Ctrl+Enter)"
+              >
+                {postingNote ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+              </button>
+            </div>
+
+            {/* Notes list */}
+            {dealNotes.length === 0 ? (
+              <p className="text-gray-500 dark:text-gray-400 text-center py-4 text-sm">
+                Sin notas todavia
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {dealNotes.map((note) => (
+                  <div
+                    key={note.id}
+                    className="group p-3 bg-gray-50 dark:bg-gray-900/50 rounded-lg border border-gray-100 dark:border-gray-700"
+                  >
+                    <p className="text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap">{note.content}</p>
+                    <div className="flex items-center justify-between mt-2">
+                      <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                        {note.createdByName && <span>{note.createdByName}</span>}
+                        <span>{formatDateTime(note.createdAt)}</span>
+                      </div>
+                      <button
+                        onClick={() => handleDeleteNote(note.id)}
+                        className="opacity-0 group-hover:opacity-100 p-1 text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-all"
+                        title="Eliminar nota"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Contact / Company Info */}

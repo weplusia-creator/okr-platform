@@ -81,6 +81,16 @@ export interface Activity {
   updatedAt: string;
 }
 
+export interface DealNote {
+  id: string;
+  organizationId: string;
+  dealId: string;
+  content: string;
+  createdBy: string | null;
+  createdByName: string | null;
+  createdAt: string;
+}
+
 export interface DealHistory {
   id: string;
   dealId: string;

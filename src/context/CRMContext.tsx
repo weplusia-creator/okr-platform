@@ -4,7 +4,7 @@ import { useAuth } from './AuthContext';
 import { useFinance } from './FinanceContext';
 import { useProjects } from './ProjectContext';
 import type {
-  Lead, Deal, Activity, DealHistory,
+  Lead, Deal, Activity, DealHistory, DealNote,
   LeadStatus, DealStage, CRMStats, PipelineStage,
 } from '../types/crm';
 import {
@@ -53,6 +53,12 @@ interface CRMContextType {
   reorderStages: (orderedIds: string[]) => Promise<void>;
   fetchPipelineStages: () => Promise<void>;
 
+  // Deal Notes
+  dealNotes: DealNote[];
+  fetchDealNotes: (dealId: string) => Promise<void>;
+  addDealNote: (dealId: string, content: string) => Promise<DealNote | null>;
+  deleteDealNote: (noteId: string) => Promise<void>;
+
   // Stats & Helpers
   getStats: () => CRMStats;
   getPipelineByStage: () => { stage: DealStage; count: number; value: number }[];
@@ -70,6 +76,7 @@ export function CRMProvider({ children }: { children: ReactNode }) {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [deals, setDeals] = useState<Deal[]>([]);
   const [activities, setActivities] = useState<Activity[]>([]);
+  const [dealNotes, setDealNotes] = useState<DealNote[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pipelineStages, setPipelineStages] = useState<PipelineStage[]>(DEFAULT_PIPELINE_STAGES);
@@ -838,6 +845,84 @@ export function CRMProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  // ===== DEAL NOTES =====
+
+  const fetchDealNotes = useCallback(async (dealId: string) => {
+    try {
+      const { data, error: err } = await supabase
+        .from('crm_deal_notes')
+        .select('*')
+        .eq('deal_id', dealId)
+        .order('created_at', { ascending: false });
+
+      if (err) throw err;
+
+      setDealNotes((data || []).map((n: any) => ({
+        id: n.id,
+        organizationId: n.organization_id,
+        dealId: n.deal_id,
+        content: n.content,
+        createdBy: n.created_by,
+        createdByName: n.created_by_name,
+        createdAt: n.created_at,
+      })));
+    } catch (err) {
+      console.error('Error fetching deal notes:', err);
+    }
+  }, []);
+
+  const addDealNote = useCallback(async (dealId: string, content: string): Promise<DealNote | null> => {
+    if (!organization?.id) return null;
+    try {
+      const { data, error: err } = await supabase
+        .from('crm_deal_notes')
+        .insert({
+          organization_id: organization.id,
+          deal_id: dealId,
+          content,
+          created_by: appUser?.id || null,
+          created_by_name: appUser?.fullName || null,
+        })
+        .select()
+        .single();
+
+      if (err) throw err;
+
+      const note: DealNote = {
+        id: data.id,
+        organizationId: data.organization_id,
+        dealId: data.deal_id,
+        content: data.content,
+        createdBy: data.created_by,
+        createdByName: data.created_by_name,
+        createdAt: data.created_at,
+      };
+
+      setDealNotes(prev => [note, ...prev]);
+      return note;
+    } catch (err) {
+      console.error('Error adding deal note:', err);
+      setError('Error al agregar nota');
+      return null;
+    }
+  }, [organization?.id, appUser?.id, appUser?.fullName]);
+
+  const deleteDealNote = useCallback(async (noteId: string) => {
+    try {
+      const { error: err } = await supabase
+        .from('crm_deal_notes')
+        .delete()
+        .eq('id', noteId);
+
+      if (err) throw err;
+
+      setDealNotes(prev => prev.filter(n => n.id !== noteId));
+    } catch (err) {
+      console.error('Error deleting deal note:', err);
+      setError('Error al eliminar nota');
+    }
+  }, []);
+
   // ===== ACTIVITIES =====
 
   const fetchActivities = useCallback(async (options?: { leadId?: string; dealId?: string; pendingOnly?: boolean }) => {
@@ -1120,6 +1205,10 @@ export function CRMProvider({ children }: { children: ReactNode }) {
     markDealWon,
     markDealLost,
     fetchDealHistory,
+    dealNotes,
+    fetchDealNotes,
+    addDealNote,
+    deleteDealNote,
     fetchActivities,
     addActivity,
     updateActivity,
@@ -1134,6 +1223,7 @@ export function CRMProvider({ children }: { children: ReactNode }) {
     pipelineStages, getStageConfig, addStage, updateStage, deleteStage, reorderStages, fetchPipelineStages,
     fetchLeads, addLead, updateLead, deleteLead, convertLeadToDeal,
     fetchDeals, addDeal, updateDeal, updateDealStage, deleteDeal, markDealWon, markDealLost, fetchDealHistory,
+    dealNotes, fetchDealNotes, addDealNote, deleteDealNote,
     fetchActivities, addActivity, updateActivity, completeActivity, deleteActivity,
     getStats, getPipelineByStage, getUpcomingReminders, getOverdueActivities,
   ]);

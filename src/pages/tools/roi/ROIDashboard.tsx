@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Plus, Calculator, Search, Loader2, Trash2, Copy, FileText, Filter } from 'lucide-react';
 import { useTools } from '../../../context/ToolsContext';
@@ -41,7 +41,9 @@ function formatDate(dateStr: string): string {
 
 export function ROIDashboard() {
   const navigate = useNavigate();
-  const { roiAnalyses, loadingROI, deleteROIAnalysis, duplicateROIAnalysis } = useTools();
+  const { roiAnalyses, loadingROI, deleteROIAnalysis, duplicateROIAnalysis, fetchROIAnalyses } = useTools();
+
+  useEffect(() => { fetchROIAnalyses(); }, [fetchROIAnalyses]);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<ROIStatus | 'all'>('all');

@@ -549,35 +549,16 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
     if (!organization?.id) return;
     setLoadingCashFlow(true);
     try {
-      // Try full query with FK joins first; fall back to basic query if columns don't exist yet
-      let data: any[] | null = null;
-      let usedFullQuery = false;
-
-      try {
-        let query = supabase
-          .from('cash_flow_transactions')
-          .select('*, cash_flow_categories(name, color), clients(name), projects(name, client_name)')
-          .eq('organization_id', organization.id)
-          .order('date', { ascending: false });
-        if (startDate) query = query.gte('date', startDate);
-        if (endDate) query = query.lte('date', endDate);
-        const res = await query;
-        if (res.error) throw res.error;
-        data = res.data;
-        usedFullQuery = true;
-      } catch {
-        // Fallback: basic query without FK joins (columns may not exist)
-        let query = supabase
-          .from('cash_flow_transactions')
-          .select('*, cash_flow_categories(name, color)')
-          .eq('organization_id', organization.id)
-          .order('date', { ascending: false });
-        if (startDate) query = query.gte('date', startDate);
-        if (endDate) query = query.lte('date', endDate);
-        const res = await query;
-        if (res.error) throw res.error;
-        data = res.data;
-      }
+      let query = supabase
+        .from('cash_flow_transactions')
+        .select('*, cash_flow_categories(name, color)')
+        .eq('organization_id', organization.id)
+        .order('date', { ascending: false });
+      if (startDate) query = query.gte('date', startDate);
+      if (endDate) query = query.lte('date', endDate);
+      const res = await query;
+      if (res.error) throw res.error;
+      const data = res.data;
 
       setTransactions((data || []).map(t => ({
         id: t.id,
@@ -602,13 +583,17 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
         paidBy: t.paid_by || null,
         invoicedBy: t.invoiced_by || null,
         recurringExpenseId: t.recurring_expense_id || null,
-        clientName: usedFullQuery ? ((t as any).clients?.name || undefined) : undefined,
-        projectName: usedFullQuery ? ((t as any).projects?.name || (t as any).projects?.client_name || undefined) : undefined,
+        clientName: undefined,
+        projectName: undefined,
         createdAt: t.created_at,
       })));
     } catch (err) {
-      console.error('Error fetching transactions:', err);
-      setError('Error al cargar transacciones');
+      // Silence table-not-found errors (migration may not have been run)
+      const code = (err as any)?.code;
+      if (code !== 'PGRST116' && code !== '42P01') {
+        console.error('Error fetching transactions:', err);
+        setError('Error al cargar transacciones');
+      }
     } finally {
       setLoadingCashFlow(false);
     }

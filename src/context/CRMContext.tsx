@@ -482,7 +482,7 @@ export function CRMProvider({ children }: { children: ReactNode }) {
     try {
       const { data, error: err } = await supabase
         .from('crm_deals')
-        .select('*, owner:users!crm_deals_owner_id_fkey(full_name), client:clients(name)')
+        .select('*, owner:users!crm_deals_owner_id_fkey(full_name), client:clients!crm_deals_client_id_fkey(name)')
         .eq('organization_id', organization.id)
         .order('created_at', { ascending: false });
 

@@ -141,8 +141,11 @@ export function ToolsProvider({ children }: { children: ReactNode }) {
 
       if (error) throw error;
       setRoiAnalyses((data || []).map(mapRowToAnalysis));
-    } catch (err) {
-      console.error('Error fetching ROI analyses:', err);
+    } catch (err: any) {
+      // Silence table-not-found errors (migration may not have been run)
+      if (err?.code !== 'PGRST116' && err?.code !== '42P01') {
+        console.error('Error fetching ROI analyses:', err);
+      }
     } finally {
       setLoadingROI(false);
     }
@@ -160,8 +163,10 @@ export function ToolsProvider({ children }: { children: ReactNode }) {
 
       if (error) throw error;
       setRoiTemplates((data || []).map(mapRowToTemplate));
-    } catch (err) {
-      console.error('Error fetching ROI templates:', err);
+    } catch (err: any) {
+      if (err?.code !== 'PGRST116' && err?.code !== '42P01') {
+        console.error('Error fetching ROI templates:', err);
+      }
     }
   }, [organization?.id]);
 
@@ -309,16 +314,14 @@ export function ToolsProvider({ children }: { children: ReactNode }) {
     }
   }, [organization?.id, roiAnalyses, fetchROIAnalyses]);
 
-  // ----- Load data when organization changes -----
+  // ROI data is lazy-loaded: fetched on demand when the user visits the ROI page,
+  // not on mount. This avoids 404 errors when the ROI tables haven't been migrated.
   useEffect(() => {
-    if (organization?.id) {
-      fetchROIAnalyses();
-      fetchROITemplates();
-    } else {
+    if (!organization?.id) {
       setRoiAnalyses([]);
       setRoiTemplates([]);
     }
-  }, [organization?.id, fetchROIAnalyses, fetchROITemplates]);
+  }, [organization?.id]);
 
   const value: ToolsContextType = {
     roiAnalyses,

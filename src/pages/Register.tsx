@@ -1,9 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Mail, Lock, User, Building2, Key, Loader2, AlertCircle } from 'lucide-react';
+import { Mail, Lock, User, Key, Loader2, AlertCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-
-type JoinMode = 'create' | 'join';
 
 export function Register() {
   const navigate = useNavigate();
@@ -11,8 +9,6 @@ export function Register() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
-  const [joinMode, setJoinMode] = useState<JoinMode>('create');
-  const [organizationName, setOrganizationName] = useState('');
   const [inviteCode, setInviteCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -26,8 +22,8 @@ export function Register() {
       email,
       password,
       fullName,
-      joinMode === 'create' ? organizationName : undefined,
-      joinMode === 'join' ? inviteCode : undefined
+      undefined,
+      inviteCode
     );
 
     if (error) {
@@ -125,81 +121,23 @@ export function Register() {
                 </div>
               </div>
 
-              {/* Join Mode Toggle */}
               <div>
-                <label className="label mb-3">Organización</label>
-                <div className="grid grid-cols-2 gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setJoinMode('create')}
-                    className={`p-4 rounded-lg border-2 text-left transition-all ${
-                      joinMode === 'create'
-                        ? 'border-success-300 bg-success-300/20 dark:bg-primary-900/20'
-                        : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
-                    }`}
-                  >
-                    <Building2 className={`w-5 h-5 mb-2 ${joinMode === 'create' ? 'text-primary-600' : 'text-gray-400'}`} />
-                    <p className={`text-sm font-medium ${joinMode === 'create' ? 'text-primary-700 dark:text-primary-300' : 'text-gray-700 dark:text-gray-300'}`}>
-                      Crear nueva
-                    </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                      Serás administrador
-                    </p>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setJoinMode('join')}
-                    className={`p-4 rounded-lg border-2 text-left transition-all ${
-                      joinMode === 'join'
-                        ? 'border-success-300 bg-success-300/20 dark:bg-primary-900/20'
-                        : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
-                    }`}
-                  >
-                    <Key className={`w-5 h-5 mb-2 ${joinMode === 'join' ? 'text-primary-600' : 'text-gray-400'}`} />
-                    <p className={`text-sm font-medium ${joinMode === 'join' ? 'text-primary-700 dark:text-primary-300' : 'text-gray-700 dark:text-gray-300'}`}>
-                      Unirme con código
-                    </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                      Tengo una invitación
-                    </p>
-                  </button>
+                <label className="label">Código de invitación</label>
+                <div className="relative">
+                  <Key className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <input
+                    type="text"
+                    value={inviteCode}
+                    onChange={(e) => setInviteCode(e.target.value)}
+                    className="input pl-10 font-mono"
+                    placeholder="abc123def456"
+                    required
+                  />
                 </div>
+                <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                  Pedí el código al administrador de tu organización
+                </p>
               </div>
-
-              {joinMode === 'create' ? (
-                <div>
-                  <label className="label">Nombre de la organización</label>
-                  <div className="relative">
-                    <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                    <input
-                      type="text"
-                      value={organizationName}
-                      onChange={(e) => setOrganizationName(e.target.value)}
-                      className="input pl-10"
-                      placeholder="Mi Empresa"
-                      required={joinMode === 'create'}
-                    />
-                  </div>
-                </div>
-              ) : (
-                <div>
-                  <label className="label">Código de invitación</label>
-                  <div className="relative">
-                    <Key className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                    <input
-                      type="text"
-                      value={inviteCode}
-                      onChange={(e) => setInviteCode(e.target.value)}
-                      className="input pl-10 font-mono"
-                      placeholder="abc123def456"
-                      required={joinMode === 'join'}
-                    />
-                  </div>
-                  <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                    Pide el código al administrador de tu organización
-                  </p>
-                </div>
-              )}
 
               <button
                 type="submit"

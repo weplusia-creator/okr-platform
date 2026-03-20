@@ -123,7 +123,7 @@ export function ModuleCard({ module, index, onEdit, onComplete, onDelete, isActi
             >
               <Pencil className="w-4 h-4" />
             </button>
-            {(isActive || module.status === 'in_progress') && module.status !== 'completed' && (
+            {module.status !== 'completed' && (
               <button
                 onClick={onComplete}
                 className="p-1.5 rounded-lg text-green-500 hover:text-green-700 dark:hover:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors"

@@ -11,6 +11,7 @@ import {
   DEAL_STAGE_CONFIG, DEAL_PIPELINE_STAGES,
   DEFAULT_PIPELINE_STAGES, STAGE_COLOR_OPTIONS, TERMINAL_STAGES,
 } from '../types/crm';
+import { todayLocalISO } from '../utils/helpers';
 
 interface CRMContextType {
   // State
@@ -722,7 +723,7 @@ export function CRMProvider({ children }: { children: ReactNode }) {
           monthlyFee: deal.monthlyFee,
           budget: deal.amount,
           estimatedCost: null,
-          startDate: new Date().toISOString().split('T')[0],
+          startDate: todayLocalISO(),
           estimatedEndDate: null,
           actualEndDate: null,
           notes: 'Proyecto creado desde deal ganado',
@@ -736,7 +737,7 @@ export function CRMProvider({ children }: { children: ReactNode }) {
         .update({
           stage: 'ganado',
           probability: 100,
-          actual_close_date: new Date().toISOString().split('T')[0],
+          actual_close_date: todayLocalISO(),
           won_notes: options.wonNotes,
           created_client_id: createdClientId,
           created_project_id: createdProjectId,
@@ -760,7 +761,7 @@ export function CRMProvider({ children }: { children: ReactNode }) {
             ...d,
             stage: 'ganado' as DealStage,
             probability: 100,
-            actualCloseDate: new Date().toISOString().split('T')[0],
+            actualCloseDate: todayLocalISO(),
             wonNotes: options.wonNotes || null,
             createdClientId: createdClientId || null,
             createdProjectId: createdProjectId || null,
@@ -786,7 +787,7 @@ export function CRMProvider({ children }: { children: ReactNode }) {
         .update({
           stage: 'perdido',
           probability: 0,
-          actual_close_date: new Date().toISOString().split('T')[0],
+          actual_close_date: todayLocalISO(),
           lost_reason: lostReason,
         })
         .eq('id', id);
@@ -808,7 +809,7 @@ export function CRMProvider({ children }: { children: ReactNode }) {
             ...d,
             stage: 'perdido' as DealStage,
             probability: 0,
-            actualCloseDate: new Date().toISOString().split('T')[0],
+            actualCloseDate: todayLocalISO(),
             lostReason,
           }
           : d

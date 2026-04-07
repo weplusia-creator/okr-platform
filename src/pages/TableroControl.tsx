@@ -13,6 +13,7 @@ import { useAuth } from '../context/AuthContext';
 import { useFinance } from '../context/FinanceContext';
 import { useCRM } from '../context/CRMContext';
 import { useProjects } from '../context/ProjectContext';
+import { todayLocalISO } from '../utils/helpers';
 import { useOKR } from '../context/OKRContext';
 import { useTask } from '../context/TaskContext';
 import { useProposals } from '../context/ProposalContext';
@@ -235,7 +236,7 @@ export function TableroControl() {
     const inProgress = tasks.filter(t => t.status === 'in_progress').length;
     const done = tasks.filter(t => t.status === 'done').length;
     const total = tasks.length;
-    const today = new Date().toISOString().split('T')[0];
+    const today = todayLocalISO();
     const overdue = tasks.filter(t => t.status !== 'done' && t.dueDate && t.dueDate < today).length;
     return { todo, inProgress, done, total, overdue, completionRate: total > 0 ? Math.round((done / total) * 100) : 0 };
   }, [tasks]);

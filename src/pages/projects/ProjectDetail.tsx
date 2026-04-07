@@ -33,6 +33,7 @@ import { useProjects } from '../../context/ProjectContext';
 import { useAuth } from '../../context/AuthContext';
 import { useBMC } from '../../context/BMCContext';
 import { usePlaybook } from '../../context/PlaybookContext';
+import { parseLocalDate } from '../../utils/helpers';
 import { useCheckin } from '../../context/CheckinContext';
 import {
   ProjectKPIs,
@@ -60,6 +61,7 @@ import {
   PROJECT_STATUS_CONFIG,
   getProjectDisplayName,
 } from '../../types/projects';
+import { todayLocalISO } from '../../utils/helpers';
 
 type TabKey = 'summary' | 'novedades' | 'deliverables' | 'modules' | 'gantt' | 'team' | 'attendance' | 'nps' | 'documents' | 'finance' | 'activity' | 'onboarding' | 'bmc' | 'playbook' | 'checkins';
 
@@ -275,7 +277,7 @@ export function ProjectDetail() {
   const sortedModules = useMemo(() => {
     let filtered = [...modules].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
     if (isAlumno) {
-      const today = new Date().toISOString().split('T')[0];
+      const today = todayLocalISO();
       filtered = filtered.filter(m =>
         m.status === 'completed' || (m.startDate && m.startDate <= today)
       );
@@ -546,7 +548,7 @@ export function ProjectDetail() {
                     <div>
                       <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Fecha de inicio</dt>
                       <dd className="mt-1 text-sm text-gray-900 dark:text-white">
-                        {new Date(currentProject.startDate).toLocaleDateString('es-AR')}
+                        {parseLocalDate(currentProject.startDate).toLocaleDateString('es-AR')}
                       </dd>
                     </div>
                   )}
@@ -554,7 +556,7 @@ export function ProjectDetail() {
                     <div>
                       <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Fecha estimada de fin</dt>
                       <dd className="mt-1 text-sm text-gray-900 dark:text-white">
-                        {new Date(currentProject.estimatedEndDate).toLocaleDateString('es-AR')}
+                        {parseLocalDate(currentProject.estimatedEndDate).toLocaleDateString('es-AR')}
                       </dd>
                     </div>
                   )}
@@ -562,7 +564,7 @@ export function ProjectDetail() {
                     <div>
                       <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Fecha real de fin</dt>
                       <dd className="mt-1 text-sm text-gray-900 dark:text-white">
-                        {new Date(currentProject.actualEndDate).toLocaleDateString('es-AR')}
+                        {parseLocalDate(currentProject.actualEndDate).toLocaleDateString('es-AR')}
                       </dd>
                     </div>
                   )}

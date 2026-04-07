@@ -7,6 +7,7 @@ import {
   type DeliverableStatus,
 } from '../../types/projects';
 import { useProjects } from '../../context/ProjectContext';
+import { parseLocalDate } from '../../utils/helpers';
 
 interface KanbanBoardProps {
   deliverables: ProjectDeliverable[];
@@ -49,7 +50,7 @@ function truncate(text: string | null, maxLength: number): string {
 function formatDate(dateStr: string | null): string | null {
   if (!dateStr) return null;
   try {
-    return new Date(dateStr).toLocaleDateString('es-AR', { day: '2-digit', month: 'short' });
+    return parseLocalDate(dateStr).toLocaleDateString('es-AR', { day: '2-digit', month: 'short' });
   } catch {
     return dateStr;
   }

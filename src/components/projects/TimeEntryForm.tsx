@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Modal } from '../Modal';
 import { useProjects } from '../../context/ProjectContext';
 import { useAuth } from '../../context/AuthContext';
+import { todayLocalISO } from '../../utils/helpers';
 
 interface TimeEntryFormProps {
   isOpen: boolean;
@@ -16,7 +17,7 @@ export function TimeEntryForm({ isOpen, onClose, taskId, taskTitle }: TimeEntryF
 
   const [hours, setHours] = useState('');
   const [description, setDescription] = useState('');
-  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  const [date, setDate] = useState(todayLocalISO());
   const [saving, setSaving] = useState(false);
 
   const handleSave = async () => {
@@ -36,7 +37,7 @@ export function TimeEntryForm({ isOpen, onClose, taskId, taskTitle }: TimeEntryF
       await addTimeEntry(entry);
       setHours('');
       setDescription('');
-      setDate(new Date().toISOString().split('T')[0]);
+      setDate(todayLocalISO());
       onClose();
     } catch (err) {
       console.error('Error adding time entry:', err);

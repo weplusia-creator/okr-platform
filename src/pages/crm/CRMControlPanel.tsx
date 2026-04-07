@@ -19,6 +19,7 @@ import { StageEditor } from './StageEditor';
 import { useCRM } from '../../context/CRMContext';
 import { TERMINAL_STAGES } from '../../types/crm';
 import type { Deal, Activity } from '../../types/crm';
+import { parseLocalDate } from '../../utils/helpers';
 
 const formatCurrency = (amount: number) =>
   new Intl.NumberFormat('es-AR', {
@@ -551,7 +552,7 @@ export function CRMControlPanel() {
                     </p>
                     <p className="text-xs text-gray-500 dark:text-gray-400">
                       {activity.ownerName} - Vencio:{' '}
-                      {new Date(activity.dueDate!).toLocaleDateString('es-AR', {
+                      {parseLocalDate(activity.dueDate!).toLocaleDateString('es-AR', {
                         day: 'numeric',
                         month: 'short',
                       })}

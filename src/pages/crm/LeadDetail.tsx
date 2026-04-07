@@ -19,10 +19,11 @@ import {
 import { useCRM } from '../../context/CRMContext';
 import { LEAD_STATUS_CONFIG, LEAD_SOURCE_LABELS, ACTIVITY_TYPE_CONFIG, DEAL_STAGE_CONFIG, type LeadStatus, type LeadSource, type ActivityType } from '../../types/crm';
 import { Modal } from '../../components/Modal';
+import { parseLocalDate } from '../../utils/helpers';
 
 const formatDate = (dateString: string | null): string => {
   if (!dateString) return '-';
-  return new Date(dateString).toLocaleDateString('es-AR', {
+  return parseLocalDate(dateString).toLocaleDateString('es-AR', {
     day: '2-digit',
     month: 'short',
     year: 'numeric',
@@ -31,7 +32,7 @@ const formatDate = (dateString: string | null): string => {
 
 const formatDateTime = (dateString: string | null): string => {
   if (!dateString) return '-';
-  return new Date(dateString).toLocaleDateString('es-AR', {
+  return parseLocalDate(dateString).toLocaleDateString('es-AR', {
     day: '2-digit',
     month: 'short',
     year: 'numeric',

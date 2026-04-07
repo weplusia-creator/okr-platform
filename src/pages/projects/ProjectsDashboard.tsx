@@ -12,6 +12,7 @@ import { useProjects } from '../../context/ProjectContext';
 import { useAuth } from '../../context/AuthContext';
 import { useFinance } from '../../context/FinanceContext';
 import { PROJECT_STATUS_CONFIG, getProjectDisplayName } from '../../types/projects';
+import { todayLocalISO } from '../../utils/helpers';
 
 export function ProjectsDashboard() {
   const { projects, loading } = useProjects();
@@ -26,7 +27,7 @@ export function ProjectsDashboard() {
     return map;
   }, [clients]);
 
-  const today = new Date().toISOString().split('T')[0];
+  const today = todayLocalISO();
 
   const stats = useMemo(() => {
     const active = projects.filter(

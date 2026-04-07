@@ -8,6 +8,7 @@ import {
   type DocumentType,
   type ChecklistItem,
 } from '../../types/projects';
+import { todayLocalISO } from '../../utils/helpers';
 
 interface DocumentsSectionProps {
   projectId: string;
@@ -34,7 +35,7 @@ export function DocumentsSection({ projectId, documents }: DocumentsSectionProps
     setEditingDoc(null);
     setTitle('');
     setType('other');
-    setDate(new Date().toISOString().split('T')[0]);
+    setDate(todayLocalISO());
     setUrl('');
     setNotes('');
     setActionItems([]);

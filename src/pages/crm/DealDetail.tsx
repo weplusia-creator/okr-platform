@@ -41,6 +41,7 @@ import {
 } from '../../types/crm';
 import type { Client } from '../../types/finance';
 import { Modal } from '../../components/Modal';
+import { parseLocalDate } from '../../utils/helpers';
 
 const formatCurrency = (amount: number): string => {
   return new Intl.NumberFormat('es-AR', {
@@ -53,7 +54,7 @@ const formatCurrency = (amount: number): string => {
 
 const formatDate = (dateString: string | null): string => {
   if (!dateString) return '-';
-  return new Date(dateString).toLocaleDateString('es-AR', {
+  return parseLocalDate(dateString).toLocaleDateString('es-AR', {
     day: '2-digit',
     month: 'short',
     year: 'numeric',
@@ -62,7 +63,7 @@ const formatDate = (dateString: string | null): string => {
 
 const formatDateTime = (dateString: string | null): string => {
   if (!dateString) return '-';
-  return new Date(dateString).toLocaleDateString('es-AR', {
+  return parseLocalDate(dateString).toLocaleDateString('es-AR', {
     day: '2-digit',
     month: 'short',
     year: 'numeric',

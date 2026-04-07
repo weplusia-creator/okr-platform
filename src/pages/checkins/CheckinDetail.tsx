@@ -13,6 +13,7 @@ import {
 } from '../../types/checkin';
 import type { CompromisoStatus, CompromisoPrioridad, CompromisoResponsable } from '../../types/checkin';
 import { Modal } from '../../components/Modal';
+import { parseLocalDate } from '../../utils/helpers';
 
 export function CheckinDetail() {
   const { id } = useParams<{ id: string }>();
@@ -460,7 +461,7 @@ export function CheckinDetail() {
                       {comp.fechaLimite && (
                         <span className="text-xs text-gray-400 flex items-center gap-1">
                           <Calendar className="w-3 h-3" />
-                          {new Date(comp.fechaLimite).toLocaleDateString('es-AR', { day: '2-digit', month: 'short' })}
+                          {parseLocalDate(comp.fechaLimite).toLocaleDateString('es-AR', { day: '2-digit', month: 'short' })}
                         </span>
                       )}
                     </div>

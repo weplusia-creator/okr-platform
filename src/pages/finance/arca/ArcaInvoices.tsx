@@ -5,6 +5,7 @@ import { ArcaStatusBadge } from '../../../components/arca/ArcaStatusBadge';
 import type { ArcaInvoiceStatus, ArcaInvoice } from '../../../types/arca';
 import { COMPROBANTE_CONFIG, formatCuit } from '../../../types/arca';
 import { ArcaTabs } from '../../../components/arca/ArcaTabs';
+import { parseLocalDate } from '../../../utils/helpers';
 
 const STATUS_FILTER_OPTIONS: { value: ArcaInvoiceStatus | 'all'; label: string }[] = [
   { value: 'all', label: 'Todos los estados' },
@@ -75,7 +76,7 @@ export function ArcaInvoices() {
     }).format(amount);
 
   const formatDate = (date: string) =>
-    new Date(date).toLocaleDateString('es-AR', {
+    parseLocalDate(date).toLocaleDateString('es-AR', {
       day: '2-digit',
       month: 'short',
       year: 'numeric',

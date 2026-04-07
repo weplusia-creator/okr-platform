@@ -5,6 +5,7 @@ import { Plus, Calendar, User, DollarSign, GripVertical, ChevronDown, ChevronRig
 import { useCRM } from '../../context/CRMContext';
 import { useAuth } from '../../context/AuthContext';
 import { TERMINAL_STAGES, type DealStage, type Deal } from '../../types/crm';
+import { parseLocalDate } from '../../utils/helpers';
 
 const formatCurrency = (amount: number): string => {
   return new Intl.NumberFormat('es-AR', {
@@ -17,7 +18,7 @@ const formatCurrency = (amount: number): string => {
 
 const formatDate = (dateString: string | null): string => {
   if (!dateString) return '-';
-  return new Date(dateString).toLocaleDateString('es-AR', {
+  return parseLocalDate(dateString).toLocaleDateString('es-AR', {
     day: '2-digit',
     month: 'short',
   });

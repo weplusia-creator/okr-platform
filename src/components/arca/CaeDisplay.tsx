@@ -1,6 +1,7 @@
 import { CheckCircle, Download } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { useCallback, useRef } from 'react';
+import { parseLocalDate } from '../../utils/helpers';
 
 interface CaeDisplayProps {
   cae: string;
@@ -47,7 +48,7 @@ export function CaeDisplay({
   })();
 
   const formatVencimiento = (date: string) => {
-    return new Date(date).toLocaleDateString('es-AR', {
+    return parseLocalDate(date).toLocaleDateString('es-AR', {
       day: '2-digit',
       month: '2-digit',
       year: 'numeric',

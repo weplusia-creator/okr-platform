@@ -5,6 +5,7 @@ import { useProjects } from '../../context/ProjectContext';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import type { Project, ProjectPayment } from '../../types/projects';
+import { todayLocalISO } from '../../utils/helpers';
 
 interface FinanceSectionProps {
   project: Project;
@@ -120,7 +121,7 @@ export function FinanceSection({ project }: FinanceSectionProps) {
         }
       }
 
-      const today = new Date().toISOString().split('T')[0];
+      const today = todayLocalISO();
       const result = await addTransaction({
         type: 'income',
         categoryId: catId,
@@ -160,7 +161,7 @@ export function FinanceSection({ project }: FinanceSectionProps) {
     if (!project.clientId) return;
     setCreatingInvoiceFor(payment.id);
     try {
-      const today = new Date().toISOString().split('T')[0];
+      const today = todayLocalISO();
       const description = `Cuota ${formatMonth(payment.month)} — ${project.name}`;
       const invoice = await addInvoice(
         {

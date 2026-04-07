@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import { supabase, getAccessTokenFresh } from '../lib/supabase';
 import { useAuth } from './AuthContext';
 import { notify } from '../lib/notify';
+import { todayLocalISO } from '../utils/helpers';
 import type {
   Project,
   ProjectParticipant,
@@ -2022,7 +2023,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
 
   const markPaymentPaid = useCallback(async (id: string, paidDate?: string) => {
     try {
-      const date = paidDate || new Date().toISOString().split('T')[0];
+      const date = paidDate || todayLocalISO();
       const { error: err } = await db
         .from('project_payments')
         .update({ status: 'paid', paid_date: date })

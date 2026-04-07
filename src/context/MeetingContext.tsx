@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useCallback, type ReactNode } from
 import { supabase } from '../lib/supabase';
 import { useAuth } from './AuthContext';
 import type { Meeting, MeetingOccurrence, MeetingOccurrenceStatus } from '../types';
+import { toLocalISODate } from '../utils/helpers';
 
 interface MeetingContextType {
   meetings: Meeting[];
@@ -38,7 +39,7 @@ function generateOccurrenceDates(dayOfWeek: number, weeks: number): string[] {
   for (let i = 0; i < weeks; i++) {
     const d = new Date(current);
     d.setDate(d.getDate() + i * 7);
-    dates.push(d.toISOString().split('T')[0]);
+    dates.push(toLocalISODate(d));
   }
   return dates;
 }

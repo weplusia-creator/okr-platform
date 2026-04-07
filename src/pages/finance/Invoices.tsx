@@ -13,6 +13,7 @@ import {
 import { useFinance } from '../../context/FinanceContext';
 import { useAuth } from '../../context/AuthContext';
 import { ArcaStatusBadge } from '../../components/arca/ArcaStatusBadge';
+import { todayLocalISO, parseLocalDate } from '../../utils/helpers';
 import type { Invoice, InvoiceStatus } from '../../types/finance';
 import type { ArcaInvoiceStatus } from '../../types/arca';
 
@@ -36,7 +37,7 @@ export function Invoices() {
   );
   const [deleteModal, setDeleteModal] = useState<Invoice | null>(null);
   const [payModal, setPayModal] = useState<Invoice | null>(null);
-  const [paidDate, setPaidDate] = useState(new Date().toISOString().split('T')[0]);
+  const [paidDate, setPaidDate] = useState(todayLocalISO());
 
   const filteredInvoices = useMemo(() => {
     return invoices.filter(invoice => {
@@ -64,7 +65,7 @@ export function Invoices() {
   };
 
   const formatDate = (date: string) => {
-    return new Date(date).toLocaleDateString('es-AR', {
+    return parseLocalDate(date).toLocaleDateString('es-AR', {
       day: '2-digit',
       month: 'short',
       year: 'numeric',
@@ -248,7 +249,7 @@ export function Invoices() {
                           <button
                             onClick={() => {
                               setPayModal(invoice);
-                              setPaidDate(new Date().toISOString().split('T')[0]);
+                              setPaidDate(todayLocalISO());
                             }}
                             className="p-2 text-gray-400 hover:text-success-600 hover:bg-gray-100 dark:hover:bg-[#252525] rounded-lg transition-colors"
                             title="Marcar como pagada"

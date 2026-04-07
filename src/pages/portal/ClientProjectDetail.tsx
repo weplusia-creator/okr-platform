@@ -22,6 +22,7 @@ import { usePlaybook } from '../../context/PlaybookContext';
 import { PROJECT_STATUS_CONFIG, MODULE_STATUS_CONFIG } from '../../types/projects';
 import type { AttendanceRecord } from '../../types/projects';
 import { supabase } from '../../lib/supabase';
+import { parseLocalDate } from '../../utils/helpers';
 
 const circleColorMap: Record<string, string> = {
   pending: 'bg-gray-300 dark:bg-gray-600',
@@ -179,7 +180,7 @@ export function ClientProjectDetail() {
               <p className="text-xs text-gray-500 dark:text-gray-400">Inicio</p>
               <p className="text-sm font-medium text-gray-900 dark:text-white flex items-center gap-1">
                 <Calendar className="w-3.5 h-3.5" />
-                {new Date(project.startDate).toLocaleDateString('es-AR')}
+                {parseLocalDate(project.startDate).toLocaleDateString('es-AR')}
               </p>
             </div>
           )}
@@ -188,7 +189,7 @@ export function ClientProjectDetail() {
               <p className="text-xs text-gray-500 dark:text-gray-400">Fin estimado</p>
               <p className="text-sm font-medium text-gray-900 dark:text-white flex items-center gap-1">
                 <Clock className="w-3.5 h-3.5" />
-                {new Date(project.endDate).toLocaleDateString('es-AR')}
+                {parseLocalDate(project.endDate).toLocaleDateString('es-AR')}
               </p>
             </div>
           )}
@@ -256,13 +257,13 @@ export function ClientProjectDetail() {
                         {mod.startDate && (
                           <span className="flex items-center gap-1">
                             <Calendar className="w-3.5 h-3.5" />
-                            Inicio: {new Date(mod.startDate).toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' })}
+                            Inicio: {parseLocalDate(mod.startDate).toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' })}
                           </span>
                         )}
                         {mod.dueDate && (
                           <span className="flex items-center gap-1">
                             <Clock className="w-3.5 h-3.5" />
-                            Vencimiento: {new Date(mod.dueDate).toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' })}
+                            Vencimiento: {parseLocalDate(mod.dueDate).toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' })}
                           </span>
                         )}
                       </div>

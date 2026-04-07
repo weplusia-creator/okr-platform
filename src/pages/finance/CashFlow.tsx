@@ -30,6 +30,7 @@ import { useProjects } from '../../context/ProjectContext';
 import { useAuth } from '../../context/AuthContext';
 import type { TransactionType, CashFlowTransaction, RecurringExpense } from '../../types/finance';
 import type { ProjectPayment } from '../../types/projects';
+import { todayLocalISO } from '../../utils/helpers';
 
 const SOCIOS = [
   { id: 'mateo', name: 'Mateo', email: 'mateo@wauconsultora.com' },
@@ -74,7 +75,7 @@ export function CashFlow() {
     categoryId: '',
     amount: '',
     description: '',
-    date: new Date().toISOString().split('T')[0],
+    date: todayLocalISO(),
     clientId: '',
     projectId: '',
     paidBy: '',
@@ -215,14 +216,6 @@ export function CashFlow() {
     });
   };
 
-  // Local YYYY-MM-DD (avoids toISOString's UTC shift)
-  const todayLocalISO = () => {
-    const d = new Date();
-    const yyyy = d.getFullYear();
-    const mm = String(d.getMonth() + 1).padStart(2, '0');
-    const dd = String(d.getDate()).padStart(2, '0');
-    return `${yyyy}-${mm}-${dd}`;
-  };
 
   const formatMonthLabel = (month: string) => {
     const [yyyy, mm] = month.split('-');
@@ -284,7 +277,7 @@ export function CashFlow() {
           const existingTx = transactions.find(t => t.paymentId === payment.id);
           if (existingTx) await deleteTransaction(existingTx.id);
 
-          const today = new Date().toISOString().split('T')[0];
+          const today = todayLocalISO();
           await addTransaction({
             type: 'income',
             categoryId: incomeCategory.id,

@@ -5,6 +5,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useProjects } from '../../context/ProjectContext';
 import { PROJECT_STATUS_CONFIG } from '../../types/projects';
 import { supabase } from '../../lib/supabase';
+import { parseLocalDate } from '../../utils/helpers';
 
 export function ClientPortal() {
   const { appUser, isAdmin } = useAuth();
@@ -93,13 +94,13 @@ export function ClientPortal() {
                   {project.startDate && (
                     <span className="flex items-center gap-1">
                       <Calendar className="w-3.5 h-3.5" />
-                      Inicio: {new Date(project.startDate).toLocaleDateString('es-AR')}
+                      Inicio: {parseLocalDate(project.startDate).toLocaleDateString('es-AR')}
                     </span>
                   )}
                   {project.endDate && (
                     <span className="flex items-center gap-1">
                       <Clock className="w-3.5 h-3.5" />
-                      Fin: {new Date(project.endDate).toLocaleDateString('es-AR')}
+                      Fin: {parseLocalDate(project.endDate).toLocaleDateString('es-AR')}
                     </span>
                   )}
                 </div>

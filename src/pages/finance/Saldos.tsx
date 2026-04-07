@@ -19,6 +19,7 @@ import { useProjects } from '../../context/ProjectContext';
 import { useAuth } from '../../context/AuthContext';
 import { supabase } from '../../lib/supabase';
 import type { TransactionType } from '../../types/finance';
+import { todayLocalISO, parseLocalDate } from '../../utils/helpers';
 
 const SOCIOS = [
   { id: 'mateo', name: 'Mateo' },
@@ -48,7 +49,7 @@ export function Saldos() {
     amount: '',
     paidBy: '',
     paidTo: '',
-    date: new Date().toISOString().split('T')[0],
+    date: todayLocalISO(),
     notes: '',
   });
 
@@ -61,7 +62,7 @@ export function Saldos() {
     categoryId: '',
     amount: '',
     description: '',
-    date: new Date().toISOString().split('T')[0],
+    date: todayLocalISO(),
     paidBy: '',
     clientId: '',
     projectId: '',
@@ -77,7 +78,7 @@ export function Saldos() {
       categoryId: defaultCategory?.id || '',
       amount: '',
       description: '',
-      date: new Date().toISOString().split('T')[0],
+      date: todayLocalISO(),
       paidBy: '',
       clientId: '',
       projectId: '',
@@ -151,7 +152,7 @@ export function Saldos() {
   };
 
   const formatDate = (date: string) => {
-    return new Date(date).toLocaleDateString('es-AR', {
+    return parseLocalDate(date).toLocaleDateString('es-AR', {
       day: '2-digit',
       month: 'long',
       year: 'numeric',
@@ -236,7 +237,7 @@ export function Saldos() {
       amount: options?.amount ? String(Math.round(options.amount)) : '',
       paidBy: options?.paidBy || balance.debtor || SOCIOS[0].name,
       paidTo: options?.paidTo || balance.creditor || SOCIOS[1].name,
-      date: new Date().toISOString().split('T')[0],
+      date: todayLocalISO(),
       notes: '',
     });
     setShowModal(true);

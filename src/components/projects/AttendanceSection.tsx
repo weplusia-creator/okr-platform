@@ -5,6 +5,7 @@ import { useProjects } from '../../context/ProjectContext';
 import { useAuth } from '../../context/AuthContext';
 import type { AttendanceSession, AttendanceRecord, ProjectParticipant, ProjectModule } from '../../types/projects';
 import { PARTICIPANT_ROLE_CONFIG } from '../../types/projects';
+import { todayLocalISO } from '../../utils/helpers';
 
 interface AttendanceSectionProps {
   projectId: string;
@@ -29,7 +30,7 @@ export function AttendanceSection({ projectId, participants }: AttendanceSection
   const [selectedSession, setSelectedSession] = useState<AttendanceSession | null>(null);
   const [selectedModuleId, setSelectedModuleId] = useState('');
   const [sessionTitle, setSessionTitle] = useState('');
-  const [sessionDate, setSessionDate] = useState(new Date().toISOString().split('T')[0]);
+  const [sessionDate, setSessionDate] = useState(todayLocalISO());
   const [sessionDescription, setSessionDescription] = useState('');
   const [saving, setSaving] = useState(false);
   const [attendanceMarks, setAttendanceMarks] = useState<Record<string, { present: boolean; notes: string }>>({});
@@ -71,7 +72,7 @@ export function AttendanceSection({ projectId, participants }: AttendanceSection
       setShowCreateModal(false);
       setSelectedModuleId('');
       setSessionTitle('');
-      setSessionDate(new Date().toISOString().split('T')[0]);
+      setSessionDate(todayLocalISO());
       setSessionDescription('');
     } catch (err) {
       console.error('Error creating session:', err);

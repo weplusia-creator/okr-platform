@@ -4,6 +4,7 @@ import type { ProjectModule, ModuleSession } from '../../types/projects';
 import { MODULE_STATUS_CONFIG } from '../../types/projects';
 import { useProjects } from '../../context/ProjectContext';
 import { SessionForm } from './SessionForm';
+import { parseLocalDate } from '../../utils/helpers';
 
 interface ModuleCardProps {
   module: ProjectModule;
@@ -166,13 +167,13 @@ export function ModuleCard({ module, index, onEdit, onComplete, onDelete, isActi
               {module.startDate && (
                 <span className="flex items-center gap-1">
                   <Calendar className="w-3.5 h-3.5" />
-                  Inicio: {new Date(module.startDate).toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' })}
+                  Inicio: {parseLocalDate(module.startDate).toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' })}
                 </span>
               )}
               {module.dueDate && (
                 <span className="flex items-center gap-1">
                   <Calendar className="w-3.5 h-3.5" />
-                  Vencimiento: {new Date(module.dueDate).toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' })}
+                  Vencimiento: {parseLocalDate(module.dueDate).toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' })}
                 </span>
               )}
               {module.status === 'completed' && module.completedAt && (
@@ -269,7 +270,7 @@ export function ModuleCard({ module, index, onEdit, onComplete, onDelete, isActi
                             {session.sessionDate && (
                               <span className="text-[10px] text-gray-500 dark:text-gray-400 flex items-center gap-1">
                                 <Calendar className="w-3 h-3" />
-                                {new Date(session.sessionDate).toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                {parseLocalDate(session.sessionDate).toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' })}
                               </span>
                             )}
 

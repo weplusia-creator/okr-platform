@@ -3,6 +3,7 @@ import { Plus, Calendar, Clock, MapPin, Trash2, ChevronDown, ChevronRight, Exter
 import { useMeetings } from '../../context/MeetingContext';
 import { DAY_LABELS } from '../../types';
 import type { Meeting, MeetingOccurrence, MeetingOccurrenceStatus } from '../../types';
+import { todayLocalISO } from '../../utils/helpers';
 
 const DAY_OPTIONS = [
   { value: 1, label: 'Lunes' },
@@ -256,7 +257,7 @@ function MeetingCard({
               {occurrences.map(occ => {
                 const isEditing = editingMinutes === occ.id;
                 const dateObj = new Date(occ.date + 'T12:00:00');
-                const isPast = new Date(occ.date) < new Date(new Date().toISOString().split('T')[0]);
+                const isPast = occ.date < todayLocalISO();
                 const badge = STATUS_BADGE[occ.status];
 
                 return (

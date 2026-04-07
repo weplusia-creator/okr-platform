@@ -20,6 +20,7 @@ import { CaeDisplay } from '../../components/arca/CaeDisplay';
 import { ArcaStatusBadge } from '../../components/arca/ArcaStatusBadge';
 import type { InvoiceStatus } from '../../types/finance';
 import type { ArcaInvoiceStatus } from '../../types/arca';
+import { todayLocalISO, parseLocalDate } from '../../utils/helpers';
 
 const STATUS_CONFIG: Record<InvoiceStatus, { label: string; class: string }> = {
   draft: { label: 'Borrador', class: 'badge-gray' },
@@ -35,7 +36,7 @@ export function InvoiceDetail() {
   const { invoices, clients, markInvoiceAsPaid, updateInvoice } = useFinance();
   const { arcaInvoices, cuits, puntosVenta } = useArca();
   const [payModal, setPayModal] = useState(false);
-  const [paidDate, setPaidDate] = useState(new Date().toISOString().split('T')[0]);
+  const [paidDate, setPaidDate] = useState(todayLocalISO());
   const [arcaModal, setArcaModal] = useState(false);
 
   const invoice = invoices.find(i => i.id === id);
@@ -53,7 +54,7 @@ export function InvoiceDetail() {
   };
 
   const formatDate = (date: string) => {
-    return new Date(date).toLocaleDateString('es-AR', {
+    return parseLocalDate(date).toLocaleDateString('es-AR', {
       day: '2-digit',
       month: 'long',
       year: 'numeric',
@@ -137,7 +138,7 @@ export function InvoiceDetail() {
               <button
                 onClick={() => {
                   setPayModal(true);
-                  setPaidDate(new Date().toISOString().split('T')[0]);
+                  setPaidDate(todayLocalISO());
                 }}
                 className="btn-primary"
               >

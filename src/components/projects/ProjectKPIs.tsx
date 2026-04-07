@@ -13,6 +13,7 @@ import type {
   ProjectDeliverable,
   ProjectParticipant,
 } from '../../types/projects';
+import { toLocalISODate } from '../../utils/helpers';
 
 export interface ProjectKPIsProps {
   project: Project;
@@ -89,7 +90,7 @@ export function ProjectKPIs({ project, modules, deliverables: _deliverables, par
     }
 
     // Overdue
-    const todayStr = today.toISOString().split('T')[0];
+    const todayStr = toLocalISODate(today);
     const overdueModules = modules.filter(
       (m) => m.dueDate && m.dueDate < todayStr && m.status !== 'completed'
     ).length;

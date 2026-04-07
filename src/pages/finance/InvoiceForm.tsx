@@ -3,6 +3,7 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Save, Loader2, Plus, Trash2 } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
 import type { InvoiceStatus, InvoiceItem } from '../../types/finance';
+import { todayLocalISO, toLocalISODate } from '../../utils/helpers';
 
 interface FormItem {
   id: string;
@@ -22,8 +23,8 @@ export function InvoiceForm() {
   const [formData, setFormData] = useState({
     clientId: searchParams.get('clientId') || '',
     status: 'draft' as InvoiceStatus,
-    issueDate: new Date().toISOString().split('T')[0],
-    dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    issueDate: todayLocalISO(),
+    dueDate: toLocalISODate(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)),
     tax: 0,
     notes: '',
   });

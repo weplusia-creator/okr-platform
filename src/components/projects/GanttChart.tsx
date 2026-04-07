@@ -1,5 +1,6 @@
 import { useMemo, useRef } from 'react';
 import { MODULE_STATUS_CONFIG, type ProjectModule, type ModuleStatus } from '../../types/projects';
+import { toLocalISODate } from '../../utils/helpers';
 
 interface GanttChartProps {
   modules: ProjectModule[];
@@ -30,7 +31,7 @@ export function GanttChart({ modules, onModuleClick }: GanttChartProps) {
       start.setDate(start.getDate() - 7);
       const end = new Date(today);
       end.setDate(end.getDate() + 30);
-      allDates.push(start.toISOString().split('T')[0], end.toISOString().split('T')[0]);
+      allDates.push(toLocalISODate(start), toLocalISODate(end));
     }
 
     allDates.sort();

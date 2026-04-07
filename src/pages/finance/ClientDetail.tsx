@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
 import { useProjects } from '../../context/ProjectContext';
+import { parseLocalDate } from '../../utils/helpers';
 import { PROJECT_STATUS_CONFIG, getProjectDisplayName } from '../../types/projects';
 import type { ProjectPayment, NPSResponse } from '../../types/projects';
 
@@ -154,7 +155,7 @@ export function ClientDetail() {
   };
 
   const formatDate = (date: string) => {
-    return new Date(date).toLocaleDateString('es-AR', {
+    return parseLocalDate(date).toLocaleDateString('es-AR', {
       day: '2-digit',
       month: 'short',
       year: 'numeric',

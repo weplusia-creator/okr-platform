@@ -15,6 +15,7 @@ import type { OrganizationCuit, IVACondition } from '../../../types/arca';
 import { formatCuit, IVA_CONDITION_CONFIG } from '../../../types/arca';
 import { CertificateUpload } from '../../../components/arca/CertificateUpload';
 import { ArcaTabs } from '../../../components/arca/ArcaTabs';
+import { parseLocalDate } from '../../../utils/helpers';
 
 type ModalMode = 'add' | 'edit';
 
@@ -238,7 +239,7 @@ export function ArcaConfig() {
                         </span>
                         {cuit.certificateExpiry && (
                           <span className="text-gray-400 dark:text-gray-500">
-                            &middot; Vence: {new Date(cuit.certificateExpiry).toLocaleDateString('es-AR')}
+                            &middot; Vence: {parseLocalDate(cuit.certificateExpiry).toLocaleDateString('es-AR')}
                           </span>
                         )}
                       </>

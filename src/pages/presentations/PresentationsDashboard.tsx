@@ -11,6 +11,7 @@ import {
   SlidersHorizontal,
 } from 'lucide-react';
 import { usePresentations } from '../../context/PresentationContext';
+import { parseLocalDate } from '../../utils/helpers';
 import { PRESENTATION_STATUS_CONFIG } from '../../types/presentations';
 import type { PresentationStatus } from '../../types/presentations';
 
@@ -26,7 +27,7 @@ export function PresentationsDashboard() {
 
   const formatDate = (dateStr: string | null) => {
     if (!dateStr) return '-';
-    return new Date(dateStr).toLocaleDateString('es-AR', {
+    return parseLocalDate(dateStr).toLocaleDateString('es-AR', {
       day: 'numeric',
       month: 'short',
       year: 'numeric',

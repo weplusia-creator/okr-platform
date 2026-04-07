@@ -1,3 +1,5 @@
+import { todayLocalISO } from '../utils/helpers';
+
 // ===== TOOL CATALOG =====
 
 export type ToolCategory = 'ventas' | 'estrategia' | 'finanzas' | 'productividad' | 'marketing' | 'diagnostico';
@@ -372,7 +374,7 @@ export function createEmptyAnalysis(): Omit<ROIAnalysis, 'id' | 'organizationId'
     solutionDescription: null,
     analysisPeriod: 12,
     currency: 'ARS',
-    analysisDate: new Date().toISOString().split('T')[0],
+    analysisDate: todayLocalISO(),
     responsible: null,
     initialCosts: [],
     recurringCosts: [],

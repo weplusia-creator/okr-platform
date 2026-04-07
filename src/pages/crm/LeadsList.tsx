@@ -17,6 +17,7 @@ import {
   type LeadStatus,
   type LeadSource,
 } from '../../types/crm';
+import { parseLocalDate } from '../../utils/helpers';
 
 interface Filters {
   search: string;
@@ -57,7 +58,7 @@ export function LeadsList() {
 
   const formatDate = (date: string | null) => {
     if (!date) return '-';
-    return new Date(date).toLocaleDateString('es-AR', {
+    return parseLocalDate(date).toLocaleDateString('es-AR', {
       day: '2-digit',
       month: '2-digit',
       year: '2-digit',

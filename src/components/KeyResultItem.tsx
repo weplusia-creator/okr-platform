@@ -5,6 +5,7 @@ import { INITIATIVE_STATUS_CONFIG } from '../types';
 import { ProgressBar } from './ProgressBar';
 import { useOKR } from '../context/OKRContext';
 import { useAuth } from '../context/AuthContext';
+import { parseLocalDate } from '../utils/helpers';
 
 interface KeyResultItemProps {
   keyResult: KeyResult;
@@ -150,7 +151,7 @@ export function KeyResultItem({ keyResult, objectiveId }: KeyResultItemProps) {
                   )}
                   {init.dueDate && (
                     <span className={`flex-shrink-0 ${isOverdue ? 'text-danger-600' : 'text-gray-400'}`}>
-                      {new Date(init.dueDate).toLocaleDateString('es-AR', { day: '2-digit', month: 'short' })}
+                      {parseLocalDate(init.dueDate).toLocaleDateString('es-AR', { day: '2-digit', month: 'short' })}
                     </span>
                   )}
                   {isAdmin && (

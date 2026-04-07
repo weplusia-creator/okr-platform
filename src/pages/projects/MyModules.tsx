@@ -10,6 +10,7 @@ import { useAuth } from '../../context/AuthContext';
 import { supabase } from '../../lib/supabase';
 import type { ModuleStatus } from '../../types/projects';
 import { MODULE_STATUS_CONFIG } from '../../types/projects';
+import { todayLocalISO } from '../../utils/helpers';
 
 interface MyModule {
   id: string;
@@ -131,7 +132,7 @@ export function MyModules() {
 
   const isOverdue = (date: string | null, status: ModuleStatus) => {
     if (!date || status === 'completed') return false;
-    return date < new Date().toISOString().split('T')[0];
+    return date < todayLocalISO();
   };
 
   if (loading) {

@@ -3,6 +3,7 @@ import { DragDropContext, Droppable, Draggable, type DropResult } from '@hello-p
 import { Calendar, User, Target, Trash2, X, Edit2, Check, Filter, Plus, MessageCircle, Send } from 'lucide-react';
 import { useOKR } from '../context/OKRContext';
 import { useAuth } from '../context/AuthContext';
+import { parseLocalDate } from '../utils/helpers';
 import type { Initiative, InitiativeStatus } from '../types';
 
 const COLUMNS: { id: InitiativeStatus; label: string; color: string }[] = [
@@ -334,7 +335,7 @@ export function OKRInitiatives() {
                                     {init.dueDate && (
                                       <span className={`flex items-center gap-1 ${isOverdue ? 'text-danger-600 font-medium' : ''}`}>
                                         <Calendar className="w-3 h-3" />
-                                        {new Date(init.dueDate).toLocaleDateString('es-AR', { day: '2-digit', month: 'short' })}
+                                        {parseLocalDate(init.dueDate).toLocaleDateString('es-AR', { day: '2-digit', month: 'short' })}
                                       </span>
                                     )}
                                     {comments.length > 0 && !isCommentsOpen && (

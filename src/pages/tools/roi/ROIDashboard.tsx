@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Plus, Calculator, Search, Loader2, Trash2, Copy, FileText, Filter } from 'lucide-react';
 import { useTools } from '../../../context/ToolsContext';
 import type { ROIStatus, ROIAnalysis } from '../../../types/tools';
+import { parseLocalDate } from '../../../utils/helpers';
 
 const STATUS_CONFIG: Record<ROIStatus, { label: string; className: string }> = {
   draft: { label: 'Borrador', className: 'badge badge-gray' },
@@ -32,7 +33,7 @@ const PERIOD_LABELS: Record<number, string> = {
 };
 
 function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString('es-AR', {
+  return parseLocalDate(dateStr).toLocaleDateString('es-AR', {
     day: 'numeric',
     month: 'short',
     year: 'numeric',

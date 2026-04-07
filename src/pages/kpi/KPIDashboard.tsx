@@ -31,6 +31,7 @@ import { useOKR } from '../../context/OKRContext';
 import { useProjects } from '../../context/ProjectContext';
 import { supabase } from '../../lib/supabase';
 import type { KPI, KPICategory } from '../../types';
+import { todayLocalISO } from '../../utils/helpers';
 
 export function KPIDashboard() {
   const {
@@ -245,7 +246,7 @@ export function KPIDashboard() {
   // New entry form
   const [entryKPI, setEntryKPI] = useState<string | null>(null);
   const [entryValue, setEntryValue] = useState('');
-  const [entryDate, setEntryDate] = useState(new Date().toISOString().split('T')[0]);
+  const [entryDate, setEntryDate] = useState(todayLocalISO());
   const [entryNotes, setEntryNotes] = useState('');
 
   // Confirm delete
@@ -380,7 +381,7 @@ export function KPIDashboard() {
       await addEntry(kpiId, Number(entryValue), entryDate, entryNotes.trim() || undefined);
       setEntryValue('');
       setEntryNotes('');
-      setEntryDate(new Date().toISOString().split('T')[0]);
+      setEntryDate(todayLocalISO());
       setEntryKPI(null);
     } catch (err) {
       console.error('Error adding entry:', err);

@@ -14,6 +14,7 @@ import type {
   MonthlyData,
   RecurringExpense,
 } from '../types/finance';
+import { todayLocalISO } from '../utils/helpers';
 
 interface FinanceContextType {
   // Clients
@@ -1101,7 +1102,7 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
     overdueCheckedRef.current = true;
 
     const checkOverdue = async () => {
-      const today = new Date().toISOString().split('T')[0];
+      const today = todayLocalISO();
       const overdueIds = invoices
         .filter(i => i.status === 'issued' && i.dueDate < today)
         .map(i => i.id);

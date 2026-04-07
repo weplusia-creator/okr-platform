@@ -5,6 +5,7 @@ import { useBMC } from '../../context/BMCContext';
 import { useProjects } from '../../context/ProjectContext';
 import { BMC_CANVAS_STATUS_LABELS, BMC_CANVAS_TYPE_LABELS, BMC_TEMPLATE_TYPE_LABELS, DEFAULT_TEMPLATE_QUESTIONS } from '../../types/bmc';
 import { Modal } from '../../components/Modal';
+import { parseLocalDate } from '../../utils/helpers';
 import type { BmcCanvasType, BmcShowResponses, BmcTemplateType } from '../../types/bmc';
 
 export function BMCDashboard() {
@@ -133,7 +134,7 @@ export function BMCDashboard() {
                   <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
                     <span>{BMC_CANVAS_TYPE_LABELS[canvas.type]}</span>
                     {canvas.dueDate && (
-                      <span>Vence: {new Date(canvas.dueDate).toLocaleDateString('es-AR')}</span>
+                      <span>Vence: {parseLocalDate(canvas.dueDate).toLocaleDateString('es-AR')}</span>
                     )}
                   </div>
                 </Link>

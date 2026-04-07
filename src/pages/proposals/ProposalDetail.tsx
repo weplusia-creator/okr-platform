@@ -24,6 +24,7 @@ import {
   Presentation,
 } from 'lucide-react';
 import { useProposals } from '../../context/ProposalContext';
+import { parseLocalDate } from '../../utils/helpers';
 import { PROPOSAL_STATUS_CONFIG, type Proposal, type ProposalItem } from '../../types/proposals';
 import { Modal } from '../../components/Modal';
 
@@ -38,7 +39,7 @@ const formatCurrency = (amount: number): string => {
 
 const formatDate = (dateString: string | null): string => {
   if (!dateString) return '-';
-  return new Date(dateString).toLocaleDateString('es-AR', {
+  return parseLocalDate(dateString).toLocaleDateString('es-AR', {
     day: '2-digit',
     month: 'short',
     year: 'numeric',
@@ -47,7 +48,7 @@ const formatDate = (dateString: string | null): string => {
 
 const formatDateTime = (dateString: string | null): string => {
   if (!dateString) return '-';
-  return new Date(dateString).toLocaleDateString('es-AR', {
+  return parseLocalDate(dateString).toLocaleDateString('es-AR', {
     day: '2-digit',
     month: 'short',
     year: 'numeric',

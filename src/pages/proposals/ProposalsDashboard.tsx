@@ -14,6 +14,7 @@ import {
   Edit2,
 } from 'lucide-react';
 import { useProposals } from '../../context/ProposalContext';
+import { parseLocalDate } from '../../utils/helpers';
 import { PROPOSAL_STATUS_CONFIG } from '../../types/proposals';
 import type { ProposalStatus } from '../../types/proposals';
 
@@ -75,7 +76,7 @@ export function ProposalsDashboard() {
   };
 
   const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleDateString('es-AR', {
+    return parseLocalDate(dateStr).toLocaleDateString('es-AR', {
       day: 'numeric',
       month: 'short',
       year: 'numeric',

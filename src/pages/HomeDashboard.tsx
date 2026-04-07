@@ -14,6 +14,7 @@ import {
   Building2,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { parseLocalDate } from '../utils/helpers';
 import { useOKR } from '../context/OKRContext';
 import { useCRM } from '../context/CRMContext';
 import { ACTIVITY_TYPE_CONFIG } from '../types/crm';
@@ -191,7 +192,7 @@ export function HomeDashboard() {
                       </div>
                       {init.dueDate && (
                         <span className={`text-xs flex-shrink-0 ${isOverdue ? 'text-danger-600 font-medium' : 'text-gray-400'}`}>
-                          {new Date(init.dueDate).toLocaleDateString('es-AR', { day: '2-digit', month: 'short' })}
+                          {parseLocalDate(init.dueDate).toLocaleDateString('es-AR', { day: '2-digit', month: 'short' })}
                         </span>
                       )}
                     </Link>
@@ -250,7 +251,7 @@ export function HomeDashboard() {
                       </div>
                       {activity.dueDate && (
                         <span className={`text-xs flex-shrink-0 ${activity.isOverdue ? 'text-danger-600 font-medium' : 'text-gray-400'}`}>
-                          {new Date(activity.dueDate).toLocaleDateString('es-AR', { day: '2-digit', month: 'short' })}
+                          {parseLocalDate(activity.dueDate).toLocaleDateString('es-AR', { day: '2-digit', month: 'short' })}
                         </span>
                       )}
                     </Link>

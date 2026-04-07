@@ -5,6 +5,7 @@ import { useTask } from '../../context/TaskContext';
 import { useAuth } from '../../context/AuthContext';
 import { TaskDetail } from './TaskDetail';
 import type { Task, TaskStatus } from '../../types';
+import { parseLocalDate } from '../../utils/helpers';
 
 function avatarColor(id: string): string {
   let h = 2166136261;
@@ -309,7 +310,7 @@ export function TaskBoard() {
                                   {task.dueDate && (
                                     <span className={`flex items-center gap-1 ${isOverdue ? 'text-danger-600 font-medium' : ''}`}>
                                       <Calendar className="w-3 h-3" />
-                                      {new Date(task.dueDate).toLocaleDateString('es-AR', { day: '2-digit', month: 'short' })}
+                                      {parseLocalDate(task.dueDate).toLocaleDateString('es-AR', { day: '2-digit', month: 'short' })}
                                     </span>
                                   )}
                                   {comments.length > 0 && (

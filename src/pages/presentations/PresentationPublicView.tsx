@@ -4,10 +4,11 @@ import { ArrowLeft, ArrowRight, AlertTriangle } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import type { Presentation, PresentationSlide } from '../../types/presentations';
 import { getSlideAccentColor, getSlideTextColor } from '../../types/presentations';
+import { parseLocalDate } from '../../utils/helpers';
 
 const formatDate = (dateStr: string | null) => {
   if (!dateStr) return '';
-  return new Date(dateStr).toLocaleDateString('es-AR', {
+  return parseLocalDate(dateStr).toLocaleDateString('es-AR', {
     day: 'numeric',
     month: 'long',
     year: 'numeric',

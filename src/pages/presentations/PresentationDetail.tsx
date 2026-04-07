@@ -17,6 +17,7 @@ import {
 import { usePresentations } from '../../context/PresentationContext';
 import { PRESENTATION_STATUS_CONFIG, SLIDE_BG_COLORS, SLIDE_LAYOUT_CONFIG, getSlideAccentColor, getSlideTextColor } from '../../types/presentations';
 import type { Presentation, PresentationSlide } from '../../types/presentations';
+import { parseLocalDate } from '../../utils/helpers';
 
 export function PresentationDetail() {
   const navigate = useNavigate();
@@ -84,7 +85,7 @@ export function PresentationDetail() {
 
   const formatDate = (dateStr: string | null) => {
     if (!dateStr) return '-';
-    return new Date(dateStr).toLocaleDateString('es-AR', {
+    return parseLocalDate(dateStr).toLocaleDateString('es-AR', {
       day: 'numeric',
       month: 'long',
       year: 'numeric',

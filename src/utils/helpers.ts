@@ -89,8 +89,39 @@ export function getCurrentYear(): number {
   return new Date().getFullYear();
 }
 
+/**
+ * Returns YYYY-MM-DD for a Date in LOCAL time.
+ * Use this instead of `date.toISOString().split('T')[0]`, which returns
+ * the UTC date and shifts forward/backward across timezones.
+ */
+export function toLocalISODate(date: Date): string {
+  const yyyy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  const dd = String(date.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+/** Today's date as YYYY-MM-DD in LOCAL time. */
+export function todayLocalISO(): string {
+  return toLocalISODate(new Date());
+}
+
+/**
+ * Parse a date string. If input is a date-only string (YYYY-MM-DD),
+ * parses it as LOCAL midnight to avoid the UTC-shift bug where
+ * `new Date('2026-03-31')` shows the previous day in GMT-3.
+ * Full ISO timestamps (with time) are parsed normally.
+ */
+export function parseLocalDate(dateString: string): Date {
+  // Date-only YYYY-MM-DD: force local-midnight parse
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+    return new Date(dateString + 'T00:00:00');
+  }
+  return new Date(dateString);
+}
+
 export function formatDate(dateString: string): string {
-  const date = new Date(dateString);
+  const date = parseLocalDate(dateString);
   return date.toLocaleDateString('es-ES', {
     day: '2-digit',
     month: 'short',
@@ -111,8 +142,8 @@ export function getQuarterDateRange(quarter: Quarter, year: number): { start: st
   const end = new Date(year, endMonth + 1, 0);
 
   return {
-    start: start.toISOString().split('T')[0],
-    end: end.toISOString().split('T')[0],
+    start: toLocalISODate(start),
+    end: toLocalISODate(end),
   };
 }
 

@@ -112,7 +112,7 @@ export function PlaybookPublicView() {
           .from('playbooks')
           .select('*')
           .eq('share_token', token)
-          .single();
+          .maybeSingle();
 
         if (err || !p) { setError('Playbook no encontrado'); setLoading(false); return; }
 

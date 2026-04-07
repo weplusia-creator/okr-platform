@@ -163,7 +163,28 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
 
       await fetchClients();
 
-      return { id: inserted.id, name: inserted.name } as Client;
+      const fullClient: Client = {
+        id: inserted.id,
+        organizationId: inserted.organization_id,
+        name: inserted.name,
+        company: inserted.company ?? null,
+        email: inserted.email ?? null,
+        phone: inserted.phone ?? null,
+        address: inserted.address ?? null,
+        cuit: inserted.cuit ?? null,
+        tipoDocumento: inserted.tipo_documento ?? null,
+        condicionIva: inserted.condicion_iva ?? null,
+        industry: inserted.industry ?? null,
+        employeeCount: inserted.employee_count ?? null,
+        website: inserted.website ?? null,
+        contactName: inserted.contact_name ?? null,
+        contactRole: inserted.contact_role ?? null,
+        logoUrl: inserted.logo_url ?? null,
+        notes: inserted.notes ?? null,
+        createdAt: inserted.created_at,
+        updatedAt: inserted.updated_at,
+      };
+      return fullClient;
     } catch (err: any) {
       console.error('[addClient] Error:', err);
       setError(err?.message || 'Error al crear cliente');

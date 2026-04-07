@@ -749,9 +749,10 @@ export function ProposalProvider({ children }: { children: ReactNode }) {
           .select('*')
           .eq('share_token', token)
           .in('status', ['sent', 'viewed', 'accepted', 'rejected'])
-          .single();
+          .maybeSingle();
 
         if (err) throw err;
+        if (!p) return null;
 
         const { data: itemsData } = await supabase
           .from('proposal_items')

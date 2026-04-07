@@ -71,7 +71,7 @@ export function CheckinPublicForm() {
         .from('checkins')
         .select('id, token, numero, periodo, estado, pulso_score, nps_score, emoji, project:projects(name)')
         .eq('token', token)
-        .single();
+        .maybeSingle();
 
       if (err || !checkinData) {
         setError('Check-in no encontrado o el link expiró.');

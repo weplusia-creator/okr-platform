@@ -574,7 +574,7 @@ export function CheckinProvider({ children }: { children: ReactNode }) {
         .from('checkins')
         .select('*')
         .eq('token', token)
-        .single();
+        .maybeSingle();
 
       if (checkinError) throw checkinError;
       if (!checkinRow) return null;
@@ -673,7 +673,7 @@ export function CheckinProvider({ children }: { children: ReactNode }) {
         .from('checkins')
         .select('id')
         .eq('token', token)
-        .single();
+        .maybeSingle();
 
       if (findError) throw findError;
       if (!checkinRow) throw new Error('Checkin not found');
@@ -738,7 +738,7 @@ export function CheckinProvider({ children }: { children: ReactNode }) {
           .from('checkins')
           .select('id, organization_id')
           .eq('token', token)
-          .single();
+          .maybeSingle();
 
         if (checkinFull) {
           const { data: admins } = await supabase

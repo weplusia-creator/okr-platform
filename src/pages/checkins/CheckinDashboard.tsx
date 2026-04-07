@@ -80,11 +80,11 @@ export function CheckinDashboard() {
           link: `/checkins/${s.lastCheckin.id}`,
         });
       }
-      if (s.pulsoTrend !== null && s.pulsoTrend <= -2) {
+      if (s.pulsoTrend !== null && s.pulsoTrend <= -2 && s.lastCheckin) {
         items.push({
           type: 'warning',
           message: `${s.project?.name || 'Proyecto'}: Pulso bajó ${Math.abs(s.pulsoTrend)} puntos`,
-          link: `/checkins/${s.lastCheckin!.id}`,
+          link: `/checkins/${s.lastCheckin.id}`,
         });
       }
       if (s.lastCheckin?.estado === 'pendiente') {

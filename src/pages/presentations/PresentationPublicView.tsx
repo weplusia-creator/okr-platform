@@ -412,7 +412,7 @@ export function PresentationPublicView() {
           .select('*')
           .eq('share_token', token)
           .eq('status', 'published')
-          .single();
+          .maybeSingle();
 
         if (err || !p) {
           setError('Presentacion no encontrada o no disponible');

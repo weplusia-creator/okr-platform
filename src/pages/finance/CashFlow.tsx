@@ -206,11 +206,22 @@ export function CashFlow() {
   };
 
   const formatDate = (date: string) => {
-    return new Date(date).toLocaleDateString('es-AR', {
+    // Append T00:00:00 so YYYY-MM-DD is parsed as local time, not UTC
+    // (otherwise GMT-3 users see the previous day)
+    return new Date(date + 'T00:00:00').toLocaleDateString('es-AR', {
       day: '2-digit',
       month: 'short',
       year: 'numeric',
     });
+  };
+
+  // Local YYYY-MM-DD (avoids toISOString's UTC shift)
+  const todayLocalISO = () => {
+    const d = new Date();
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
   };
 
   const formatMonthLabel = (month: string) => {
@@ -300,7 +311,7 @@ export function CashFlow() {
       categoryId: defaultCategory?.id || '',
       amount: '',
       description: '',
-      date: new Date().toISOString().split('T')[0],
+      date: todayLocalISO(),
       clientId: '',
       projectId: '',
       paidBy: '',

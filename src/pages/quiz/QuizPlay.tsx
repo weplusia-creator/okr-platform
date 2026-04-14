@@ -201,9 +201,12 @@ export function QuizPlay() {
     }
   };
 
+  // Track cumulative score with ref to avoid stale closures
+  const scoreRef = useRef({ score: 0, correct: 0 });
+
   // Submit answer
   const handleSubmitAnswer = async () => {
-    if (!participantId || !questions[currentIndex]) return;
+    if (!participantId || !questions[currentIndex] || submitting) return;
     setSubmitting(true);
 
     const q = questions[currentIndex];
@@ -215,13 +218,11 @@ export function QuizPlay() {
       let pointsEarned = 0;
 
       if (q.questionType === 'short_answer') {
-        // Fetch correct answer
         const { data: opts } = await db.from('quiz_options').select('option_text').eq('question_id', q.id).eq('is_correct', true).limit(1);
         const expected = opts?.[0]?.option_text?.trim().toLowerCase();
         if (expected) {
           isCorrect = textAnswer.trim().toLowerCase() === expected;
         }
-        // If no expected answer, leave for manual grading (isCorrect = false)
       } else if (selectedOptionId) {
         const selectedOpt = q.options.find(o => o.id === selectedOptionId);
         isCorrect = selectedOpt?.isCorrect ?? false;
@@ -229,7 +230,7 @@ export function QuizPlay() {
 
       if (isCorrect) pointsEarned = q.points;
 
-      await db.from('quiz_responses').insert({
+      const { error: insertErr } = await db.from('quiz_responses').insert({
         participant_id: participantId,
         question_id: q.id,
         selected_option_id: selectedOptionId || null,
@@ -239,40 +240,66 @@ export function QuizPlay() {
         response_time_ms: responseTimeMs,
       });
 
-      setTotalScore(prev => prev + pointsEarned);
-      setTotalCorrect(prev => prev + (isCorrect ? 1 : 0));
+      // Handle duplicate (already answered) — skip gracefully
+      if (insertErr) {
+        if (insertErr.code === '23505') {
+          // UNIQUE violation — already answered, just advance
+          console.warn('Response already submitted for this question, advancing');
+        } else {
+          console.error('Error inserting response:', insertErr);
+          // Still advance — don't block the user
+        }
+      }
+
+      // Update running totals
+      scoreRef.current.score += pointsEarned;
+      scoreRef.current.correct += isCorrect ? 1 : 0;
+      setTotalScore(scoreRef.current.score);
+      setTotalCorrect(scoreRef.current.correct);
 
       if (quiz?.showAnswersAfter) {
         setFeedbackCorrect(isCorrect);
         setFeedbackPoints(pointsEarned);
         setFeedbackExplanation(q.explanation);
+        setSubmitting(false);
         setStage('feedback');
       } else {
-        advanceToNext();
+        setSubmitting(false);
+        await doAdvance(currentIndex + 1);
       }
     } catch (err) {
       console.error('Error submitting answer:', err);
-    } finally {
+      // Don't block — advance anyway so user isn't stuck
       setSubmitting(false);
+      if (quiz?.showAnswersAfter) {
+        setFeedbackCorrect(false);
+        setFeedbackPoints(0);
+        setFeedbackExplanation(null);
+        setStage('feedback');
+      } else {
+        await doAdvance(currentIndex + 1);
+      }
     }
   };
 
-  const advanceToNext = async () => {
-    const nextIndex = currentIndex + 1;
+  const doAdvance = async (nextIndex: number) => {
     if (nextIndex >= questions.length) {
-      // Finish
+      // Finish — use ref for accurate final score
       if (participantId) {
-        await db.from('quiz_participants').update({
-          status: 'finished',
-          total_score: totalScore,
-          total_correct: totalCorrect,
-          finished_at: new Date().toISOString(),
-        }).eq('id', participantId);
+        try {
+          await db.from('quiz_participants').update({
+            status: 'finished',
+            total_score: scoreRef.current.score,
+            total_correct: scoreRef.current.correct,
+            finished_at: new Date().toISOString(),
+          }).eq('id', participantId);
+        } catch (e) {
+          console.error('Error updating participant:', e);
+        }
       }
       setStage('results');
     } else {
       if (quiz?.mode === 'live') {
-        // In live mode, wait for admin to advance
         setStage('waiting');
       } else {
         setCurrentIndex(nextIndex);
@@ -283,6 +310,8 @@ export function QuizPlay() {
       }
     }
   };
+
+  const advanceToNext = () => doAdvance(currentIndex + 1);
 
   // Computed
   const currentQ = questions[currentIndex];

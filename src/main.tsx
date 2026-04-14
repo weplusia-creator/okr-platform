@@ -1,7 +1,7 @@
 import './patchFetch';
 import { Component, type ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { AuthProvider } from './context/AuthContext';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import { OKRProvider } from './context/OKRContext';
 import { FinanceProvider } from './context/FinanceContext';
 import { ProjectProvider } from './context/ProjectContext';
@@ -18,11 +18,19 @@ import { TaskProvider } from './context/TaskContext';
 import { CheckinProvider } from './context/CheckinContext';
 import { NotificationProvider } from './context/NotificationContext';
 import { PresentationProvider } from './context/PresentationContext';
+import { QuizProvider } from './context/QuizContext';
 import { inject } from '@vercel/analytics';
 import './index.css';
 import App from './App';
 
 inject();
+
+// Gate: don't mount data providers until auth has finished loading
+function AuthGate({ children }: { children: ReactNode }) {
+  const { loading } = useAuth();
+  if (loading) return null; // App.tsx shows the loading spinner
+  return <>{children}</>;
+}
 
 class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
   constructor(props: { children: ReactNode }) {
@@ -54,39 +62,43 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | 
 createRoot(document.getElementById('root')!).render(
   <ErrorBoundary>
     <AuthProvider>
-      <OKRProvider>
-        <FinanceProvider>
-          <ProjectProvider>
-            <KPIProvider>
-              <MeetingProvider>
-                <BMCProvider>
-                  <PlaybookProvider>
-                    <CRMProvider>
-                      <ProposalProvider>
-                        <ArcaProvider>
-                          <ToolsProvider>
-                            <ProspectorProvider>
-                              <TaskProvider>
-                                <CheckinProvider>
-                                  <PresentationProvider>
-                                    <NotificationProvider>
-                                      <App />
-                                    </NotificationProvider>
-                                  </PresentationProvider>
-                                </CheckinProvider>
-                              </TaskProvider>
-                            </ProspectorProvider>
-                          </ToolsProvider>
-                        </ArcaProvider>
-                      </ProposalProvider>
-                    </CRMProvider>
-                  </PlaybookProvider>
-                </BMCProvider>
-              </MeetingProvider>
-            </KPIProvider>
-          </ProjectProvider>
-        </FinanceProvider>
-      </OKRProvider>
+      <AuthGate>
+        <OKRProvider>
+          <FinanceProvider>
+            <ProjectProvider>
+              <KPIProvider>
+                <MeetingProvider>
+                  <BMCProvider>
+                    <PlaybookProvider>
+                      <CRMProvider>
+                        <ProposalProvider>
+                          <ArcaProvider>
+                            <ToolsProvider>
+                              <ProspectorProvider>
+                                <TaskProvider>
+                                  <CheckinProvider>
+                                    <PresentationProvider>
+                                      <QuizProvider>
+                                        <NotificationProvider>
+                                          <App />
+                                        </NotificationProvider>
+                                      </QuizProvider>
+                                    </PresentationProvider>
+                                  </CheckinProvider>
+                                </TaskProvider>
+                              </ProspectorProvider>
+                            </ToolsProvider>
+                          </ArcaProvider>
+                        </ProposalProvider>
+                      </CRMProvider>
+                    </PlaybookProvider>
+                  </BMCProvider>
+                </MeetingProvider>
+              </KPIProvider>
+            </ProjectProvider>
+          </FinanceProvider>
+        </OKRProvider>
+      </AuthGate>
     </AuthProvider>
   </ErrorBoundary>
 );

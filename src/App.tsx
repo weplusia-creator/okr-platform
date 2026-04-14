@@ -66,6 +66,11 @@ import { ProspectorSettings } from './pages/tools/prospector/ProspectorSettings'
 import { ProspectorScraper } from './pages/tools/prospector/ProspectorScraper';
 import { ProspectorScrapeHistory } from './pages/tools/prospector/ProspectorScrapeHistory';
 import { Organizations, SuperUsers } from './pages/super';
+import { QuizDashboard } from './pages/quiz/QuizDashboard';
+import { QuizForm } from './pages/quiz/QuizForm';
+import { QuizDetail } from './pages/quiz/QuizDetail';
+import { QuizLive } from './pages/quiz/QuizLive';
+import { QuizPlay } from './pages/quiz/QuizPlay';
 import { HomeDashboard } from './pages/HomeDashboard';
 import { Layout, ProtectedRoute } from './components';
 import { useAuth } from './context/AuthContext';
@@ -99,7 +104,14 @@ function AppRoutes() {
   const { user, loading } = useAuth();
 
   if (loading) {
-    return null;
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-white dark:bg-[#2e2a2b]">
+        <div className="flex flex-col items-center gap-3">
+          <img src="/wau-icon.png" alt="WAU" className="w-12 h-12 object-contain animate-pulse" />
+          <p className="text-sm text-gray-400">Cargando...</p>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -119,6 +131,7 @@ function AppRoutes() {
       <Route path="/pres/:token" element={<PresentationPublicView />} />
       <Route path="/checkin/:token" element={<CheckinPublicForm />} />
       <Route path="/playbook/s/:token" element={<PlaybookPublicView />} />
+      <Route path="/quiz/:token" element={<QuizPlay />} />
       <Route
         element={
           <ProtectedRoute>
@@ -214,6 +227,12 @@ function AppRoutes() {
         <Route path="/checkins/config/:projectId" element={<CheckinConfigPage />} />
         <Route path="/checkins/history/:projectId" element={<CheckinHistory />} />
         <Route path="/checkins/:id" element={<CheckinDetail />} />
+        {/* Quiz Routes */}
+        <Route path="/quizzes" element={<QuizDashboard />} />
+        <Route path="/quizzes/new" element={<QuizForm />} />
+        <Route path="/quizzes/:id" element={<QuizDetail />} />
+        <Route path="/quizzes/:id/edit" element={<QuizForm />} />
+        <Route path="/quizzes/:id/live" element={<QuizLive />} />
         {/* BMC Routes */}
         <Route path="/bmc" element={<BMCDashboard />} />
         <Route path="/bmc/templates" element={<BMCTemplates />} />

@@ -32,6 +32,7 @@ import {
   Wrench,
   Calculator,
   Presentation,
+  Brain,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../hooks/useTheme';
@@ -119,6 +120,11 @@ const ADMIN_NAV: NavItem[] = [
       { label: 'Prospector B2B', path: '/tools/prospector', icon: Target },
       { label: 'Calculadora ROI', path: '/tools/roi', icon: Calculator },
     ],
+  },
+  {
+    label: 'Quizzes',
+    icon: Brain,
+    path: '/quizzes',
   },
   {
     label: 'Admin',

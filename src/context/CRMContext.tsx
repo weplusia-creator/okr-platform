@@ -635,13 +635,19 @@ export function CRMProvider({ children }: { children: ReactNode }) {
       if (!deal) return;
 
       const stageCfg = getStageConfig(newStage);
+      const isTerminal = newStage === 'ganado' || newStage === 'perdido';
+      const today = new Date().toISOString().split('T')[0];
+      const dbUpdates: Record<string, unknown> = {
+        stage: newStage,
+        probability: stageCfg.probability,
+      };
+      if (isTerminal && !deal.actualCloseDate) {
+        dbUpdates.actual_close_date = today;
+      }
 
       const { error: err } = await supabase
         .from('crm_deals')
-        .update({
-          stage: newStage,
-          probability: stageCfg.probability,
-        })
+        .update(dbUpdates)
         .eq('id', id);
 
       if (err) throw err;
@@ -657,7 +663,12 @@ export function CRMProvider({ children }: { children: ReactNode }) {
 
       setDeals(prev => prev.map(d =>
         d.id === id
-          ? { ...d, stage: newStage, probability: stageCfg.probability }
+          ? {
+              ...d,
+              stage: newStage,
+              probability: stageCfg.probability,
+              actualCloseDate: isTerminal && !d.actualCloseDate ? today : d.actualCloseDate,
+            }
           : d
       ));
     } catch (err) {

@@ -1,10 +1,10 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DragDropContext, Droppable, Draggable, type DropResult } from '@hello-pangea/dnd';
-import { Plus, Calendar, User, DollarSign, GripVertical, ChevronDown, ChevronRight, Trophy, XCircle, Users, UserCircle, Trash2 } from 'lucide-react';
+import { Plus, Calendar, User, DollarSign, GripVertical, Users, UserCircle, Trash2 } from 'lucide-react';
 import { useCRM } from '../../context/CRMContext';
 import { useAuth } from '../../context/AuthContext';
-import { type DealStage, type Deal } from '../../types/crm';
+import { TERMINAL_STAGES, type DealStage, type Deal } from '../../types/crm';
 import { parseLocalDate } from '../../utils/helpers';
 
 const formatCurrency = (amount: number): string => {
@@ -154,88 +154,6 @@ function PipelineColumn({ stage, deals, onCardClick, onDeleteDeal, stageConfig }
   );
 }
 
-interface ClosedDealsSection {
-  title: string;
-  icon: React.ReactNode;
-  deals: Deal[];
-  colorClass: string;
-  onCardClick: (dealId: string) => void;
-  onDeleteDeal: (deal: Deal) => void;
-}
-
-function ClosedDealsSection({ title, icon, deals, colorClass, onCardClick, onDeleteDeal }: ClosedDealsSection) {
-  const [isExpanded, setIsExpanded] = useState(false);
-  const totalValue = deals.reduce((sum, deal) => sum + deal.amount, 0);
-
-  if (deals.length === 0) return null;
-
-  return (
-    <div className={`border rounded-lg ${colorClass}`}>
-      <button
-        onClick={() => setIsExpanded(!isExpanded)}
-        className="w-full px-4 py-3 flex items-center justify-between hover:bg-opacity-80 transition-colors"
-      >
-        <div className="flex items-center gap-2">
-          {icon}
-          <span className="font-medium">{title}</span>
-          <span className="text-sm opacity-75">({deals.length})</span>
-          <span className="text-sm ml-2">{formatCurrency(totalValue)}</span>
-        </div>
-        {isExpanded ? (
-          <ChevronDown className="w-5 h-5" />
-        ) : (
-          <ChevronRight className="w-5 h-5" />
-        )}
-      </button>
-
-      {isExpanded && (
-        <div className="px-4 pb-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
-          {deals.map((deal) => (
-            <div
-              key={deal.id}
-              onClick={() => onCardClick(deal.id)}
-              className="group bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-3 cursor-pointer hover:shadow-md transition-shadow"
-            >
-              <div className="flex items-start justify-between gap-2">
-                <h4 className="font-medium text-gray-900 dark:text-white truncate text-sm flex-1">
-                  {deal.name}
-                </h4>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onDeleteDeal(deal);
-                  }}
-                  className="text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded p-1 -m-1 transition-colors flex-shrink-0"
-                  title="Eliminar oportunidad"
-                  aria-label="Eliminar oportunidad"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
-              </div>
-              <div className="mt-2 flex items-center gap-1.5 text-sm">
-                <DollarSign className="w-3.5 h-3.5 text-green-600 dark:text-green-400" />
-                <span className="font-semibold text-green-600 dark:text-green-400">
-                  {formatCurrency(deal.amount)}
-                </span>
-              </div>
-              <div className="mt-1 flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
-                <Calendar className="w-3.5 h-3.5" />
-                <span>Cerrado: {formatDate(deal.actualCloseDate)}</span>
-              </div>
-              {deal.ownerName && (
-                <div className="mt-1 flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
-                  <User className="w-3.5 h-3.5" />
-                  <span className="truncate">{deal.ownerName}</span>
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
 export function DealPipeline() {
   const navigate = useNavigate();
   const { deals, updateDealStage, deleteDeal, loading, pipelineStages, getStageConfig } = useCRM();
@@ -277,9 +195,8 @@ export function DealPipeline() {
     if (destination.droppableId === source.droppableId && destination.index === source.index) return;
 
     const newStage = destination.droppableId as DealStage;
-
-    // Only allow dragging within pipeline stages (not terminal)
-    if (!pipelineStageNames.includes(newStage)) return;
+    const validStages = [...pipelineStageNames, ...TERMINAL_STAGES];
+    if (!validStages.includes(newStage)) return;
 
     await updateDealStage(draggableId, newStage);
   };
@@ -350,29 +267,18 @@ export function DealPipeline() {
               stageConfig={getStageConfig(stage)}
             />
           ))}
+          {TERMINAL_STAGES.map((stage) => (
+            <PipelineColumn
+              key={stage}
+              stage={stage}
+              deals={dealsByStage[stage] || []}
+              onCardClick={handleCardClick}
+              onDeleteDeal={handleDeleteDeal}
+              stageConfig={getStageConfig(stage)}
+            />
+          ))}
         </div>
       </DragDropContext>
-
-      {/* Won/Lost Sections */}
-      <div className="space-y-4">
-        <ClosedDealsSection
-          title="Oportunidades Ganadas"
-          icon={<Trophy className="w-5 h-5 text-green-600" />}
-          deals={dealsByStage.ganado}
-          colorClass="bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800 text-green-800 dark:text-green-200"
-          onCardClick={handleCardClick}
-          onDeleteDeal={handleDeleteDeal}
-        />
-
-        <ClosedDealsSection
-          title="Oportunidades Perdidas"
-          icon={<XCircle className="w-5 h-5 text-red-600" />}
-          deals={dealsByStage.perdido}
-          colorClass="bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800 text-red-800 dark:text-red-200"
-          onCardClick={handleCardClick}
-          onDeleteDeal={handleDeleteDeal}
-        />
-      </div>
     </div>
   );
 }

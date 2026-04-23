@@ -60,7 +60,7 @@ function DealCard({ deal, index, onClick, onDelete }: DealCardProps) {
                 </h4>
                 <button
                   onClick={onDelete}
-                  className="opacity-0 group-hover:opacity-100 transition-opacity text-gray-400 hover:text-red-600 dark:hover:text-red-400 flex-shrink-0"
+                  className="text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded p-1 -m-1 transition-colors flex-shrink-0"
                   title="Eliminar oportunidad"
                   aria-label="Eliminar oportunidad"
                 >
@@ -205,7 +205,7 @@ function ClosedDealsSection({ title, icon, deals, colorClass, onCardClick, onDel
                     e.stopPropagation();
                     onDeleteDeal(deal);
                   }}
-                  className="opacity-0 group-hover:opacity-100 transition-opacity text-gray-400 hover:text-red-600 dark:hover:text-red-400 flex-shrink-0"
+                  className="text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded p-1 -m-1 transition-colors flex-shrink-0"
                   title="Eliminar oportunidad"
                   aria-label="Eliminar oportunidad"
                 >

@@ -127,7 +127,12 @@ export function DealForm() {
       }
     } catch (err) {
       clearTimeout(timeout);
-      setFormError('Error inesperado al guardar.');
+      console.error('DealForm submit error:', err);
+      const message =
+        (err && typeof err === 'object' && 'message' in err && typeof err.message === 'string')
+          ? err.message
+          : 'Error inesperado al guardar.';
+      setFormError(message);
     } finally {
       setSaving(false);
     }

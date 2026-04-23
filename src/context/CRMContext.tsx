@@ -524,8 +524,12 @@ export function CRMProvider({ children }: { children: ReactNode }) {
   }, [organization?.id]);
 
   const addDeal = useCallback(async (data: Omit<Deal, 'id' | 'organizationId' | 'createdAt' | 'updatedAt'>): Promise<Deal | null> => {
-    if (!organization?.id) return null;
+    if (!organization?.id) {
+      throw new Error('No hay organización activa. Recargá la página e intentá de nuevo.');
+    }
     try {
+      const stage = data.stage || 'prospecto';
+      const probability = data.probability ?? getStageConfig(stage).probability;
       const { data: row, error: err } = await supabase
         .from('crm_deals')
         .insert({
@@ -534,8 +538,8 @@ export function CRMProvider({ children }: { children: ReactNode }) {
           client_id: data.clientId,
           name: data.name,
           description: data.description,
-          stage: data.stage || 'prospecto',
-          probability: data.probability || getStageConfig(data.stage || 'prospecto').probability,
+          stage,
+          probability,
           amount: data.amount || 0,
           currency: data.currency || 'ARS',
           monthly_fee: data.monthlyFee,
@@ -588,7 +592,7 @@ export function CRMProvider({ children }: { children: ReactNode }) {
     } catch (err) {
       console.error('Error adding deal:', err);
       setError('Error al crear deal');
-      return null;
+      throw err;
     }
   }, [organization?.id, appUser?.id, appUser?.fullName, getStageConfig]);
 

@@ -1,10 +1,10 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DragDropContext, Droppable, Draggable, type DropResult } from '@hello-pangea/dnd';
-import { Plus, Calendar, User, DollarSign, GripVertical, ChevronDown, ChevronRight, Trophy, XCircle, Users, UserCircle } from 'lucide-react';
+import { Plus, Calendar, User, DollarSign, GripVertical, ChevronDown, ChevronRight, Trophy, XCircle, Users, UserCircle, Trash2 } from 'lucide-react';
 import { useCRM } from '../../context/CRMContext';
 import { useAuth } from '../../context/AuthContext';
-import { TERMINAL_STAGES, type DealStage, type Deal } from '../../types/crm';
+import { type DealStage, type Deal } from '../../types/crm';
 import { parseLocalDate } from '../../utils/helpers';
 
 const formatCurrency = (amount: number): string => {
@@ -28,9 +28,10 @@ interface DealCardProps {
   deal: Deal;
   index: number;
   onClick: () => void;
+  onDelete: (e: React.MouseEvent) => void;
 }
 
-function DealCard({ deal, index, onClick }: DealCardProps) {
+function DealCard({ deal, index, onClick, onDelete }: DealCardProps) {
   return (
     <Draggable draggableId={deal.id} index={index}>
       {(provided, snapshot) => (
@@ -39,7 +40,7 @@ function DealCard({ deal, index, onClick }: DealCardProps) {
           {...provided.draggableProps}
           onClick={onClick}
           className={`
-            bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700
+            group bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700
             p-3 mb-2 cursor-pointer transition-all
             hover:shadow-md hover:border-gray-300 dark:hover:border-gray-600
             ${snapshot.isDragging ? 'shadow-lg ring-2 ring-blue-500 ring-opacity-50' : ''}
@@ -53,9 +54,19 @@ function DealCard({ deal, index, onClick }: DealCardProps) {
               <GripVertical className="w-4 h-4" />
             </div>
             <div className="flex-1 min-w-0">
-              <h4 className="font-medium text-gray-900 dark:text-white truncate text-sm">
-                {deal.name}
-              </h4>
+              <div className="flex items-start justify-between gap-2">
+                <h4 className="font-medium text-gray-900 dark:text-white truncate text-sm flex-1">
+                  {deal.name}
+                </h4>
+                <button
+                  onClick={onDelete}
+                  className="opacity-0 group-hover:opacity-100 transition-opacity text-gray-400 hover:text-red-600 dark:hover:text-red-400 flex-shrink-0"
+                  title="Eliminar oportunidad"
+                  aria-label="Eliminar oportunidad"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              </div>
 
               <div className="mt-2 space-y-1">
                 <div className="flex items-center gap-1.5 text-sm">
@@ -89,9 +100,10 @@ interface PipelineColumnProps {
   stage: DealStage;
   deals: Deal[];
   onCardClick: (dealId: string) => void;
+  onDeleteDeal: (deal: Deal) => void;
 }
 
-function PipelineColumn({ stage, deals, onCardClick, stageConfig }: PipelineColumnProps & { stageConfig: { label: string; headerBg: string } }) {
+function PipelineColumn({ stage, deals, onCardClick, onDeleteDeal, stageConfig }: PipelineColumnProps & { stageConfig: { label: string; headerBg: string } }) {
   const config = stageConfig;
   const totalValue = deals.reduce((sum, deal) => sum + deal.amount, 0);
 
@@ -128,6 +140,10 @@ function PipelineColumn({ stage, deals, onCardClick, stageConfig }: PipelineColu
                 deal={deal}
                 index={index}
                 onClick={() => onCardClick(deal.id)}
+                onDelete={(e) => {
+                  e.stopPropagation();
+                  onDeleteDeal(deal);
+                }}
               />
             ))}
             {provided.placeholder}
@@ -144,9 +160,10 @@ interface ClosedDealsSection {
   deals: Deal[];
   colorClass: string;
   onCardClick: (dealId: string) => void;
+  onDeleteDeal: (deal: Deal) => void;
 }
 
-function ClosedDealsSection({ title, icon, deals, colorClass, onCardClick }: ClosedDealsSection) {
+function ClosedDealsSection({ title, icon, deals, colorClass, onCardClick, onDeleteDeal }: ClosedDealsSection) {
   const [isExpanded, setIsExpanded] = useState(false);
   const totalValue = deals.reduce((sum, deal) => sum + deal.amount, 0);
 
@@ -177,11 +194,24 @@ function ClosedDealsSection({ title, icon, deals, colorClass, onCardClick }: Clo
             <div
               key={deal.id}
               onClick={() => onCardClick(deal.id)}
-              className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-3 cursor-pointer hover:shadow-md transition-shadow"
+              className="group bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-3 cursor-pointer hover:shadow-md transition-shadow"
             >
-              <h4 className="font-medium text-gray-900 dark:text-white truncate text-sm">
-                {deal.name}
-              </h4>
+              <div className="flex items-start justify-between gap-2">
+                <h4 className="font-medium text-gray-900 dark:text-white truncate text-sm flex-1">
+                  {deal.name}
+                </h4>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDeleteDeal(deal);
+                  }}
+                  className="opacity-0 group-hover:opacity-100 transition-opacity text-gray-400 hover:text-red-600 dark:hover:text-red-400 flex-shrink-0"
+                  title="Eliminar oportunidad"
+                  aria-label="Eliminar oportunidad"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              </div>
               <div className="mt-2 flex items-center gap-1.5 text-sm">
                 <DollarSign className="w-3.5 h-3.5 text-green-600 dark:text-green-400" />
                 <span className="font-semibold text-green-600 dark:text-green-400">
@@ -208,7 +238,7 @@ function ClosedDealsSection({ title, icon, deals, colorClass, onCardClick }: Clo
 
 export function DealPipeline() {
   const navigate = useNavigate();
-  const { deals, updateDealStage, loading, pipelineStages, getStageConfig } = useCRM();
+  const { deals, updateDealStage, deleteDeal, loading, pipelineStages, getStageConfig } = useCRM();
   const { appUser } = useAuth();
   const [showAll, setShowAll] = useState(true);
 
@@ -262,6 +292,14 @@ export function DealPipeline() {
     navigate('/crm/deals/new');
   };
 
+  const handleDeleteDeal = async (deal: Deal) => {
+    const confirmed = window.confirm(
+      `¿Eliminar la oportunidad "${deal.name}"? Esta acción no se puede deshacer.`
+    );
+    if (!confirmed) return;
+    await deleteDeal(deal.id);
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -308,6 +346,7 @@ export function DealPipeline() {
               stage={stage}
               deals={dealsByStage[stage] || []}
               onCardClick={handleCardClick}
+              onDeleteDeal={handleDeleteDeal}
               stageConfig={getStageConfig(stage)}
             />
           ))}
@@ -322,6 +361,7 @@ export function DealPipeline() {
           deals={dealsByStage.ganado}
           colorClass="bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800 text-green-800 dark:text-green-200"
           onCardClick={handleCardClick}
+          onDeleteDeal={handleDeleteDeal}
         />
 
         <ClosedDealsSection
@@ -330,6 +370,7 @@ export function DealPipeline() {
           deals={dealsByStage.perdido}
           colorClass="bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800 text-red-800 dark:text-red-200"
           onCardClick={handleCardClick}
+          onDeleteDeal={handleDeleteDeal}
         />
       </div>
     </div>

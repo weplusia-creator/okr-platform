@@ -10,6 +10,8 @@ import {
   Menu,
   X,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   LogOut,
   Sun,
   Moon,
@@ -216,7 +218,19 @@ export function Layout() {
           : MEMBER_NAV;
   const { theme, toggleTheme } = useTheme();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return localStorage.getItem('sidebarCollapsed') === 'true';
+  });
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
+
+  const toggleSidebarCollapsed = () => {
+    setSidebarCollapsed((prev) => {
+      const next = !prev;
+      localStorage.setItem('sidebarCollapsed', String(next));
+      return next;
+    });
+  };
 
   // Derive which section contains the current path
   const activeSectionLabel = useMemo(() => {
@@ -259,9 +273,9 @@ export function Layout() {
 
       {/* Sidebar */}
       <aside
-        className={`fixed top-1 left-0 z-50 h-[calc(100%-4px)] w-64 bg-white dark:bg-[#272324] border-r border-gray-200 dark:border-[#443f40] transform transition-transform duration-200 lg:translate-x-0 ${
+        className={`fixed top-1 left-0 z-50 h-[calc(100%-4px)] w-64 bg-white dark:bg-[#272324] border-r border-gray-200 dark:border-[#443f40] transform transition-transform duration-200 ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
-        }`}
+        } ${sidebarCollapsed ? 'lg:-translate-x-full' : 'lg:translate-x-0'}`}
       >
         <div className="flex flex-col h-full">
           {/* Logo */}
@@ -277,6 +291,14 @@ export function Layout() {
               className="lg:hidden p-1 hover:bg-gray-100 dark:hover:bg-[#3d3839] rounded"
             >
               <X className="w-5 h-5 text-gray-500" />
+            </button>
+            <button
+              onClick={toggleSidebarCollapsed}
+              className="hidden lg:block p-1 hover:bg-gray-100 dark:hover:bg-[#3d3839] rounded"
+              title="Ocultar menú"
+              aria-label="Ocultar menú"
+            >
+              <ChevronLeft className="w-5 h-5 text-gray-500" />
             </button>
           </div>
 
@@ -391,8 +413,20 @@ export function Layout() {
         <NotificationBell />
       </div>
 
+      {/* Desktop expand-sidebar button (only when collapsed) */}
+      {sidebarCollapsed && (
+        <button
+          onClick={toggleSidebarCollapsed}
+          className="hidden lg:flex fixed top-3 left-3 z-50 items-center justify-center w-9 h-9 bg-white dark:bg-[#272324] border border-gray-200 dark:border-[#443f40] rounded-lg shadow-sm hover:bg-gray-100 dark:hover:bg-[#3d3839] transition-colors"
+          title="Mostrar menú"
+          aria-label="Mostrar menú"
+        >
+          <ChevronRight className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+        </button>
+      )}
+
       {/* Main content */}
-      <div className="lg:pl-64 pt-1">
+      <div className={`${sidebarCollapsed ? '' : 'lg:pl-64'} pt-1 transition-[padding] duration-200`}>
         {/* Mobile header */}
         <header className="lg:hidden sticky top-1 z-30 bg-white dark:bg-[#272324] border-b border-gray-200 dark:border-[#443f40]">
           <div className="flex items-center justify-between h-16 px-4">

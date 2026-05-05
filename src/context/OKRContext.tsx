@@ -118,8 +118,8 @@ export function OKRProvider({ children }: { children: ReactNode }) {
   }, [organization?.id]);
 
   useEffect(() => {
-    fetchObjectives();
-  }, [fetchObjectives]);
+    if (organization?.id) fetchObjectives();
+  }, [organization?.id, fetchObjectives]);
 
   const filteredObjectives = useMemo(() => {
     return objectives.filter((obj) => {

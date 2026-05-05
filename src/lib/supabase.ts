@@ -32,13 +32,47 @@ const rawFetch = globalThis.fetch.bind(globalThis);
 // Coalesce concurrent refresh attempts
 let refreshingPromise: Promise<any> | null = null;
 
+/** Race a promise against a timeout. Rejects with TimeoutError if exceeded. */
+function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const t = setTimeout(() => {
+      const err = new Error(`${label} timed out after ${ms}ms`);
+      err.name = 'TimeoutError';
+      reject(err);
+    }, ms);
+    p.then(
+      (v) => { clearTimeout(t); resolve(v); },
+      (e) => { clearTimeout(t); reject(e); },
+    );
+  });
+}
+
+/** Fetch with a hard timeout — aborts the request if it hangs. */
+function fetchWithTimeout(input: RequestInfo | URL, init: RequestInit | undefined, ms: number): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(new DOMException('Request timeout', 'TimeoutError')), ms);
+
+  // If caller provided a signal, abort our controller when it aborts
+  if (init?.signal) {
+    if (init.signal.aborted) controller.abort(init.signal.reason);
+    else init.signal.addEventListener('abort', () => controller.abort(init.signal!.reason), { once: true });
+  }
+
+  return rawFetch(input, { ...init, signal: controller.signal })
+    .finally(() => clearTimeout(timer));
+}
+
+const REQUEST_TIMEOUT_MS = 30_000;
+const REFRESH_TIMEOUT_MS = 15_000;
+
 /**
  * Custom fetch that automatically retries once on 401/403 (expired JWT).
  * Skips retry for auth endpoints to avoid infinite recursion.
  * If refresh token is also expired, fires session-expired event.
+ * Hard timeout prevents the UI from hanging forever on stuck requests.
  */
 async function authRetryFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
-  const response = await rawFetch(input, init);
+  const response = await fetchWithTimeout(input, init, REQUEST_TIMEOUT_MS);
 
   if (response.status === 401 || response.status === 403) {
     const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : (input as Request).url;
@@ -46,8 +80,11 @@ async function authRetryFetch(input: RequestInfo | URL, init?: RequestInit): Pro
     // Don't retry auth endpoints (token refresh, sign in, etc.)
     if (!url.includes('/auth/')) {
       if (!refreshingPromise) {
-        refreshingPromise = supabaseClient.auth.refreshSession()
-          .finally(() => { refreshingPromise = null; });
+        refreshingPromise = withTimeout(
+          supabaseClient.auth.refreshSession(),
+          REFRESH_TIMEOUT_MS,
+          'refreshSession'
+        ).finally(() => { refreshingPromise = null; });
       }
 
       try {
@@ -56,12 +93,12 @@ async function authRetryFetch(input: RequestInfo | URL, init?: RequestInit): Pro
         if (newToken) {
           const retryHeaders = new Headers(init?.headers);
           retryHeaders.set('Authorization', `Bearer ${newToken}`);
-          return rawFetch(input, { ...init, headers: retryHeaders });
+          return fetchWithTimeout(input, { ...init, headers: retryHeaders }, REQUEST_TIMEOUT_MS);
         }
         // refresh returned no session → session is dead
         notifySessionExpired();
       } catch {
-        // Refresh token itself expired → session is dead
+        // Refresh token itself expired or timed out → session is dead
         notifySessionExpired();
       }
     }
@@ -128,6 +165,16 @@ supabaseClient.auth.onAuthStateChange((event, session) => {
 
 // ── Proactive session refresh when tab becomes visible ──────────
 // Handles: user leaves tab open overnight, laptop sleeps, etc.
+function refreshSessionSafely(reason: string) {
+  withTimeout(
+    supabaseClient.auth.refreshSession(),
+    REFRESH_TIMEOUT_MS,
+    `refreshSession (${reason})`
+  ).catch((err) => {
+    console.warn(`[supabase] refreshSession failed (${reason}):`, err);
+  });
+}
+
 if (typeof document !== 'undefined') {
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') {
@@ -138,11 +185,11 @@ if (typeof document !== 'undefined') {
         const expiresAt = payload.exp * 1000;
         // Refresh if token expires within 5 minutes
         if (expiresAt < Date.now() + 300_000) {
-          supabaseClient.auth.refreshSession().catch(() => {});
+          refreshSessionSafely('visibility');
         }
       } catch {
         // Can't decode JWT — try refreshing anyway
-        supabaseClient.auth.refreshSession().catch(() => {});
+        refreshSessionSafely('visibility-decode');
       }
     }
   });
@@ -152,8 +199,16 @@ if (typeof document !== 'undefined') {
 // Supabase auto-refresh uses setTimeout which gets throttled in
 // background tabs. This interval ensures we catch expired tokens
 // even if the tab was backgrounded for a while.
+// Guarded so HMR / repeated module evaluation doesn't stack intervals.
+declare global {
+  // eslint-disable-next-line no-var
+  var __supabaseTokenCheckInterval: ReturnType<typeof setInterval> | undefined;
+}
 if (typeof window !== 'undefined') {
-  setInterval(() => {
+  if (globalThis.__supabaseTokenCheckInterval) {
+    clearInterval(globalThis.__supabaseTokenCheckInterval);
+  }
+  globalThis.__supabaseTokenCheckInterval = setInterval(() => {
     const token = getAccessTokenDirect();
     if (!token) return;
     try {
@@ -161,10 +216,10 @@ if (typeof window !== 'undefined') {
       const expiresAt = payload.exp * 1000;
       // Refresh if token expires within 5 minutes
       if (expiresAt < Date.now() + 300_000) {
-        supabaseClient.auth.refreshSession().catch(() => {});
+        refreshSessionSafely('interval');
       }
     } catch {
-      supabaseClient.auth.refreshSession().catch(() => {});
+      refreshSessionSafely('interval-decode');
     }
   }, 4 * 60 * 1000); // every 4 minutes
 }
@@ -210,9 +265,13 @@ export async function getAccessTokenFresh(): Promise<string> {
 
     // Token is expired or about to expire — refresh
     try {
-      const { data } = await supabaseClient.auth.refreshSession();
+      const { data } = await withTimeout(
+        supabaseClient.auth.refreshSession(),
+        REFRESH_TIMEOUT_MS,
+        'refreshSession (getAccessTokenFresh)'
+      );
       if (data?.session?.access_token) return data.session.access_token;
-    } catch { /* refresh failed */ }
+    } catch { /* refresh failed or timed out */ }
 
     // Fallback to stored token (might be stale, but better than nothing)
     return stored || '';

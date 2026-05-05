@@ -94,6 +94,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           userType: (userData.user_type as UserType) || 'consultant',
           clientId: userData.client_id || null,
           birthDate: userData.birth_date || null,
+          phone: userData.phone || null,
           createdAt: userData.created_at,
         });
 
@@ -148,10 +149,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let isMounted = true;
 
     // Safety timeout: if session hasn't loaded after 5s, retry once before giving up
-    let safetyFired = false;
     const timeout = setTimeout(() => {
       if (!isMounted || session || user) return;
-      safetyFired = true;
       // One last attempt before giving up
       supabase.auth.getSession().then(({ data: { session: s } }) => {
         if (!isMounted) return;
@@ -164,7 +163,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         } else {
           setLoading(false);
         }
-      }).catch(() => {
+      }).catch((err) => {
+        console.warn('[AuthContext] getSession (fallback) failed:', err);
         if (isMounted) setLoading(false);
       });
     }, 5000);

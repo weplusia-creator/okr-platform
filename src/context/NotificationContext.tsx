@@ -58,10 +58,10 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     }
   }, [appUser?.id]);
 
-  // Load on mount
+  // Load when user is ready
   useEffect(() => {
-    fetchNotifications();
-  }, [fetchNotifications]);
+    if (appUser?.id) fetchNotifications();
+  }, [appUser?.id, fetchNotifications]);
 
   // Realtime subscription
   useEffect(() => {

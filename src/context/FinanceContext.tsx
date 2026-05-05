@@ -147,11 +147,13 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
         notes: client.notes || null,
       };
       if (client.cuit != null) row.cuit = client.cuit;
+      if (client.condicionIva != null) row.condicion_iva = client.condicionIva;
       if (client.industry != null) row.industry = client.industry;
       if (client.employeeCount != null) row.employee_count = client.employeeCount;
       if (client.website != null) row.website = client.website;
       if (client.contactName != null) row.contact_name = client.contactName;
       if (client.contactRole != null) row.contact_role = client.contactRole;
+      if (client.logoUrl != null) row.logo_url = client.logoUrl;
 
       const { data: inserted, error: insertErr } = await supabase
         .from('clients')
@@ -202,11 +204,13 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
       if (updates.phone !== undefined) row.phone = updates.phone;
       if (updates.address !== undefined) row.address = updates.address;
       if (updates.cuit !== undefined) row.cuit = updates.cuit;
+      if (updates.condicionIva !== undefined) row.condicion_iva = updates.condicionIva;
       if (updates.industry !== undefined) row.industry = updates.industry;
       if (updates.employeeCount !== undefined) row.employee_count = updates.employeeCount;
       if (updates.website !== undefined) row.website = updates.website;
       if (updates.contactName !== undefined) row.contact_name = updates.contactName;
       if (updates.contactRole !== undefined) row.contact_role = updates.contactRole;
+      if (updates.logoUrl !== undefined) row.logo_url = updates.logoUrl;
       if (updates.notes !== undefined) row.notes = updates.notes;
 
       if (Object.keys(row).length === 0) return true;

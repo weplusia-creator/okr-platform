@@ -3,9 +3,14 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/png" href="/wau-logo.png" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="apple-touch-icon" href="/icon-192.png" />
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="description" content="WAU Consultora - Plataforma de gestión integral" />
     <meta name="theme-color" content="#3100E2" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="WAU" />
     <meta property="og:title" content="WAU Consultora" />
     <meta property="og:description" content="WAU Consultora - Plataforma de gestión integral" />
     <meta property="og:type" content="website" />
@@ -22,5 +27,30 @@
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+    <script>
+      // Defensively unregister any previously installed service worker and
+      // clear its caches. Old SW versions serve stale JS bundles that ignore
+      // shipped fixes. After the first cleanup, force ONE hard reload so the
+      // browser fetches fresh JS instead of the SW-cached copy already loaded.
+      (function () {
+        if (!('serviceWorker' in navigator)) return;
+        var ALREADY = 'sw-cleanup-done';
+        navigator.serviceWorker.getRegistrations().then(function (regs) {
+          var hadSw = regs.length > 0;
+          regs.forEach(function (r) { r.unregister(); });
+          var cachePromise = (window.caches && caches.keys)
+            ? caches.keys().then(function (keys) {
+                return Promise.all(keys.map(function (k) { return caches.delete(k); }));
+              })
+            : Promise.resolve();
+          cachePromise.then(function () {
+            if (hadSw && !sessionStorage.getItem(ALREADY)) {
+              sessionStorage.setItem(ALREADY, '1');
+              location.reload();
+            }
+          });
+        }).catch(function () {});
+      })();
+    </script>
   </body>
 </html>

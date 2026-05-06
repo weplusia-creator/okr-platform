@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { supabase, getAccessTokenFresh } from '../../lib/supabase';
+import { fetchWithTimeout } from '../../lib/fetchTimeout';
 import { useAuth } from '../../context/AuthContext';
 
 const TEAM = [
@@ -97,7 +98,7 @@ export function BMCCreateUsersLB() {
           let created = false;
 
           try {
-            const res = await fetch('/api/create-user', {
+            const res = await fetchWithTimeout('/api/create-user', {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',

@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useState, useMemo, useEffect, type FormEvent } from 'react';
 import {
   ChevronDown,
   ChevronUp,
@@ -8,6 +8,7 @@ import {
   Calendar,
   User,
   Target,
+  ListTodo,
 } from 'lucide-react';
 import type { Objective } from '../types';
 import { ProgressBar } from './ProgressBar';
@@ -20,18 +21,40 @@ import { calculateObjectiveProgress, formatDate } from '../utils/helpers';
 
 interface ObjectiveCardProps {
   objective: Objective;
+  defaultExpanded?: boolean;
 }
 
-export function ObjectiveCard({ objective }: ObjectiveCardProps) {
-  const { deleteObjective, addKeyResult } = useOKR();
+export function ObjectiveCard({ objective, defaultExpanded }: ObjectiveCardProps) {
+  const { deleteObjective, addKeyResult, initiatives } = useOKR();
   const { isAdmin } = useAuth();
-  const [isExpanded, setIsExpanded] = useState(false);
+
+  // Default-expand only when there are few KRs to keep things scannable.
+  const initialExpanded =
+    defaultExpanded !== undefined
+      ? defaultExpanded
+      : objective.keyResults.length > 0 && objective.keyResults.length <= 3;
+  const [isExpanded, setIsExpanded] = useState(initialExpanded);
+
+  useEffect(() => {
+    if (defaultExpanded !== undefined) setIsExpanded(defaultExpanded);
+  }, [defaultExpanded]);
+
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showAddKR, setShowAddKR] = useState(false);
   const [newKRTitle, setNewKRTitle] = useState('');
 
   const progress = calculateObjectiveProgress(objective);
+
+  const objInitiatives = useMemo(() => {
+    const krIds = new Set(objective.keyResults.map(kr => kr.id));
+    return initiatives.filter(i => krIds.has(i.keyResultId));
+  }, [initiatives, objective.keyResults]);
+
+  const initiativeStats = useMemo(() => {
+    const done = objInitiatives.filter(i => i.status === 'done').length;
+    return { done, total: objInitiatives.length };
+  }, [objInitiatives]);
 
   const handleDelete = () => {
     deleteObjective(objective.id);
@@ -97,7 +120,7 @@ export function ObjectiveCard({ objective }: ObjectiveCardProps) {
           </div>
 
           {/* Meta info */}
-          <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500 dark:text-gray-400">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-sm text-gray-500 dark:text-gray-400">
             <div className="flex items-center gap-1.5">
               <User className="w-4 h-4" />
               <span>{objective.owner}</span>
@@ -110,8 +133,16 @@ export function ObjectiveCard({ objective }: ObjectiveCardProps) {
             </div>
             <div className="flex items-center gap-1.5">
               <Target className="w-4 h-4" />
-              <span>{objective.keyResults.length} Key Results</span>
+              <span>{objective.keyResults.length} KR</span>
             </div>
+            {initiativeStats.total > 0 && (
+              <div className="flex items-center gap-1.5">
+                <ListTodo className="w-4 h-4" />
+                <span>
+                  {initiativeStats.done}/{initiativeStats.total} iniciativas
+                </span>
+              </div>
+            )}
           </div>
         </div>
 
@@ -123,12 +154,12 @@ export function ObjectiveCard({ objective }: ObjectiveCardProps) {
           {isExpanded ? (
             <>
               <ChevronUp className="w-4 h-4" />
-              Ocultar Key Results
+              Ocultar detalle
             </>
           ) : (
             <>
               <ChevronDown className="w-4 h-4" />
-              Ver Key Results ({objective.keyResults.length})
+              Ver Key Results e iniciativas
             </>
           )}
         </button>
@@ -151,7 +182,6 @@ export function ObjectiveCard({ objective }: ObjectiveCardProps) {
                 ))
               )}
 
-              {/* Add KR inline form */}
               {showAddKR ? (
                 <form onSubmit={handleAddKeyResult} className="flex items-center gap-2 mt-3">
                   <input
@@ -190,14 +220,12 @@ export function ObjectiveCard({ objective }: ObjectiveCardProps) {
         )}
       </div>
 
-      {/* Edit Modal */}
       <ObjectiveForm
         isOpen={showEditModal}
         onClose={() => setShowEditModal(false)}
         objective={objective}
       />
 
-      {/* Delete Confirmation */}
       {showDeleteConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase, getAccessTokenFresh } from '../../lib/supabase';
+import { fetchWithTimeout } from '../../lib/fetchTimeout';
 import {
   ArrowLeft,
   ArrowRight,
@@ -214,7 +215,7 @@ export function ProposalSlideEditor() {
       };
 
       const url = `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/proposals?id=eq.${id}&select=id,central_gap,gap_title,gap_description,phases,strengths,specific_objectives`;
-      const resp = await fetch(url, {
+      const resp = await fetchWithTimeout(url, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',

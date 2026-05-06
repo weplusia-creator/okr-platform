@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useCallback, useEffect, useMemo, type ReactNode } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { supabase, getAccessTokenFresh } from '../lib/supabase';
+import { fetchWithTimeout } from '../lib/fetchTimeout';
 import { useAuth } from './AuthContext';
 import { notify } from '../lib/notify';
 import { todayLocalISO } from '../utils/helpers';
@@ -607,7 +608,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
 
           let created = false;
           try {
-            const res = await fetch('/api/create-user', {
+            const res = await fetchWithTimeout('/api/create-user', {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',

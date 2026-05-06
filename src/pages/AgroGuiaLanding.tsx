@@ -17,6 +17,7 @@ import {
   Sprout,
   FileText,
 } from 'lucide-react';
+import { fetchWithTimeout } from '../lib/fetchTimeout';
 
 const GUIDE_HIGHLIGHTS = [
   { text: 'Definí tu propuesta de valor como asesor', icon: Target },
@@ -38,7 +39,7 @@ export function AgroGuiaLanding() {
     try {
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
       const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-      const resp = await fetch(`${supabaseUrl}/rest/v1/rpc/submit_landing_form`, {
+      const resp = await fetchWithTimeout(`${supabaseUrl}/rest/v1/rpc/submit_landing_form`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

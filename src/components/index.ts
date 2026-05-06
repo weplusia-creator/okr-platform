@@ -6,6 +6,7 @@ export { ObjectivesList } from './ObjectivesList';
 export { ObjectiveCard } from './ObjectiveCard';
 export { ObjectiveForm } from './ObjectiveForm';
 export { KeyResultItem } from './KeyResultItem';
+export { InitiativeRow } from './InitiativeRow';
 export { ProgressBar } from './ProgressBar';
 export { StatusBadge } from './StatusBadge';
 export { Modal } from './Modal';

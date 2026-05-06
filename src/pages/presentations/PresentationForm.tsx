@@ -17,6 +17,7 @@ import {
 import { usePresentations } from '../../context/PresentationContext';
 import { useAuth } from '../../context/AuthContext';
 import { supabase, getAccessTokenFresh } from '../../lib/supabase';
+import { fetchWithTimeout, AI_TIMEOUT_MS } from '../../lib/fetchTimeout';
 import { SLIDE_BG_COLORS, SLIDE_LAYOUT_CONFIG, getSlideAccentColor } from '../../types/presentations';
 import type { SlideLayout, PresentationSlide } from '../../types/presentations';
 
@@ -118,7 +119,7 @@ export function PresentationForm() {
         return;
       }
 
-      const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      const resp = await fetchWithTimeout('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -166,7 +167,7 @@ Texto:
 ${aiText}`,
           }],
         }),
-      });
+      }, AI_TIMEOUT_MS);
 
       if (!resp.ok) {
         const errBody = await resp.text().catch(() => '');
@@ -272,7 +273,7 @@ ${aiText}`,
 
   const directInsert = async (table: string, body: Record<string, any>): Promise<any> => {
     const token = await getAccessToken();
-    const resp = await fetch(`${supabaseUrl}/rest/v1/${table}`, {
+    const resp = await fetchWithTimeout(`${supabaseUrl}/rest/v1/${table}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -292,7 +293,7 @@ ${aiText}`,
 
   const directUpdate = async (table: string, id: string, body: Record<string, any>): Promise<void> => {
     const token = await getAccessToken();
-    const resp = await fetch(`${supabaseUrl}/rest/v1/${table}?id=eq.${id}`, {
+    const resp = await fetchWithTimeout(`${supabaseUrl}/rest/v1/${table}?id=eq.${id}`, {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
@@ -309,7 +310,7 @@ ${aiText}`,
 
   const directDelete = async (table: string, id: string): Promise<void> => {
     const token = await getAccessToken();
-    const resp = await fetch(`${supabaseUrl}/rest/v1/${table}?id=eq.${id}`, {
+    const resp = await fetchWithTimeout(`${supabaseUrl}/rest/v1/${table}?id=eq.${id}`, {
       method: 'DELETE',
       headers: {
         'apikey': supabaseKey,

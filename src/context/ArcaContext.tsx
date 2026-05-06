@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
 import { supabase, getAccessTokenFresh } from '../lib/supabase';
+import { fetchWithTimeout } from '../lib/fetchTimeout';
 import { useAuth } from './AuthContext';
 import type {
   OrganizationCuit,
@@ -383,7 +384,7 @@ export function ArcaProvider({ children }: { children: ReactNode }) {
       return { success: false, arcaInvoiceId: '', error: 'No autenticado' };
     }
     try {
-      const res = await fetch('/api/arca/invoices/emit', {
+      const res = await fetchWithTimeout('/api/arca/invoices/emit', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -419,7 +420,7 @@ export function ArcaProvider({ children }: { children: ReactNode }) {
       return { success: false, arcaInvoiceId: '', error: 'No autenticado' };
     }
     try {
-      const res = await fetch('/api/arca/invoices/emit', {
+      const res = await fetchWithTimeout('/api/arca/invoices/emit', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -468,7 +469,7 @@ export function ArcaProvider({ children }: { children: ReactNode }) {
         throw new Error('No hay sesión activa. Recargá la página.');
       }
 
-      const response = await fetch('/api/arca/config/upload-cert', {
+      const response = await fetchWithTimeout('/api/arca/config/upload-cert', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

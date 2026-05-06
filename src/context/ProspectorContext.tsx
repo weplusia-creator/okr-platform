@@ -17,12 +17,13 @@ import type {
   ScrapeJob,
 } from '../types/prospector';
 import { calculateProspectScore, DEFAULT_SCORING_CRITERIA } from '../types/prospector';
+import { fetchWithTimeout, AI_TIMEOUT_MS } from '../lib/fetchTimeout';
 
 // ===== API helper =====
 
 async function apiCall<T>(path: string, body: Record<string, unknown>): Promise<T> {
   const token = await getAccessTokenFresh();
-  const res = await fetch(path, {
+  const res = await fetchWithTimeout(path, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -51,7 +52,7 @@ Extrae: companyName (obligatorio), contactName (obligatorio, si no hay usa "N/A"
 
 Responde UNICAMENTE con un JSON array. Si no encuentras prospectos, responde con [].`;
 
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
+  const response = await fetchWithTimeout('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -64,7 +65,7 @@ Responde UNICAMENTE con un JSON array. Si no encuentras prospectos, responde con
       max_tokens: 4096,
       messages: [{ role: 'user', content: prompt }],
     }),
-  });
+  }, AI_TIMEOUT_MS);
 
   if (!response.ok) throw new Error(`Claude API error: ${response.status}`);
   const result = await response.json();

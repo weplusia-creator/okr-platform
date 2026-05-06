@@ -2,16 +2,19 @@ import { useState } from 'react';
 import { Filters, StatsCards, ObjectivesList, ObjectiveForm } from '../components';
 import { useOKR } from '../context/OKRContext';
 import { useAuth } from '../context/AuthContext';
-import { Loader2, Plus } from 'lucide-react';
+import { Loader2, Plus, ChevronsUpDown, ChevronsDownUp } from 'lucide-react';
 
 export function Dashboard() {
-  const { loading, error } = useOKR();
+  const { loading, error, filteredObjectives } = useOKR();
   const { organization } = useAuth();
   const [showNewObjective, setShowNewObjective] = useState(false);
+  const [forceExpanded, setForceExpanded] = useState<boolean | undefined>(undefined);
+
+  const allExpanded = forceExpanded === true;
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
             Dashboard de OKRs
@@ -24,10 +27,22 @@ export function Dashboard() {
             )}
           </p>
         </div>
-        <button onClick={() => setShowNewObjective(true)} className="btn-primary">
-          <Plus className="w-5 h-5" />
-          Nuevo Objetivo
-        </button>
+        <div className="flex items-center gap-2">
+          {filteredObjectives.length > 0 && (
+            <button
+              onClick={() => setForceExpanded(allExpanded ? false : true)}
+              className="btn-secondary"
+              title={allExpanded ? 'Contraer todos' : 'Expandir todos'}
+            >
+              {allExpanded ? <ChevronsDownUp className="w-4 h-4" /> : <ChevronsUpDown className="w-4 h-4" />}
+              <span className="hidden sm:inline">{allExpanded ? 'Contraer' : 'Expandir'} todo</span>
+            </button>
+          )}
+          <button onClick={() => setShowNewObjective(true)} className="btn-primary">
+            <Plus className="w-5 h-5" />
+            Nuevo Objetivo
+          </button>
+        </div>
       </div>
 
       <ObjectiveForm isOpen={showNewObjective} onClose={() => setShowNewObjective(false)} />
@@ -46,7 +61,7 @@ export function Dashboard() {
         <>
           <StatsCards />
           <Filters />
-          <ObjectivesList />
+          <ObjectivesList forceExpanded={forceExpanded} />
         </>
       )}
     </div>

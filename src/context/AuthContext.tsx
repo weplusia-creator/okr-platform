@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from 'react';
 import type { User, Session } from '@supabase/supabase-js';
 import { supabase, getAccessTokenFresh, onSessionExpired } from '../lib/supabase';
+import { fetchWithTimeout } from '../lib/fetchTimeout';
 import type { AppUser, Organization, UserRole, UserType } from '../types';
 
 interface AuthContextType {
@@ -406,7 +407,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const token = await getAccessTokenFresh();
     if (!token) return null;
     try {
-      const res = await fetch('/api/create-user', {
+      const res = await fetchWithTimeout('/api/create-user', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -477,7 +478,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!token) return false;
     try {
       // Try serverless function first (works on Vercel)
-      const res = await fetch('/api/delete-user', {
+      const res = await fetchWithTimeout('/api/delete-user', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

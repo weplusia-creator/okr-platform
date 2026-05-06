@@ -2,7 +2,12 @@ import { Inbox } from 'lucide-react';
 import { useOKR } from '../context/OKRContext';
 import { ObjectiveCard } from './ObjectiveCard';
 
-export function ObjectivesList() {
+interface ObjectivesListProps {
+  /** When set, overrides each card's default expanded state. */
+  forceExpanded?: boolean;
+}
+
+export function ObjectivesList({ forceExpanded }: ObjectivesListProps) {
   const { filteredObjectives, filters } = useOKR();
 
   if (filteredObjectives.length === 0) {
@@ -26,7 +31,11 @@ export function ObjectivesList() {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
       {filteredObjectives.map((objective) => (
-        <ObjectiveCard key={objective.id} objective={objective} />
+        <ObjectiveCard
+          key={objective.id}
+          objective={objective}
+          defaultExpanded={forceExpanded}
+        />
       ))}
     </div>
   );

@@ -14,6 +14,7 @@ import {
   LayoutList,
   Presentation,
 } from 'lucide-react';
+import { fetchWithTimeout, AI_TIMEOUT_MS } from '../../lib/fetchTimeout';
 import { useProposals } from '../../context/ProposalContext';
 import { useProjects } from '../../context/ProjectContext';
 import { useCRM } from '../../context/CRMContext';
@@ -317,7 +318,7 @@ export function ProposalForm() {
       const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY;
       if (!apiKey) { alert('API key de Anthropic no configurada'); return; }
 
-      const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      const resp = await fetchWithTimeout('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -350,7 +351,7 @@ Texto del cliente:
 ${aiRawText}`,
           }],
         }),
-      });
+      }, AI_TIMEOUT_MS);
 
       if (!resp.ok) throw new Error(`API error: ${resp.status}`);
       const data = await resp.json();

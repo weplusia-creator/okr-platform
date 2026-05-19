@@ -29,8 +29,21 @@ const locks = new Map<string, Promise<any>>();
 // Save native fetch before any wrapping
 const rawFetch = globalThis.fetch.bind(globalThis);
 
-// Coalesce concurrent refresh attempts
+// Coalesce concurrent refresh attempts — single in-flight refresh shared by
+// authRetryFetch, refreshSessionSafely (visibility/interval), and
+// getAccessTokenFresh. Without this, two refreshes can race: the first
+// consumes the refresh_token, the second hangs or fails opaquely.
 let refreshingPromise: Promise<any> | null = null;
+function coalescedRefresh(reason: string): Promise<any> {
+  if (!refreshingPromise) {
+    refreshingPromise = withTimeout(
+      supabaseClient.auth.refreshSession(),
+      REFRESH_TIMEOUT_MS,
+      `refreshSession (${reason})`,
+    ).finally(() => { refreshingPromise = null; });
+  }
+  return refreshingPromise;
+}
 
 /** Race a promise against a timeout. Rejects with TimeoutError if exceeded. */
 function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
@@ -79,16 +92,8 @@ async function authRetryFetch(input: RequestInfo | URL, init?: RequestInit): Pro
 
     // Don't retry auth endpoints (token refresh, sign in, etc.)
     if (!url.includes('/auth/')) {
-      if (!refreshingPromise) {
-        refreshingPromise = withTimeout(
-          supabaseClient.auth.refreshSession(),
-          REFRESH_TIMEOUT_MS,
-          'refreshSession'
-        ).finally(() => { refreshingPromise = null; });
-      }
-
       try {
-        const result = await refreshingPromise;
+        const result = await coalescedRefresh('401-retry');
         const newToken = result?.data?.session?.access_token;
         if (newToken) {
           const retryHeaders = new Headers(init?.headers);
@@ -166,12 +171,9 @@ supabaseClient.auth.onAuthStateChange((event, session) => {
 
 // ── Proactive session refresh when tab becomes visible ──────────
 // Handles: user leaves tab open overnight, laptop sleeps, etc.
+// Goes through coalescedRefresh so it never races with authRetryFetch.
 function refreshSessionSafely(reason: string) {
-  withTimeout(
-    supabaseClient.auth.refreshSession(),
-    REFRESH_TIMEOUT_MS,
-    `refreshSession (${reason})`
-  ).catch((err) => {
+  coalescedRefresh(reason).catch((err) => {
     console.warn(`[supabase] refreshSession failed (${reason}):`, err);
   });
 }
@@ -264,13 +266,9 @@ export async function getAccessTokenFresh(): Promise<string> {
       }
     }
 
-    // Token is expired or about to expire — refresh
+    // Token is expired or about to expire — refresh (coalesced)
     try {
-      const { data } = await withTimeout(
-        supabaseClient.auth.refreshSession(),
-        REFRESH_TIMEOUT_MS,
-        'refreshSession (getAccessTokenFresh)'
-      );
+      const { data } = await coalescedRefresh('getAccessTokenFresh');
       if (data?.session?.access_token) return data.session.access_token;
     } catch { /* refresh failed or timed out */ }
 

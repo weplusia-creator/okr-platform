@@ -1775,6 +1775,13 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
   const addNovedad = useCallback(async (projectId: string, content: string): Promise<ProjectNovedad> => {
     if (!appUser?.id) throw new Error('No user');
 
+    // Pre-flight: force a token refresh if needed before touching the DB.
+    // Without this, a stale token from a backgrounded tab triggers a 30s
+    // request timeout + retry chain that can exceed the handler's hard
+    // timeout and surface as "Tiempo de espera agotado".
+    const token = await getAccessTokenFresh();
+    if (!token) throw new Error('Sesión expirada. Cerrá sesión y volvé a iniciar.');
+
     console.log('[addNovedad] inserting novedad for project', projectId);
     const { data, error: err } = await db
       .from('project_novedades')

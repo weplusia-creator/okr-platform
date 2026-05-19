@@ -1,26 +1,25 @@
 import { createClient } from '@supabase/supabase-js';
-import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { WSAAClient } from '../../../src/lib/arca/wsaa.js';
-import { WSFEV1Client } from '../../../src/lib/arca/wsfev1.js';
-import type { FECAERequestParams, IVADetail } from '../../../src/lib/arca/wsfev1.js';
-import { decryptData } from '../../../src/lib/arca/crypto.js';
+import type { Context, Config } from '@netlify/functions';
+import { WSAAClient } from '../../src/lib/arca/wsaa.js';
+import { WSFEV1Client } from '../../src/lib/arca/wsfev1.js';
+import type { FECAERequestParams, IVADetail } from '../../src/lib/arca/wsfev1.js';
+import { decryptData } from '../../src/lib/arca/crypto.js';
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+export default async (req: Request, _context: Context) => {
   if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
+    return Response.json({ error: 'Method not allowed' }, { status: 405 });
   }
 
-  // --- Auth validation (same pattern as create-user.ts) ---
-  const authHeader = req.headers.authorization;
+  const authHeader = req.headers.get('authorization');
   if (!authHeader) {
-    return res.status(401).json({ error: 'Unauthorized' });
+    return Response.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 
   if (!serviceRoleKey) {
-    return res.status(500).json({ error: 'Service role key not configured' });
+    return Response.json({ error: 'Service role key not configured' }, { status: 500 });
   }
 
   const adminClient = createClient(supabaseUrl, serviceRoleKey, {
@@ -34,31 +33,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const token = authHeader.replace('Bearer ', '');
   const { data: { user: caller }, error: authErr } = await anonClient.auth.getUser(token);
   if (authErr || !caller) {
-    return res.status(401).json({ error: 'Invalid token' });
+    return Response.json({ error: 'Invalid token' }, { status: 401 });
   }
 
   const { data: callerData } = await adminClient.from('users').select('role, organization_id').eq('id', caller.id).single();
   if (callerData?.role !== 'admin' && callerData?.role !== 'super_admin') {
-    return res.status(403).json({ error: 'Only admins can emit invoices via ARCA' });
+    return Response.json({ error: 'Only admins can emit invoices via ARCA' }, { status: 403 });
   }
 
-  // --- Parse request body ---
-  const {
-    invoiceId,
-    organizationCuitId,
-    puntoVentaId,
-    tipoComprobante,
-    items,
-  } = req.body;
+  const body = await req.json().catch(() => ({}));
+  const { invoiceId, organizationCuitId, puntoVentaId, tipoComprobante, items } = body;
 
   if (!invoiceId || !organizationCuitId || !puntoVentaId || !tipoComprobante) {
-    return res.status(400).json({
+    return Response.json({
       error: 'Missing required fields: invoiceId, organizationCuitId, puntoVentaId, tipoComprobante',
-    });
+    }, { status: 400 });
   }
 
   try {
-    // --- MOCK MODE ---
     if (process.env.ARCA_MOCK === 'true') {
       const mockCae = '71234567890123';
       const mockCaeVto = new Date(Date.now() + 10 * 24 * 60 * 60 * 1000)
@@ -67,7 +59,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         .replace(/-/g, '');
       const mockNumero = Math.floor(Math.random() * 99999) + 1;
 
-      // Update invoice with mock data
       await adminClient
         .from('invoices')
         .update({
@@ -79,7 +70,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         })
         .eq('id', invoiceId);
 
-      // Store in arca_invoices
       await adminClient.from('arca_invoices').insert({
         invoice_id: invoiceId,
         organization_cuit_id: organizationCuitId,
@@ -94,7 +84,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         created_at: new Date().toISOString(),
       });
 
-      return res.status(200).json({
+      return Response.json({
         success: true,
         mock: true,
         cae: mockCae,
@@ -103,7 +93,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
     }
 
-    // --- Fetch CUIT configuration ---
     const { data: cuitConfig, error: cuitError } = await adminClient
       .from('organization_cuits')
       .select('*')
@@ -111,23 +100,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .single();
 
     if (cuitError || !cuitConfig) {
-      return res.status(404).json({ error: 'CUIT configuration not found' });
+      return Response.json({ error: 'CUIT configuration not found' }, { status: 404 });
     }
 
-    // Validate certificate exists
     if (!cuitConfig.certificate_encrypted || !cuitConfig.private_key_encrypted) {
-      return res.status(400).json({
+      return Response.json({
         error: 'No se encontró certificado para este CUIT. Subí el certificado y la clave privada desde la configuración de ARCA.',
-      });
+      }, { status: 400 });
     }
 
-    // Decrypt certificate and key
     const certificate = decryptData(cuitConfig.certificate_encrypted);
     const privateKey = decryptData(cuitConfig.private_key_encrypted);
     const cuit = cuitConfig.cuit;
     const environment = cuitConfig.environment || 'testing';
 
-    // --- Check/refresh WSAA token ---
     let wsaaToken: string;
     let wsaaSign: string;
 
@@ -148,14 +134,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       wsaaToken = existingToken.token;
       wsaaSign = existingToken.sign;
     } else {
-      // Request new token from WSAA
       const wsaaClient = new WSAAClient(certificate, privateKey, environment);
       const newToken = await wsaaClient.getToken('wsfe');
 
       wsaaToken = newToken.token;
       wsaaSign = newToken.sign;
 
-      // Upsert token in database
       if (existingToken) {
         await adminClient
           .from('arca_tokens')
@@ -179,7 +163,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     }
 
-    // --- Fetch invoice data ---
     const { data: invoice, error: invoiceError } = await adminClient
       .from('invoices')
       .select('*, invoice_items(*), clients(*)')
@@ -187,27 +170,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .single();
 
     if (invoiceError || !invoice) {
-      return res.status(404).json({ error: 'Invoice not found' });
+      return Response.json({ error: 'Invoice not found' }, { status: 404 });
     }
 
-    // --- Get ultimo autorizado ---
     const wsfev1 = new WSFEV1Client(wsaaToken, wsaaSign, cuit, environment);
     const ultimoAutorizado = await wsfev1.getUltimoAutorizado(puntoVentaId, tipoComprobante);
     const nuevoNumero = ultimoAutorizado + 1;
 
-    // --- Build invoice parameters ---
     const today = new Date().toISOString().slice(0, 10).replace(/-/g, '');
 
-    // Determine document type and number from client
     const client = invoice.clients;
-    let docTipo = 99; // Consumidor Final by default
+    let docTipo = 99;
     let docNro = '0';
     if (client?.cuit) {
-      docTipo = 80; // CUIT
+      docTipo = 80;
       docNro = client.cuit.replace(/-/g, '');
     }
 
-    // Calculate IVA details from items
     const ivaDetails: IVADetail[] = [];
     const invoiceItems = items || invoice.invoice_items || [];
     let impNeto = 0;
@@ -218,15 +197,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const ivaRate = item.iva_rate || 21;
       const ivaImporte = baseImp * (ivaRate / 100);
 
-      // Map rate to ARCA IVA ID
-      let ivaId = 5; // 21% default
+      let ivaId = 5;
       if (ivaRate === 10.5) ivaId = 4;
       else if (ivaRate === 27) ivaId = 6;
       else if (ivaRate === 5) ivaId = 8;
       else if (ivaRate === 2.5) ivaId = 9;
       else if (ivaRate === 0) ivaId = 3;
 
-      // Aggregate by IVA ID
       const existing = ivaDetails.find((d) => d.id === ivaId);
       if (existing) {
         existing.baseImp += baseImp;
@@ -244,7 +221,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const fecaeParams: FECAERequestParams = {
       puntoVenta: puntoVentaId,
       tipoComprobante,
-      concepto: 2, // Servicios by default
+      concepto: 2,
       docTipo,
       docNro,
       cbteDesde: nuevoNumero,
@@ -266,10 +243,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       fchVtoPago: today,
     };
 
-    // --- Emit invoice ---
     const fecaeResponse = await wsfev1.emitInvoice(fecaeParams);
 
-    // --- Store result in arca_invoices ---
     await adminClient.from('arca_invoices').insert({
       invoice_id: invoiceId,
       organization_cuit_id: organizationCuitId,
@@ -287,7 +262,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       created_at: new Date().toISOString(),
     });
 
-    // --- Update invoices table ---
     const updateData: Record<string, any> = {
       arca_status: fecaeResponse.success ? 'approved' : 'rejected',
       updated_at: new Date().toISOString(),
@@ -304,8 +278,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .update(updateData)
       .eq('id', invoiceId);
 
-    // --- Return result ---
-    return res.status(200).json({
+    return Response.json({
       success: fecaeResponse.success,
       cae: fecaeResponse.cae,
       caeVencimiento: fecaeResponse.caeVencimiento,
@@ -316,8 +289,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
   } catch (err: any) {
     console.error('ARCA invoice emission error:', err);
-    return res.status(500).json({
+    return Response.json({
       error: err.message || 'Internal server error during ARCA invoice emission',
-    });
+    }, { status: 500 });
   }
-}
+};
+
+export const config: Config = {
+  path: '/api/arca/invoices/emit',
+};

@@ -1,20 +1,21 @@
 import { createClient } from '@supabase/supabase-js';
-import type { VercelRequest, VercelResponse } from '@vercel/node';
+import type { Context, Config } from '@netlify/functions';
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-  if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
+export default async (req: Request, _context: Context) => {
+  if (req.method !== 'GET') return Response.json({ error: 'Method not allowed' }, { status: 405 });
 
-  const authHeader = req.headers.authorization;
-  if (!authHeader) return res.status(401).json({ error: 'Unauthorized' });
+  const authHeader = req.headers.get('authorization');
+  if (!authHeader) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
   const token = authHeader.replace('Bearer ', '');
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
   if (!serviceRoleKey || token !== serviceRoleKey) {
-    return res.status(401).json({ error: 'Invalid service role key' });
+    return Response.json({ error: 'Invalid service role key' }, { status: 401 });
   }
 
-  const organizationId = req.query.organization_id as string;
-  if (!organizationId) return res.status(400).json({ error: 'organization_id query param is required' });
+  const url = new URL(req.url);
+  const organizationId = url.searchParams.get('organization_id') || '';
+  if (!organizationId) return Response.json({ error: 'organization_id query param is required' }, { status: 400 });
 
   const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
   const db = createClient(supabaseUrl, serviceRoleKey);
@@ -29,19 +30,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .in('status', activeStatuses)
       .order('created_at', { ascending: false });
 
-    if (error) return res.status(500).json({ error: error.message });
+    if (error) return Response.json({ error: error.message }, { status: 500 });
 
     const byStatus: Record<string, number> = {};
     for (const p of projects || []) {
       byStatus[p.status] = (byStatus[p.status] || 0) + 1;
     }
 
-    return res.status(200).json({
+    return Response.json({
       total: (projects || []).length,
       byStatus,
       projects,
     });
   } catch (err: any) {
-    return res.status(500).json({ error: err.message });
+    return Response.json({ error: err.message }, { status: 500 });
   }
-}
+};
+
+export const config: Config = {
+  path: '/api/crm/pipeline',
+};

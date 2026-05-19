@@ -2922,6 +2922,35 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     }
   }, [organization?.id, fetchProjects, fetchProducts]);
 
+  // ===== REALTIME =====
+  // Top-level lists only. Per-project data (participants, deliverables, modules,
+  // sessions, comments) is loaded on demand inside detail screens — those should
+  // subscribe locally, not here, to avoid global refetches on unrelated changes.
+  useEffect(() => {
+    if (!organization?.id) return;
+    const orgFilter = `organization_id=eq.${organization.id}`;
+    const timers: Record<string, ReturnType<typeof setTimeout> | null> = {
+      projects: null, products: null,
+    };
+    const debounce = (key: keyof typeof timers, fn: () => void) => {
+      if (timers[key]) clearTimeout(timers[key]!);
+      timers[key] = setTimeout(fn, 300);
+    };
+
+    const channel = supabase
+      .channel(`projects:${organization.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'projects', filter: orgFilter },
+        () => debounce('projects', fetchProjects))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'products', filter: orgFilter },
+        () => debounce('products', fetchProducts))
+      .subscribe();
+
+    return () => {
+      Object.values(timers).forEach((t) => { if (t) clearTimeout(t); });
+      supabase.removeChannel(channel);
+    };
+  }, [organization?.id, fetchProjects, fetchProducts]);
+
   // ===== CONTEXT VALUE =====
 
   const value = useMemo<ProjectContextType>(() => ({

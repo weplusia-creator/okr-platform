@@ -1,53 +1,49 @@
 import { createClient } from '@supabase/supabase-js';
-import type { VercelRequest, VercelResponse } from '@vercel/node';
+import type { Context, Config } from '@netlify/functions';
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+export default async (req: Request, _context: Context) => {
   if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
+    return Response.json({ error: 'Method not allowed' }, { status: 405 });
   }
 
-  const { email, password, fullName, organizationId, role: userRole, jobTitle, userType, clientId } = req.body;
+  const body = await req.json().catch(() => ({}));
+  const { email, password, fullName, organizationId, role: userRole, jobTitle, userType, clientId } = body;
 
   if (!email || !password) {
-    return res.status(400).json({ error: 'Email and password are required' });
+    return Response.json({ error: 'Email and password are required' }, { status: 400 });
   }
 
-  // Verify the request comes from an authenticated admin
-  const authHeader = req.headers.authorization;
+  const authHeader = req.headers.get('authorization');
   if (!authHeader) {
-    return res.status(401).json({ error: 'Unauthorized' });
+    return Response.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 
   if (!serviceRoleKey) {
-    return res.status(500).json({ error: 'Service role key not configured' });
+    return Response.json({ error: 'Service role key not configured' }, { status: 500 });
   }
 
-  // Admin client with service role key (bypasses RLS and rate limits)
   const adminClient = createClient(supabaseUrl, serviceRoleKey, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
 
-  // Verify the caller is an authenticated admin
   const anonClient = createClient(supabaseUrl, process.env.VITE_SUPABASE_ANON_KEY || '', {
     auth: { autoRefreshToken: false, persistSession: false },
   });
   const token = authHeader.replace('Bearer ', '');
   const { data: { user: caller }, error: authErr } = await anonClient.auth.getUser(token);
   if (authErr || !caller) {
-    return res.status(401).json({ error: 'Invalid token' });
+    return Response.json({ error: 'Invalid token' }, { status: 401 });
   }
 
-  // Check caller is admin
   const { data: callerData } = await adminClient.from('users').select('role').eq('id', caller.id).single();
   if (callerData?.role !== 'admin' && callerData?.role !== 'super_admin') {
-    return res.status(403).json({ error: 'Only admins can create users' });
+    return Response.json({ error: 'Only admins can create users' }, { status: 403 });
   }
 
   try {
-    // Create auth user using admin API (no rate limit)
     const { data: authData, error: createErr } = await adminClient.auth.admin.createUser({
       email,
       password,
@@ -56,7 +52,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
 
     if (createErr) {
-      return res.status(400).json({ error: createErr.message });
+      return Response.json({ error: createErr.message }, { status: 400 });
     }
 
     const authUserId = authData.user.id;
@@ -70,10 +66,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       client_id: clientId || null,
     };
 
-    // Wait briefly for any trigger to create the row
     await new Promise(r => setTimeout(r, 500));
 
-    // Check if users row exists (trigger may have created it)
     const { data: existing } = await adminClient.from('users').select('id').eq('id', authUserId).maybeSingle();
 
     if (!existing) {
@@ -83,23 +77,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         ...userData,
       });
       if (insertErr) {
-        return res.status(400).json({ error: `Error creating user record: ${insertErr.message}` });
+        return Response.json({ error: `Error creating user record: ${insertErr.message}` }, { status: 400 });
       }
     } else {
       const { error: updateErr } = await adminClient.from('users').update(userData).eq('id', authUserId);
       if (updateErr) {
-        return res.status(400).json({ error: `Error updating user record: ${updateErr.message}` });
+        return Response.json({ error: `Error updating user record: ${updateErr.message}` }, { status: 400 });
       }
     }
 
-    // Verify organization_id was set
     const { data: verify } = await adminClient.from('users').select('organization_id').eq('id', authUserId).single();
     if (!verify?.organization_id) {
-      return res.status(500).json({ error: 'User created but organization_id not set. Check database triggers.' });
+      return Response.json({ error: 'User created but organization_id not set. Check database triggers.' }, { status: 500 });
     }
 
-    return res.status(200).json({ userId: authUserId, email });
+    return Response.json({ userId: authUserId, email });
   } catch (err: any) {
-    return res.status(500).json({ error: err.message });
+    return Response.json({ error: err.message }, { status: 500 });
   }
-}
+};
+
+export const config: Config = {
+  path: '/api/create-user',
+};

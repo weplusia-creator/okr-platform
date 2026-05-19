@@ -1,20 +1,21 @@
 import { createClient } from '@supabase/supabase-js';
-import type { VercelRequest, VercelResponse } from '@vercel/node';
+import type { Context, Config } from '@netlify/functions';
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-  if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
+export default async (req: Request, _context: Context) => {
+  if (req.method !== 'GET') return Response.json({ error: 'Method not allowed' }, { status: 405 });
 
-  const authHeader = req.headers.authorization;
-  if (!authHeader) return res.status(401).json({ error: 'Unauthorized' });
+  const authHeader = req.headers.get('authorization');
+  if (!authHeader) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
   const token = authHeader.replace('Bearer ', '');
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
   if (!serviceRoleKey || token !== serviceRoleKey) {
-    return res.status(401).json({ error: 'Invalid service role key' });
+    return Response.json({ error: 'Invalid service role key' }, { status: 401 });
   }
 
-  const organizationId = req.query.organization_id as string;
-  if (!organizationId) return res.status(400).json({ error: 'organization_id query param is required' });
+  const url = new URL(req.url);
+  const organizationId = url.searchParams.get('organization_id') || '';
+  if (!organizationId) return Response.json({ error: 'organization_id query param is required' }, { status: 400 });
 
   const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
   const db = createClient(supabaseUrl, serviceRoleKey);
@@ -26,7 +27,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .eq('organization_id', organizationId)
       .order('created_at', { ascending: false });
 
-    if (projErr) return res.status(500).json({ error: projErr.message });
+    if (projErr) return Response.json({ error: projErr.message }, { status: 500 });
 
     const projectIds = (projects || []).map((p: any) => p.id);
 
@@ -38,7 +39,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         .in('project_id', projectIds)
         .order('month');
 
-      if (payErr) return res.status(500).json({ error: payErr.message });
+      if (payErr) return Response.json({ error: payErr.message }, { status: 500 });
       payments = data || [];
     }
 
@@ -53,8 +54,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       payments: paymentsByProject[p.id] || [],
     }));
 
-    return res.status(200).json({ total: result.length, projects: result });
+    return Response.json({ total: result.length, projects: result });
   } catch (err: any) {
-    return res.status(500).json({ error: err.message });
+    return Response.json({ error: err.message }, { status: 500 });
   }
-}
+};
+
+export const config: Config = {
+  path: '/api/proyectos',
+};

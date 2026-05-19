@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import type { VercelRequest, VercelResponse } from '@vercel/node';
+import type { Context, Config } from '@netlify/functions';
 
 function stripHtmlToText(html: string, maxChars = 80000): string {
   let text = html;
@@ -19,11 +19,11 @@ function stripHtmlToText(html: string, maxChars = 80000): string {
   return text.slice(0, maxChars);
 }
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+export default async (req: Request, _context: Context) => {
+  if (req.method !== 'POST') return Response.json({ error: 'Method not allowed' }, { status: 405 });
 
-  const authHeader = req.headers.authorization;
-  if (!authHeader) return res.status(401).json({ error: 'Unauthorized' });
+  const authHeader = req.headers.get('authorization');
+  if (!authHeader) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
   const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
   const anonKey = process.env.VITE_SUPABASE_ANON_KEY || '';
@@ -37,12 +37,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       global: { headers: { Authorization: `Bearer ${token}` } },
     });
     const { data: { user }, error: authErr } = await client.auth.getUser(token);
-    if (authErr || !user) return res.status(401).json({ error: 'Invalid token' });
+    if (authErr || !user) return Response.json({ error: 'Invalid token' }, { status: 401 });
   }
 
-  const { url } = req.body;
-  if (!url || typeof url !== 'string') return res.status(400).json({ error: 'URL is required' });
-  try { new URL(url); } catch { return res.status(400).json({ error: 'Invalid URL format' }); }
+  const body = await req.json().catch(() => ({}));
+  const { url } = body;
+  if (!url || typeof url !== 'string') return Response.json({ error: 'URL is required' }, { status: 400 });
+  try { new URL(url); } catch { return Response.json({ error: 'Invalid URL format' }, { status: 400 }); }
 
   try {
     const controller = new AbortController();
@@ -53,15 +54,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
     clearTimeout(timeout);
 
-    if (!response.ok) return res.status(502).json({ error: `Failed to fetch URL: HTTP ${response.status}` });
+    if (!response.ok) return Response.json({ error: `Failed to fetch URL: HTTP ${response.status}` }, { status: 502 });
 
     const html = await response.text();
     const text = stripHtmlToText(html);
-    if (text.length < 50) return res.status(422).json({ error: 'Page has too little text content' });
+    if (text.length < 50) return Response.json({ error: 'Page has too little text content' }, { status: 422 });
 
-    return res.status(200).json({ text, meta: { url, textLength: text.length } });
+    return Response.json({ text, meta: { url, textLength: text.length } });
   } catch (e: any) {
-    if (e.name === 'AbortError') return res.status(504).json({ error: 'URL fetch timed out' });
-    return res.status(500).json({ error: e.message });
+    if (e.name === 'AbortError') return Response.json({ error: 'URL fetch timed out' }, { status: 504 });
+    return Response.json({ error: e.message }, { status: 500 });
   }
-}
+};
+
+export const config: Config = {
+  path: '/api/prospector/scrape-url',
+};

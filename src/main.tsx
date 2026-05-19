@@ -19,11 +19,8 @@ import { CheckinProvider } from './context/CheckinContext';
 import { NotificationProvider } from './context/NotificationContext';
 import { PresentationProvider } from './context/PresentationContext';
 import { QuizProvider } from './context/QuizContext';
-import { inject } from '@vercel/analytics';
 import './index.css';
 import App from './App';
-
-inject();
 
 // Gate: don't mount data providers until auth has finished loading
 function AuthGate({ children }: { children: ReactNode }) {

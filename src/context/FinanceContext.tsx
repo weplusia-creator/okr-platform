@@ -1099,6 +1099,40 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
     }
   }, [organization?.id, fetchClients, fetchInvoices, fetchCategories, fetchTransactions, fetchRecurringExpenses]);
 
+  // ===== REALTIME =====
+  // invoice_items are intentionally not subscribed: the parent invoices row is
+  // always touched on item mutations, so the invoices subscription covers it.
+  useEffect(() => {
+    if (!organization?.id) return;
+    const orgFilter = `organization_id=eq.${organization.id}`;
+    const timers: Record<string, ReturnType<typeof setTimeout> | null> = {
+      clients: null, invoices: null, categories: null, transactions: null, recurring: null,
+    };
+    const debounce = (key: keyof typeof timers, fn: () => void) => {
+      if (timers[key]) clearTimeout(timers[key]!);
+      timers[key] = setTimeout(fn, 300);
+    };
+
+    const channel = supabase
+      .channel(`finance:${organization.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'clients', filter: orgFilter },
+        () => debounce('clients', fetchClients))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'invoices', filter: orgFilter },
+        () => debounce('invoices', fetchInvoices))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'cash_flow_categories', filter: orgFilter },
+        () => debounce('categories', fetchCategories))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'cash_flow_transactions', filter: orgFilter },
+        () => debounce('transactions', () => fetchTransactions()))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'recurring_expenses', filter: orgFilter },
+        () => debounce('recurring', fetchRecurringExpenses))
+      .subscribe();
+
+    return () => {
+      Object.values(timers).forEach((t) => { if (t) clearTimeout(t); });
+      supabase.removeChannel(channel);
+    };
+  }, [organization?.id, fetchClients, fetchInvoices, fetchCategories, fetchTransactions, fetchRecurringExpenses]);
+
   // Check for overdue invoices once after initial load
   const overdueCheckedRef = useRef(false);
   useEffect(() => {

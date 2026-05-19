@@ -146,6 +146,7 @@ let supabaseClient = createClient<Database>(supabaseUrl, supabaseAnonKey, {
   },
   global: {
     fetch: authRetryFetch,
+    headers: { 'Cache-Control': 'no-store' },
   },
 });
 

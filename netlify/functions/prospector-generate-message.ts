@@ -1,11 +1,11 @@
 import { createClient } from '@supabase/supabase-js';
-import type { VercelRequest, VercelResponse } from '@vercel/node';
+import type { Context, Config } from '@netlify/functions';
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+export default async (req: Request, _context: Context) => {
+  if (req.method !== 'POST') return Response.json({ error: 'Method not allowed' }, { status: 405 });
 
-  const authHeader = req.headers.authorization;
-  if (!authHeader) return res.status(401).json({ error: 'Unauthorized' });
+  const authHeader = req.headers.get('authorization');
+  if (!authHeader) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
   const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
   const anonKey = process.env.VITE_SUPABASE_ANON_KEY || '';
@@ -19,14 +19,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       global: { headers: { Authorization: `Bearer ${token}` } },
     });
     const { data: { user }, error: authErr } = await client.auth.getUser(token);
-    if (authErr || !user) return res.status(401).json({ error: 'Invalid token' });
+    if (authErr || !user) return Response.json({ error: 'Invalid token' }, { status: 401 });
   }
 
-  const { prospect, messageType, tone, additionalContext, interactionHistory } = req.body;
-  if (!prospect || !messageType || !tone) return res.status(400).json({ error: 'prospect, messageType, and tone are required' });
+  const body = await req.json().catch(() => ({}));
+  const { prospect, messageType, tone, additionalContext, interactionHistory } = body;
+  if (!prospect || !messageType || !tone) return Response.json({ error: 'prospect, messageType, and tone are required' }, { status: 400 });
 
   const apiKey = process.env.ANTHROPIC_API_KEY || '';
-  if (!apiKey) return res.status(500).json({ error: 'ANTHROPIC_API_KEY not configured' });
+  if (!apiKey) return Response.json({ error: 'ANTHROPIC_API_KEY not configured' }, { status: 500 });
 
   const toneMap: Record<string, string> = {
     formal: 'Usa un tono profesional y formal.',
@@ -68,12 +69,16 @@ Responde SOLO con un JSON: {"subject": "asunto del email", "body": "cuerpo del e
       body: JSON.stringify({ model: 'claude-sonnet-4-5-20250929', max_tokens: 1024, messages: [{ role: 'user', content: prompt }] }),
     });
 
-    if (!response.ok) return res.status(502).json({ error: `Anthropic API error: ${response.status}` });
+    if (!response.ok) return Response.json({ error: `Anthropic API error: ${response.status}` }, { status: 502 });
     const result = await response.json();
     const text = result.content?.[0]?.text || '';
     const parsed = JSON.parse(text);
-    return res.status(200).json({ subject: parsed.subject || '', body: parsed.body || '' });
+    return Response.json({ subject: parsed.subject || '', body: parsed.body || '' });
   } catch (e: any) {
-    return res.status(500).json({ error: e.message });
+    return Response.json({ error: e.message }, { status: 500 });
   }
-}
+};
+
+export const config: Config = {
+  path: '/api/prospector/generate-message',
+};

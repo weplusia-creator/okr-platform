@@ -1195,6 +1195,38 @@ export function CRMProvider({ children }: { children: ReactNode }) {
     }
   }, [organization?.id, fetchPipelineStages, fetchLeads, fetchDeals, fetchActivities]);
 
+  // ===== REALTIME =====
+  // Coalesce bursts of postgres changes per table into one debounced refetch
+  // so a multi-row mutation doesn't trigger N parallel fetches.
+  useEffect(() => {
+    if (!organization?.id) return;
+    const orgFilter = `organization_id=eq.${organization.id}`;
+    const timers: Record<string, ReturnType<typeof setTimeout> | null> = {
+      stages: null, leads: null, deals: null, activities: null,
+    };
+    const debounce = (key: keyof typeof timers, fn: () => void) => {
+      if (timers[key]) clearTimeout(timers[key]!);
+      timers[key] = setTimeout(fn, 300);
+    };
+
+    const channel = supabase
+      .channel(`crm:${organization.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'crm_pipeline_stages', filter: orgFilter },
+        () => debounce('stages', fetchPipelineStages))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'crm_leads', filter: orgFilter },
+        () => debounce('leads', fetchLeads))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'crm_deals', filter: orgFilter },
+        () => debounce('deals', fetchDeals))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'crm_activities', filter: orgFilter },
+        () => debounce('activities', () => fetchActivities()))
+      .subscribe();
+
+    return () => {
+      Object.values(timers).forEach((t) => { if (t) clearTimeout(t); });
+      supabase.removeChannel(channel);
+    };
+  }, [organization?.id, fetchPipelineStages, fetchLeads, fetchDeals, fetchActivities]);
+
   const value = useMemo<CRMContextType>(() => ({
     leads,
     deals,

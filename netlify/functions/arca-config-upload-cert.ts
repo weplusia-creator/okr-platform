@@ -1,24 +1,23 @@
 import { createClient } from '@supabase/supabase-js';
-import type { VercelRequest, VercelResponse } from '@vercel/node';
+import type { Context, Config } from '@netlify/functions';
 import forge from 'node-forge';
-import { encryptData } from '../../../src/lib/arca/crypto.js';
+import { encryptData } from '../../src/lib/arca/crypto.js';
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+export default async (req: Request, _context: Context) => {
   if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
+    return Response.json({ error: 'Method not allowed' }, { status: 405 });
   }
 
-  // --- Auth validation (same pattern as create-user.ts) ---
-  const authHeader = req.headers.authorization;
+  const authHeader = req.headers.get('authorization');
   if (!authHeader) {
-    return res.status(401).json({ error: 'Unauthorized' });
+    return Response.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 
   if (!serviceRoleKey) {
-    return res.status(500).json({ error: 'Service role key not configured' });
+    return Response.json({ error: 'Service role key not configured' }, { status: 500 });
   }
 
   const adminClient = createClient(supabaseUrl, serviceRoleKey, {
@@ -32,26 +31,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const token = authHeader.replace('Bearer ', '');
   const { data: { user: caller }, error: authErr } = await anonClient.auth.getUser(token);
   if (authErr || !caller) {
-    return res.status(401).json({ error: 'Invalid token' });
+    return Response.json({ error: 'Invalid token' }, { status: 401 });
   }
 
   const { data: callerData } = await adminClient.from('users').select('role, organization_id').eq('id', caller.id).single();
   if (callerData?.role !== 'admin' && callerData?.role !== 'super_admin') {
-    return res.status(403).json({ error: 'Only admins can upload ARCA certificates' });
+    return Response.json({ error: 'Only admins can upload ARCA certificates' }, { status: 403 });
   }
 
   try {
-    // --- Parse request body ---
-    // Expects JSON with base64-encoded certificate and key content
-    const { certContent, keyContent, cuitId } = req.body;
+    const body = await req.json().catch(() => ({}));
+    const { certContent, keyContent, cuitId } = body;
 
     if (!certContent || !keyContent || !cuitId) {
-      return res.status(400).json({
+      return Response.json({
         error: 'Missing required fields: certContent (base64 or PEM string), keyContent (base64 or PEM string), cuitId',
-      });
+      }, { status: 400 });
     }
 
-    // Decode content - support both raw PEM and base64-encoded PEM
     let certPem: string;
     let keyPem: string;
 
@@ -67,39 +64,34 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       keyPem = Buffer.from(keyContent, 'base64').toString('utf-8');
     }
 
-    // --- Validate certificate format ---
     let certExpiry: Date;
     try {
       const cert = forge.pki.certificateFromPem(certPem);
       certExpiry = cert.validity.notAfter;
 
-      // Check if certificate is already expired
       if (certExpiry < new Date()) {
-        return res.status(400).json({
+        return Response.json({
           error: 'Certificate is already expired',
           expiryDate: certExpiry.toISOString(),
-        });
+        }, { status: 400 });
       }
     } catch (certError: any) {
-      return res.status(400).json({
+      return Response.json({
         error: `Invalid certificate format: ${certError.message}`,
-      });
+      }, { status: 400 });
     }
 
-    // --- Validate private key format ---
     try {
       forge.pki.privateKeyFromPem(keyPem);
     } catch (keyError: any) {
-      return res.status(400).json({
+      return Response.json({
         error: `Invalid private key format: ${keyError.message}`,
-      });
+      }, { status: 400 });
     }
 
-    // --- Encrypt certificate and key ---
     const certificateEncrypted = encryptData(certPem);
     const privateKeyEncrypted = encryptData(keyPem);
 
-    // --- Verify the CUIT record exists and belongs to caller's organization ---
     const { data: cuitRecord, error: cuitFetchError } = await adminClient
       .from('organization_cuits')
       .select('id, organization_id')
@@ -107,15 +99,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .single();
 
     if (cuitFetchError || !cuitRecord) {
-      return res.status(404).json({ error: 'CUIT configuration not found' });
+      return Response.json({ error: 'CUIT configuration not found' }, { status: 404 });
     }
 
-    // Verify the CUIT belongs to the caller's organization
     if (cuitRecord.organization_id !== callerData?.organization_id) {
-      return res.status(403).json({ error: 'CUIT does not belong to your organization' });
+      return Response.json({ error: 'CUIT does not belong to your organization' }, { status: 403 });
     }
 
-    // --- Store encrypted certificate and key ---
     const { error: updateError } = await adminClient
       .from('organization_cuits')
       .update({
@@ -128,26 +118,29 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .eq('id', cuitId);
 
     if (updateError) {
-      return res.status(500).json({
+      return Response.json({
         error: `Failed to store certificate: ${updateError.message}`,
-      });
+      }, { status: 500 });
     }
 
-    // --- Invalidate any existing WSAA tokens for this CUIT (force re-auth) ---
     await adminClient
       .from('arca_tokens')
       .delete()
       .eq('organization_cuit_id', cuitId);
 
-    return res.status(200).json({
+    return Response.json({
       success: true,
       certificateExpiry: certExpiry.toISOString(),
       message: 'Certificate and private key uploaded successfully',
     });
   } catch (err: any) {
     console.error('Certificate upload error:', err);
-    return res.status(500).json({
+    return Response.json({
       error: err.message || 'Internal server error during certificate upload',
-    });
+    }, { status: 500 });
   }
-}
+};
+
+export const config: Config = {
+  path: '/api/arca/config/upload-cert',
+};

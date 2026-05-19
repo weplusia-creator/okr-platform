@@ -1,26 +1,28 @@
 import { createClient } from '@supabase/supabase-js';
-import type { VercelRequest, VercelResponse } from '@vercel/node';
+import type { Context, Config } from '@netlify/functions';
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-  if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
+export default async (req: Request, _context: Context) => {
+  if (req.method !== 'GET') return Response.json({ error: 'Method not allowed' }, { status: 405 });
 
-  const authHeader = req.headers.authorization;
-  if (!authHeader) return res.status(401).json({ error: 'Unauthorized' });
+  const authHeader = req.headers.get('authorization');
+  if (!authHeader) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
   const token = authHeader.replace('Bearer ', '');
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
   if (!serviceRoleKey || token !== serviceRoleKey) {
-    return res.status(401).json({ error: 'Invalid service role key' });
+    return Response.json({ error: 'Invalid service role key' }, { status: 401 });
   }
 
-  const organizationId = req.query.organization_id as string;
-  if (!organizationId) return res.status(400).json({ error: 'organization_id query param is required' });
+  const url = new URL(req.url);
+  const organizationId = url.searchParams.get('organization_id') || '';
+  if (!organizationId) return Response.json({ error: 'organization_id query param is required' }, { status: 400 });
 
   const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
   const db = createClient(supabaseUrl, serviceRoleKey);
 
-  const quarter = req.query.quarter as string | undefined;
-  const year = req.query.year ? Number(req.query.year) : undefined;
+  const quarter = url.searchParams.get('quarter') || undefined;
+  const yearParam = url.searchParams.get('year');
+  const year = yearParam ? Number(yearParam) : undefined;
 
   try {
     let query = db
@@ -33,7 +35,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (year) query = query.eq('year', year);
 
     const { data: objectives, error: objErr } = await query;
-    if (objErr) return res.status(500).json({ error: objErr.message });
+    if (objErr) return Response.json({ error: objErr.message }, { status: 500 });
 
     const objectiveIds = (objectives || []).map((o: any) => o.id);
 
@@ -44,7 +46,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         .select('*')
         .in('objective_id', objectiveIds);
 
-      if (krErr) return res.status(500).json({ error: krErr.message });
+      if (krErr) return Response.json({ error: krErr.message }, { status: 500 });
       keyResults = data || [];
     }
 
@@ -63,8 +65,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return { ...o, key_results: krs, progress: avgProgress };
     });
 
-    return res.status(200).json({ total: result.length, objectives: result });
+    return Response.json({ total: result.length, objectives: result });
   } catch (err: any) {
-    return res.status(500).json({ error: err.message });
+    return Response.json({ error: err.message }, { status: 500 });
   }
-}
+};
+
+export const config: Config = {
+  path: '/api/okrs',
+};

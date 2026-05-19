@@ -298,8 +298,14 @@ export function ProjectDetail() {
   const handlePostNovedad = async () => {
     if (!id || !novedadContent.trim()) return;
     setPostingNovedad(true);
+    // Race against a hard local timeout so the button never stays stuck on
+    // "Publicando..." even if the underlying promise never settles.
+    const HARD_TIMEOUT_MS = 35_000;
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('Tiempo de espera agotado. Recargá la página e intentá de nuevo.')), HARD_TIMEOUT_MS),
+    );
     try {
-      await addNovedad(id, novedadContent.trim());
+      await Promise.race([addNovedad(id, novedadContent.trim()), timeoutPromise]);
       setNovedadContent('');
     } catch (err: any) {
       alert('Error al publicar: ' + (err?.message || 'Error desconocido'));

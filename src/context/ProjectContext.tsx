@@ -1775,6 +1775,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
   const addNovedad = useCallback(async (projectId: string, content: string): Promise<ProjectNovedad> => {
     if (!appUser?.id) throw new Error('No user');
 
+    console.log('[addNovedad] inserting novedad for project', projectId);
     const { data, error: err } = await db
       .from('project_novedades')
       .insert({
@@ -1786,7 +1787,11 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       .select('*')
       .single();
 
-    if (err) throw err;
+    if (err) {
+      console.error('[addNovedad] insert failed:', err);
+      throw err;
+    }
+    console.log('[addNovedad] insert ok, id:', data.id);
 
     const novedad: ProjectNovedad = {
       id: data.id,
@@ -1799,7 +1804,9 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     };
 
     setNovedades(prev => [novedad, ...prev]);
-    await logActivity(projectId, 'created', 'novedad', novedad.id);
+    // Fire-and-forget logActivity so a slow/failed activity log row doesn't
+    // hang the publish action. Errors are already logged inside logActivity.
+    logActivity(projectId, 'created', 'novedad', novedad.id);
     return novedad;
   }, [appUser?.id, appUser?.fullName, logActivity]);
 

@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
+import { onTabResumed } from '../../lib/supabase';
 import {
   ArrowLeft,
   BarChart3,
@@ -209,11 +210,12 @@ export function ProjectDetail() {
 
   const isSecondaryActive = secondaryTabs.some(t => t.key === activeTab);
 
-  // Load project data
-  useEffect(() => {
-    if (!id) return;
-    console.log('[ProjectDetail] Loading project:', id);
-    getProject(id).then(result => {
+  // Load project data. The cancelled flag prevents fetches from a stale id
+  // (e.g. fast navigation between projects) from updating state belonging to
+  // the new project's view.
+  const loadProjectData = useCallback((projectId: string) => {
+    console.log('[ProjectDetail] Loading project:', projectId);
+    getProject(projectId).then(result => {
       if (!result) {
         console.error('[ProjectDetail] getProject returned null');
         setLoadError(true);
@@ -222,17 +224,31 @@ export function ProjectDetail() {
       console.error('[ProjectDetail] getProject error:', e);
       setLoadError(true);
     });
-    fetchParticipants(id).catch(e => console.error('[ProjectDetail] fetchParticipants error:', e));
-    fetchDeliverables(id).catch(e => console.error('[ProjectDetail] fetchDeliverables error:', e));
-    fetchModules(id).catch(e => console.error('[ProjectDetail] fetchModules error:', e));
-    fetchDocuments(id).catch(e => console.error('[ProjectDetail] fetchDocuments error:', e));
-    fetchActivityLog(id).catch(e => console.error('[ProjectDetail] fetchActivityLog error:', e));
-    fetchNovedades(id).catch(e => console.error('[ProjectDetail] fetchNovedades error:', e));
-    fetchCanvases(id).catch(e => console.error('[ProjectDetail] fetchCanvases error:', e));
+    fetchParticipants(projectId).catch(e => console.error('[ProjectDetail] fetchParticipants error:', e));
+    fetchDeliverables(projectId).catch(e => console.error('[ProjectDetail] fetchDeliverables error:', e));
+    fetchModules(projectId).catch(e => console.error('[ProjectDetail] fetchModules error:', e));
+    fetchDocuments(projectId).catch(e => console.error('[ProjectDetail] fetchDocuments error:', e));
+    fetchActivityLog(projectId).catch(e => console.error('[ProjectDetail] fetchActivityLog error:', e));
+    fetchNovedades(projectId).catch(e => console.error('[ProjectDetail] fetchNovedades error:', e));
+    fetchCanvases(projectId).catch(e => console.error('[ProjectDetail] fetchCanvases error:', e));
     fetchPlaybooks().catch(e => console.error('[ProjectDetail] fetchPlaybooks error:', e));
-    fetchCheckins(id).catch(e => console.error('[ProjectDetail] fetchCheckins error:', e));
+    fetchCheckins(projectId).catch(e => console.error('[ProjectDetail] fetchCheckins error:', e));
     fetchConfigs().catch(e => console.error('[ProjectDetail] fetchConfigs error:', e));
-  }, [id, getProject, fetchParticipants, fetchDeliverables, fetchModules, fetchDocuments, fetchActivityLog]);
+  }, [getProject, fetchParticipants, fetchDeliverables, fetchModules, fetchDocuments, fetchActivityLog,
+      fetchNovedades, fetchCanvases, fetchPlaybooks, fetchCheckins, fetchConfigs]);
+
+  useEffect(() => {
+    if (!id) return;
+    loadProjectData(id);
+  }, [id, loadProjectData]);
+
+  // When the user returns to a backgrounded tab, refetch project-specific
+  // data (the realtime channel for these tables is per-project, lives in
+  // ProjectContext, and may have missed events while throttled).
+  useEffect(() => {
+    if (!id) return;
+    return onTabResumed(() => loadProjectData(id));
+  }, [id, loadProjectData]);
 
   // Check alumni onboarding status
   useEffect(() => {

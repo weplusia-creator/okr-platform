@@ -23,6 +23,20 @@ function notifySessionExpired() {
   sessionExpiredListeners.forEach(cb => { try { cb(); } catch {} });
 }
 
+// ── Tab-resumed event bus ───────────────────────────────────────
+// Fired when the user returns to a tab that was hidden for >1 minute.
+// Background tabs miss realtime events (WebSocket may have closed) and
+// data may be stale, so contexts use this to refetch their state.
+type TabResumedCallback = () => void;
+const tabResumedListeners = new Set<TabResumedCallback>();
+export function onTabResumed(cb: TabResumedCallback) {
+  tabResumedListeners.add(cb);
+  return () => { tabResumedListeners.delete(cb); };
+}
+function notifyTabResumed() {
+  tabResumedListeners.forEach(cb => { try { cb(); } catch {} });
+}
+
 // Mutex to serialize auth token refresh operations
 const locks = new Map<string, Promise<any>>();
 
@@ -178,22 +192,46 @@ function refreshSessionSafely(reason: string) {
   });
 }
 
+// Track when the tab went to background. If it was hidden long enough,
+// we both refresh the token and tell contexts to refetch (because the
+// realtime WebSocket likely missed events while throttled).
+const TAB_RESUMED_THRESHOLD_MS = 60_000; // 1 minute
+let tabHiddenAt: number | null = null;
+
 if (typeof document !== 'undefined') {
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') {
-      const token = getAccessTokenDirect();
-      if (!token) return; // not logged in
-      try {
-        const payload = JSON.parse(atob(token.split('.')[1]));
-        const expiresAt = payload.exp * 1000;
-        // Refresh if token expires within 5 minutes
-        if (expiresAt < Date.now() + 300_000) {
-          refreshSessionSafely('visibility');
-        }
-      } catch {
-        // Can't decode JWT — try refreshing anyway
-        refreshSessionSafely('visibility-decode');
-      }
+    if (document.visibilityState === 'hidden') {
+      tabHiddenAt = Date.now();
+      return;
+    }
+    if (document.visibilityState !== 'visible') return;
+
+    const hiddenMs = tabHiddenAt ? Date.now() - tabHiddenAt : 0;
+    tabHiddenAt = null;
+
+    const token = getAccessTokenDirect();
+    if (!token) return; // not logged in
+
+    // Decide whether to refresh the token
+    let needsRefresh = false;
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      const expiresAt = payload.exp * 1000;
+      // Refresh if token expires within 5 minutes OR the tab was hidden
+      // long enough that the auto-refresh timers were likely throttled.
+      needsRefresh = expiresAt < Date.now() + 300_000 || hiddenMs > TAB_RESUMED_THRESHOLD_MS;
+    } catch {
+      needsRefresh = true;
+    }
+
+    const refreshChain = needsRefresh
+      ? coalescedRefresh('visibility').catch(() => {})
+      : Promise.resolve();
+
+    // After token is fresh (or skipped), notify contexts to refetch if the
+    // tab was away long enough that realtime may have missed events.
+    if (hiddenMs > TAB_RESUMED_THRESHOLD_MS) {
+      refreshChain.finally(() => { notifyTabResumed(); });
     }
   });
 }

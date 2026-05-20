@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useCallback, useEffect, useRef, type ReactNode } from 'react';
-import { supabase } from '../lib/supabase';
+import { supabase, onTabResumed } from '../lib/supabase';
 import { useAuth } from './AuthContext';
 import { notifyMany } from '../lib/notify';
 import type {
@@ -1131,6 +1131,19 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
       Object.values(timers).forEach((t) => { if (t) clearTimeout(t); });
       supabase.removeChannel(channel);
     };
+  }, [organization?.id, fetchClients, fetchInvoices, fetchCategories, fetchTransactions, fetchRecurringExpenses]);
+
+  // ===== TAB RESUMED =====
+  // Refetch state when user returns from a backgrounded tab (>1 min away).
+  useEffect(() => {
+    if (!organization?.id) return;
+    return onTabResumed(() => {
+      fetchClients();
+      fetchInvoices();
+      fetchCategories();
+      fetchTransactions();
+      fetchRecurringExpenses();
+    });
   }, [organization?.id, fetchClients, fetchInvoices, fetchCategories, fetchTransactions, fetchRecurringExpenses]);
 
   // Check for overdue invoices once after initial load

@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useCallback, useEffect, useMemo, type ReactNode } from 'react';
 import { createClient } from '@supabase/supabase-js';
-import { supabase, getAccessTokenFresh } from '../lib/supabase';
+import { supabase, getAccessTokenFresh, onTabResumed } from '../lib/supabase';
 import { fetchWithTimeout } from '../lib/fetchTimeout';
 import { useAuth } from './AuthContext';
 import { notify } from '../lib/notify';
@@ -2963,6 +2963,16 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       Object.values(timers).forEach((t) => { if (t) clearTimeout(t); });
       supabase.removeChannel(channel);
     };
+  }, [organization?.id, fetchProjects, fetchProducts]);
+
+  // ===== TAB RESUMED =====
+  // Refetch state when user returns from a backgrounded tab (>1 min away).
+  useEffect(() => {
+    if (!organization?.id) return;
+    return onTabResumed(() => {
+      fetchProjects();
+      fetchProducts();
+    });
   }, [organization?.id, fetchProjects, fetchProducts]);
 
   // ===== CONTEXT VALUE =====

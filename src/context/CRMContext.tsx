@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useCallback, useEffect, useMemo, type ReactNode } from 'react';
-import { supabase } from '../lib/supabase';
+import { supabase, onTabResumed } from '../lib/supabase';
 import { useAuth } from './AuthContext';
 import { useFinance } from './FinanceContext';
 import { useProjects } from './ProjectContext';
@@ -1225,6 +1225,19 @@ export function CRMProvider({ children }: { children: ReactNode }) {
       Object.values(timers).forEach((t) => { if (t) clearTimeout(t); });
       supabase.removeChannel(channel);
     };
+  }, [organization?.id, fetchPipelineStages, fetchLeads, fetchDeals, fetchActivities]);
+
+  // ===== TAB RESUMED =====
+  // When the user returns to a backgrounded tab, refetch state since the
+  // realtime channel may have missed events while throttled.
+  useEffect(() => {
+    if (!organization?.id) return;
+    return onTabResumed(() => {
+      fetchPipelineStages();
+      fetchLeads();
+      fetchDeals();
+      fetchActivities();
+    });
   }, [organization?.id, fetchPipelineStages, fetchLeads, fetchDeals, fetchActivities]);
 
   const value = useMemo<CRMContextType>(() => ({

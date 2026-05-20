@@ -11,6 +11,7 @@ if (!supabaseUrl || !supabaseAnonKey) {
   );
 }
 
+// build-marker: tab-resumed-v1
 // ── Session expiry event bus ────────────────────────────────────
 // Components can subscribe to know when session is irrecoverably dead
 type SessionExpiredCallback = () => void;

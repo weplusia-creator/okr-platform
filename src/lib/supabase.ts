@@ -11,7 +11,11 @@ if (!supabaseUrl || !supabaseAnonKey) {
   );
 }
 
-// build-marker: tab-resumed-v1
+// Runtime build marker — visible in DevTools after deploy to confirm
+// the bundle Netlify is serving really includes the latest commit.
+if (typeof window !== 'undefined') {
+  (window as any).__BUILD_MARKER__ = 'wau-build-tab-resumed-2026-05-21';
+}
 // ── Session expiry event bus ────────────────────────────────────
 // Components can subscribe to know when session is irrecoverably dead
 type SessionExpiredCallback = () => void;

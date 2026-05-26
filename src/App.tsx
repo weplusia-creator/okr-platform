@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate, useParams } from 'react-router-dom';
+import { lazy, Suspense } from 'react';
 import {
   Login,
   Register,
@@ -47,10 +48,22 @@ import {
   DealForm,
   ActivityList,
 } from './pages/crm';
-import { BMCDashboard, BMCTemplates, BMCCanvasView, BMCRespond } from './pages/bmc';
-import { ProposalsDashboard, ProposalForm, ProposalDetail, ProposalPublicView, ProposalSlideEditor } from './pages/proposals';
-import { PresentationsDashboard, PresentationForm, PresentationDetail, PresentationPublicView } from './pages/presentations';
-import { ArcaConfig, ArcaPuntosVenta, ArcaInvoices } from './pages/finance/arca';
+const BMCDashboard = lazy(() => import('./pages/bmc').then(m => ({ default: m.BMCDashboard })));
+const BMCTemplates = lazy(() => import('./pages/bmc').then(m => ({ default: m.BMCTemplates })));
+const BMCCanvasView = lazy(() => import('./pages/bmc').then(m => ({ default: m.BMCCanvasView })));
+const BMCRespond = lazy(() => import('./pages/bmc').then(m => ({ default: m.BMCRespond })));
+const ProposalsDashboard = lazy(() => import('./pages/proposals').then(m => ({ default: m.ProposalsDashboard })));
+const ProposalForm = lazy(() => import('./pages/proposals').then(m => ({ default: m.ProposalForm })));
+const ProposalDetail = lazy(() => import('./pages/proposals').then(m => ({ default: m.ProposalDetail })));
+const ProposalPublicView = lazy(() => import('./pages/proposals').then(m => ({ default: m.ProposalPublicView })));
+const ProposalSlideEditor = lazy(() => import('./pages/proposals').then(m => ({ default: m.ProposalSlideEditor })));
+const PresentationsDashboard = lazy(() => import('./pages/presentations').then(m => ({ default: m.PresentationsDashboard })));
+const PresentationForm = lazy(() => import('./pages/presentations').then(m => ({ default: m.PresentationForm })));
+const PresentationDetail = lazy(() => import('./pages/presentations').then(m => ({ default: m.PresentationDetail })));
+const PresentationPublicView = lazy(() => import('./pages/presentations').then(m => ({ default: m.PresentationPublicView })));
+const ArcaConfig = lazy(() => import('./pages/finance/arca').then(m => ({ default: m.ArcaConfig })));
+const ArcaPuntosVenta = lazy(() => import('./pages/finance/arca').then(m => ({ default: m.ArcaPuntosVenta })));
+const ArcaInvoices = lazy(() => import('./pages/finance/arca').then(m => ({ default: m.ArcaInvoices })));
 import {
   CheckinDashboard, CheckinDetail, CheckinPublicForm,
   CheckinHistory, CheckinConfigPage, CheckinPlantillas,
@@ -58,19 +71,19 @@ import {
 import { ToolsDashboard } from './pages/tools/ToolsDashboard';
 import { ROIDashboard } from './pages/tools/roi/ROIDashboard';
 import { ROICalculator } from './pages/tools/roi/ROICalculator';
-import { ProspectorDashboard } from './pages/tools/prospector/ProspectorDashboard';
-import { ProspectorList } from './pages/tools/prospector/ProspectorList';
-import { ProspectorForm } from './pages/tools/prospector/ProspectorForm';
-import { ProspectorDetail } from './pages/tools/prospector/ProspectorDetail';
-import { ProspectorSettings } from './pages/tools/prospector/ProspectorSettings';
-import { ProspectorScraper } from './pages/tools/prospector/ProspectorScraper';
-import { ProspectorScrapeHistory } from './pages/tools/prospector/ProspectorScrapeHistory';
+const ProspectorDashboard = lazy(() => import('./pages/tools/prospector/ProspectorDashboard').then(m => ({ default: m.ProspectorDashboard })));
+const ProspectorList = lazy(() => import('./pages/tools/prospector/ProspectorList').then(m => ({ default: m.ProspectorList })));
+const ProspectorForm = lazy(() => import('./pages/tools/prospector/ProspectorForm').then(m => ({ default: m.ProspectorForm })));
+const ProspectorDetail = lazy(() => import('./pages/tools/prospector/ProspectorDetail').then(m => ({ default: m.ProspectorDetail })));
+const ProspectorSettings = lazy(() => import('./pages/tools/prospector/ProspectorSettings').then(m => ({ default: m.ProspectorSettings })));
+const ProspectorScraper = lazy(() => import('./pages/tools/prospector/ProspectorScraper').then(m => ({ default: m.ProspectorScraper })));
+const ProspectorScrapeHistory = lazy(() => import('./pages/tools/prospector/ProspectorScrapeHistory').then(m => ({ default: m.ProspectorScrapeHistory })));
 import { Organizations, SuperUsers } from './pages/super';
-import { QuizDashboard } from './pages/quiz/QuizDashboard';
-import { QuizForm } from './pages/quiz/QuizForm';
-import { QuizDetail } from './pages/quiz/QuizDetail';
-import { QuizLive } from './pages/quiz/QuizLive';
-import { QuizPlay } from './pages/quiz/QuizPlay';
+const QuizDashboard = lazy(() => import('./pages/quiz/QuizDashboard').then(m => ({ default: m.QuizDashboard })));
+const QuizForm = lazy(() => import('./pages/quiz/QuizForm').then(m => ({ default: m.QuizForm })));
+const QuizDetail = lazy(() => import('./pages/quiz/QuizDetail').then(m => ({ default: m.QuizDetail })));
+const QuizLive = lazy(() => import('./pages/quiz/QuizLive').then(m => ({ default: m.QuizLive })));
+const QuizPlay = lazy(() => import('./pages/quiz/QuizPlay').then(m => ({ default: m.QuizPlay })));
 import { HomeDashboard } from './pages/HomeDashboard';
 import { Layout, ProtectedRoute } from './components';
 import { useAuth } from './context/AuthContext';
@@ -115,7 +128,15 @@ function AppRoutes() {
   }
 
   return (
-    <Routes>
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-white dark:bg-[#2e2a2b]">
+        <div className="flex flex-col items-center gap-3">
+          <img src="/wau-icon.png" alt="WAU" className="w-12 h-12 object-contain animate-pulse" />
+          <p className="text-sm text-gray-400">Cargando...</p>
+        </div>
+      </div>
+    }>
+      <Routes>
       <Route path="/" element={<LandingRedirect />} />
       <Route path="/manual-prospeccion" element={<AgroGuiaRoute />} />
       <Route
@@ -242,8 +263,9 @@ function AppRoutes() {
         <Route path="/super/organizations" element={<Organizations />} />
         <Route path="/super/users" element={<SuperUsers />} />
       </Route>
-      <Route path="*" element={<Navigate to="/home" replace />} />
-    </Routes>
+        <Route path="*" element={<Navigate to="/home" replace />} />
+      </Routes>
+    </Suspense>
   );
 }
 

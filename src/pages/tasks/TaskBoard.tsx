@@ -108,12 +108,18 @@ export function TaskBoard() {
     return map;
   }, [filtered]);
 
-  const handleDragEnd = useCallback((result: DropResult) => {
+  const handleDragEnd = useCallback(async (result: DropResult) => {
     if (!result.destination) return;
     const newStatus = result.destination.droppableId as TaskStatus;
     const id = result.draggableId;
     if (newStatus !== result.source.droppableId) {
-      updateTask(id, { status: newStatus });
+      try {
+        await updateTask(id, { status: newStatus });
+      } catch (err: any) {
+        // updateTask now throws on failure — surface it instead of silently
+        // leaving the card in the new column while the DB still has the old.
+        alert('No se pudo mover la tarea: ' + (err?.message || 'Error desconocido'));
+      }
     }
   }, [updateTask]);
 
@@ -374,7 +380,12 @@ export function TaskBoard() {
             <p className="text-gray-600 dark:text-gray-400 mb-4">Esta acción no se puede deshacer.</p>
             <div className="flex justify-end gap-3">
               <button onClick={() => setConfirmDelete(null)} className="btn-secondary">Cancelar</button>
-              <button onClick={() => { deleteTask(confirmDelete); setConfirmDelete(null); }} className="btn-danger">Eliminar</button>
+              <button onClick={async () => {
+                const id = confirmDelete;
+                setConfirmDelete(null);
+                try { await deleteTask(id); }
+                catch (err: any) { alert('No se pudo eliminar: ' + (err?.message || 'Error desconocido')); }
+              }} className="btn-danger">Eliminar</button>
             </div>
           </div>
         </div>

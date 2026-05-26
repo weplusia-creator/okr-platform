@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useCallback, useEffect, useMemo, type ReactNode } from 'react';
-import { supabase } from '../lib/supabase';
+import { supabase, onTabResumed } from '../lib/supabase';
 import { useAuth } from './AuthContext';
 import { notify } from '../lib/notify';
 import type { Task, TaskStatus, TaskComment, TaskLabel, TaskAttachment, TaskAssignee } from '../types';
@@ -170,8 +170,11 @@ export function TaskProvider({ children }: { children: ReactNode }) {
       }
 
       setTasks(prev => prev.map(t => t.id === id ? { ...t, ...updates, updatedAt: new Date().toISOString() } : t));
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error updating task:', err);
+      // Surface the error so callers can show feedback. Previously this was
+      // swallowed and the UI silently kept showing the old state on failure.
+      throw new Error(err?.message || 'No se pudo actualizar la tarea');
     }
   }, [appUser?.id, organization?.id, tasks]);
 
@@ -180,8 +183,9 @@ export function TaskProvider({ children }: { children: ReactNode }) {
       const { error: err } = await supabase.from('tasks').delete().eq('id', id);
       if (err) throw err;
       setTasks(prev => prev.filter(t => t.id !== id));
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error deleting task:', err);
+      throw new Error(err?.message || 'No se pudo eliminar la tarea');
     }
   }, []);
 
@@ -283,6 +287,55 @@ export function TaskProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (organization?.id) fetchLabels();
   }, [organization?.id, fetchLabels]);
+
+  // ===== REALTIME =====
+  // Tasks + task comments + labels. Comments don't carry organization_id;
+  // we refetch only if we have comments loaded for the affected task.
+  useEffect(() => {
+    if (!organization?.id) return;
+    const orgFilter = `organization_id=eq.${organization.id}`;
+    const timers: Record<string, ReturnType<typeof setTimeout> | null> = {
+      tasks: null, labels: null, comments: null,
+    };
+    const debounce = (key: keyof typeof timers, fn: () => void) => {
+      if (timers[key]) clearTimeout(timers[key]!);
+      timers[key] = setTimeout(fn, 300);
+    };
+
+    const channel = supabase
+      .channel(`tasks:${organization.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks', filter: orgFilter },
+        () => debounce('tasks', fetchTasks))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'task_labels', filter: orgFilter },
+        () => debounce('labels', fetchLabels))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'task_comments' },
+        (payload: any) => {
+          const taskId = payload.new?.task_id || payload.old?.task_id;
+          if (!taskId) return;
+          setTaskComments(prev => {
+            // Only refetch if we have comments cached for this task.
+            if (prev[taskId]) {
+              debounce('comments', () => fetchTaskComments(taskId));
+            }
+            return prev;
+          });
+        })
+      .subscribe();
+
+    return () => {
+      Object.values(timers).forEach((t) => { if (t) clearTimeout(t); });
+      supabase.removeChannel(channel);
+    };
+  }, [organization?.id, fetchTasks, fetchLabels, fetchTaskComments]);
+
+  // ===== TAB RESUMED =====
+  useEffect(() => {
+    if (!organization?.id) return;
+    return onTabResumed(() => {
+      fetchTasks();
+      fetchLabels();
+    });
+  }, [organization?.id, fetchTasks, fetchLabels]);
 
   const addLabel = useCallback(async (name: string, color: string): Promise<TaskLabel | null> => {
     if (!organization?.id) return null;

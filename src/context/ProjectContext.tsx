@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, useEffect, useMemo, type ReactNode } from 'react';
+import { createContext, useContext, useState, useCallback, useEffect, useMemo, useRef, type ReactNode } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { supabase, getAccessTokenFresh, onTabResumed } from '../lib/supabase';
 import { fetchWithTimeout } from '../lib/fetchTimeout';
@@ -172,6 +172,8 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
   const { organization, appUser } = useAuth();
   const [projects, setProjects] = useState<Project[]>([]);
   const [currentProject, setCurrentProject] = useState<Project | null>(null);
+  // Keep ref in sync for the realtime closure to read the latest project id.
+  useEffect(() => { currentProjectIdRef.current = currentProject?.id || null; }, [currentProject?.id]);
   const [participants, setParticipants] = useState<ProjectParticipant[]>([]);
   const [deliverables, setDeliverables] = useState<ProjectDeliverable[]>([]);
   const [modules, setModules] = useState<ProjectModule[]>([]);
@@ -179,6 +181,10 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
   const [activityLog, setActivityLog] = useState<ProjectActivityLog[]>([]);
   const [alumniProfile, setAlumniProfile] = useState<AlumniProfile | null>(null);
   const [novedades, setNovedades] = useState<ProjectNovedad[]>([]);
+  // Track the currently viewed project ID in a ref so the realtime closure
+  // can filter scoped tables (novedades, module comments) without forcing a
+  // channel re-subscription whenever the user navigates between projects.
+  const currentProjectIdRef = useRef<string | null>(null);
   const [attendanceSessions, setAttendanceSessions] = useState<AttendanceSession[]>([]);
   const [npsSurveys, setNpsSurveys] = useState<NPSSurvey[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
@@ -2972,7 +2978,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     if (!organization?.id) return;
     const orgFilter = `organization_id=eq.${organization.id}`;
     const timers: Record<string, ReturnType<typeof setTimeout> | null> = {
-      projects: null, products: null,
+      projects: null, products: null, novedades: null,
     };
     const debounce = (key: keyof typeof timers, fn: () => void) => {
       if (timers[key]) clearTimeout(timers[key]!);
@@ -2985,13 +2991,22 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
         () => debounce('projects', fetchProjects))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'products', filter: orgFilter },
         () => debounce('products', fetchProducts))
+      // Novedades scoped to the currently open project — without this,
+      // posting a novedad in another tab/user doesn't appear without F5.
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'project_novedades' },
+        (payload: any) => {
+          const projectId = payload.new?.project_id || payload.old?.project_id;
+          if (projectId && currentProjectIdRef.current === projectId) {
+            debounce('novedades', () => fetchNovedades(projectId));
+          }
+        })
       .subscribe();
 
     return () => {
       Object.values(timers).forEach((t) => { if (t) clearTimeout(t); });
       supabase.removeChannel(channel);
     };
-  }, [organization?.id, fetchProjects, fetchProducts]);
+  }, [organization?.id, fetchProjects, fetchProducts, fetchNovedades]);
 
   // ===== TAB RESUMED =====
   // Refetch state when user returns from a backgrounded tab (>1 min away).

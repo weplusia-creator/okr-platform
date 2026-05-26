@@ -1193,7 +1193,7 @@ export function CRMProvider({ children }: { children: ReactNode }) {
       fetchDeals();
       fetchActivities();
     }
-  }, [organization?.id, fetchPipelineStages, fetchLeads, fetchDeals, fetchActivities]);
+  }, [organization?.id, fetchPipelineStages, fetchLeads, fetchDeals, fetchActivities, fetchDealNotes]);
 
   // ===== REALTIME =====
   // Coalesce bursts of postgres changes per table into one debounced refetch
@@ -1202,7 +1202,7 @@ export function CRMProvider({ children }: { children: ReactNode }) {
     if (!organization?.id) return;
     const orgFilter = `organization_id=eq.${organization.id}`;
     const timers: Record<string, ReturnType<typeof setTimeout> | null> = {
-      stages: null, leads: null, deals: null, activities: null,
+      stages: null, leads: null, deals: null, activities: null, dealNotes: null,
     };
     const debounce = (key: keyof typeof timers, fn: () => void) => {
       if (timers[key]) clearTimeout(timers[key]!);
@@ -1219,6 +1219,23 @@ export function CRMProvider({ children }: { children: ReactNode }) {
         () => debounce('deals', fetchDeals))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'crm_activities', filter: orgFilter },
         () => debounce('activities', () => fetchActivities()))
+      // Deal notes scoped to whichever deal is currently open. We refetch
+      // only if the user has notes loaded for the deal that received an
+      // event — keeps the subscription cheap and avoids cross-deal noise.
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'crm_deal_notes' },
+        (payload: any) => {
+          const dealId = payload.new?.deal_id || payload.old?.deal_id;
+          if (!dealId) return;
+          // Only refetch if we have any notes for this deal in local state
+          // (i.e. the user has the deal detail open or visited recently).
+          setDealNotes(prev => {
+            const hasThis = prev.some(n => n.dealId === dealId);
+            if (hasThis) {
+              debounce('dealNotes', () => fetchDealNotes(dealId));
+            }
+            return prev;
+          });
+        })
       .subscribe();
 
     return () => {

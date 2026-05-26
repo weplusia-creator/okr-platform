@@ -81,8 +81,12 @@ export function Clients() {
 
   const handleDelete = async () => {
     if (deleteModal) {
-      await deleteClient(deleteModal.id);
-      setDeleteModal(null);
+      try {
+        await deleteClient(deleteModal.id);
+        setDeleteModal(null);
+      } catch (err: any) {
+        alert('No se pudo eliminar el cliente: ' + (err?.message || 'Error desconocido'));
+      }
     }
   };
 

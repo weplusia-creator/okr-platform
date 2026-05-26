@@ -241,9 +241,10 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
       if (err) throw err;
 
       setClients(prev => prev.filter(c => c.id !== id));
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error deleting client:', err);
       setError('Error al eliminar cliente');
+      throw new Error(err?.message || 'Error al eliminar cliente');
     }
   }, []);
 
@@ -470,9 +471,10 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
       }
 
       await fetchInvoices();
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error updating invoice:', err);
       setError('Error al actualizar factura');
+      throw new Error(err?.message || 'Error al actualizar factura');
     }
   }, [fetchInvoices]);
 
@@ -486,9 +488,10 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
       if (err) throw err;
 
       setInvoices(prev => prev.filter(i => i.id !== id));
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error deleting invoice:', err);
       setError('Error al eliminar factura');
+      throw new Error(err?.message || 'Error al eliminar factura');
     }
   }, []);
 
@@ -542,9 +545,10 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
       }
 
       await fetchInvoices();
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error marking invoice as paid:', err);
       setError('Error al marcar factura como pagada');
+      throw new Error(err?.message || 'Error al marcar factura como pagada');
     }
   }, [invoices, categories, organization?.id, appUser?.id, fetchInvoices]);
 
@@ -701,9 +705,10 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
       if (err) throw err;
 
       setCategories(prev => prev.filter(c => c.id !== id));
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error deleting category:', err);
       setError('Error al eliminar categoría');
+      throw new Error(err?.message || 'Error al eliminar categoría');
     }
   }, []);
 
@@ -845,9 +850,10 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
       }
 
       await fetchTransactions();
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error updating transaction:', err);
       setError('Error al actualizar transacción');
+      throw new Error(err?.message || 'Error al actualizar transacción');
     }
   }, [fetchTransactions]);
 
@@ -861,9 +867,10 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
       if (err) throw err;
 
       setTransactions(prev => prev.filter(t => t.id !== id));
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error deleting transaction:', err);
       setError('Error al eliminar transacción');
+      throw new Error(err?.message || 'Error al eliminar transacción');
     }
   }, []);
 
@@ -952,9 +959,10 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
       if (err) throw err;
 
       setRecurringExpenses(prev => prev.map(r => r.id === id ? { ...r, ...updates } : r));
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error updating recurring expense:', err);
       setError('Error al actualizar costo fijo');
+      throw new Error(err?.message || 'Error al actualizar costo fijo');
     }
   }, []);
 
@@ -968,9 +976,10 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
       if (err) throw err;
 
       setRecurringExpenses(prev => prev.filter(r => r.id !== id));
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error deleting recurring expense:', err);
       setError('Error al eliminar costo fijo');
+      throw new Error(err?.message || 'Error al eliminar costo fijo');
     }
   }, []);
 

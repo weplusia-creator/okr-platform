@@ -74,15 +74,23 @@ export function Invoices() {
 
   const handleDelete = async () => {
     if (deleteModal) {
-      await deleteInvoice(deleteModal.id);
-      setDeleteModal(null);
+      try {
+        await deleteInvoice(deleteModal.id);
+        setDeleteModal(null);
+      } catch (err: any) {
+        alert('No se pudo eliminar la factura: ' + (err?.message || 'Error desconocido'));
+      }
     }
   };
 
   const handleMarkAsPaid = async () => {
     if (payModal) {
-      await markInvoiceAsPaid(payModal.id, paidDate);
-      setPayModal(null);
+      try {
+        await markInvoiceAsPaid(payModal.id, paidDate);
+        setPayModal(null);
+      } catch (err: any) {
+        alert('No se pudo marcar como pagada: ' + (err?.message || 'Error desconocido'));
+      }
     }
   };
 

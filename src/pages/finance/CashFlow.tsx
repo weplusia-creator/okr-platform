@@ -389,7 +389,8 @@ export function CashFlow() {
 
   const handleDeleteTransaction = async (id: string) => {
     if (window.confirm('¿Estás seguro de que deseas eliminar esta transacción?')) {
-      await deleteTransaction(id);
+      try { await deleteTransaction(id); }
+      catch (err: any) { alert('No se pudo eliminar la transacción: ' + (err?.message || 'Error desconocido')); }
     }
   };
 
@@ -435,12 +436,14 @@ export function CashFlow() {
   };
 
   const handleToggleRecurring = async (r: RecurringExpense) => {
-    await updateRecurringExpense(r.id, { active: !r.active });
+    try { await updateRecurringExpense(r.id, { active: !r.active }); }
+    catch (err: any) { alert('No se pudo actualizar: ' + (err?.message || 'Error desconocido')); }
   };
 
   const handleDeleteRecurring = async (id: string) => {
     if (window.confirm('¿Eliminar este costo fijo?')) {
-      await deleteRecurringExpense(id);
+      try { await deleteRecurringExpense(id); }
+      catch (err: any) { alert('No se pudo eliminar: ' + (err?.message || 'Error desconocido')); }
     }
   };
 
@@ -1873,7 +1876,10 @@ export function CashFlow() {
                       </div>
                       {isAdmin && (
                         <button
-                          onClick={() => deleteCategory(cat.id)}
+                          onClick={async () => {
+                            try { await deleteCategory(cat.id); }
+                            catch (err: any) { alert('No se pudo eliminar la categoría: ' + (err?.message || 'Error desconocido')); }
+                          }}
                           className="p-1 text-gray-400 hover:text-danger-600"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -1895,7 +1901,10 @@ export function CashFlow() {
                       </div>
                       {isAdmin && (
                         <button
-                          onClick={() => deleteCategory(cat.id)}
+                          onClick={async () => {
+                            try { await deleteCategory(cat.id); }
+                            catch (err: any) { alert('No se pudo eliminar la categoría: ' + (err?.message || 'Error desconocido')); }
+                          }}
                           className="p-1 text-gray-400 hover:text-danger-600"
                         >
                           <Trash2 className="w-4 h-4" />

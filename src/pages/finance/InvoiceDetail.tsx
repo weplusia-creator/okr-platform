@@ -63,14 +63,19 @@ export function InvoiceDetail() {
 
   const handleMarkAsPaid = async () => {
     if (invoice) {
-      await markInvoiceAsPaid(invoice.id, paidDate);
-      setPayModal(false);
+      try {
+        await markInvoiceAsPaid(invoice.id, paidDate);
+        setPayModal(false);
+      } catch (err: any) {
+        alert('No se pudo marcar como pagada: ' + (err?.message || 'Error desconocido'));
+      }
     }
   };
 
   const handleCancel = async () => {
     if (invoice && window.confirm('¿Estás seguro de que deseas cancelar esta factura?')) {
-      await updateInvoice(invoice.id, { status: 'cancelled' });
+      try { await updateInvoice(invoice.id, { status: 'cancelled' }); }
+      catch (err: any) { alert('No se pudo cancelar la factura: ' + (err?.message || 'Error desconocido')); }
     }
   };
 

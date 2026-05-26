@@ -1,5 +1,5 @@
-import { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
-import { supabase } from '../lib/supabase';
+import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
+import { supabase, onTabResumed } from '../lib/supabase';
 import { useAuth } from './AuthContext';
 import type {
   Quiz, QuizQuestion, QuizOption, QuizSession, QuizParticipant, QuizResponse,
@@ -343,6 +343,34 @@ export function QuizProvider({ children }: { children: ReactNode }) {
       return [];
     }
   }, []);
+
+  // ===== REALTIME =====
+  // Sync quizzes list across tabs/users. Quiz live sessions (KAHOOT-style)
+  // also benefit: a facilitator starting a session in one tab makes it
+  // appear immediately in the participants' tabs without refresh.
+  useEffect(() => {
+    if (!organization?.id) return;
+    const orgFilter = `organization_id=eq.${organization.id}`;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const debounce = (fn: () => void) => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(fn, 300);
+    };
+    const channel = supabase
+      .channel(`quizzes:${organization.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'quizzes', filter: orgFilter },
+        () => debounce(fetchQuizzes))
+      .subscribe();
+    return () => {
+      if (timer) clearTimeout(timer);
+      supabase.removeChannel(channel);
+    };
+  }, [organization?.id, fetchQuizzes]);
+
+  useEffect(() => {
+    if (!organization?.id) return;
+    return onTabResumed(() => { fetchQuizzes(); });
+  }, [organization?.id, fetchQuizzes]);
 
   // ===== Provider =====
 

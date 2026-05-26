@@ -1,5 +1,5 @@
-import { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
-import { supabase } from '../lib/supabase';
+import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
+import { supabase, onTabResumed } from '../lib/supabase';
 import { useAuth } from './AuthContext';
 import type {
   Playbook, PlaybookStage, PlaybookStep, PlaybookScript,
@@ -923,6 +923,37 @@ export function PlaybookProvider({ children }: { children: ReactNode }) {
       console.error('Error deleting playbook item:', err);
     }
   }, []);
+
+  // ===== REALTIME =====
+  // Refetches the playbooks list whenever any playbook row changes for
+  // this organization. Until this was added, a teammate creating a
+  // playbook didn't show up until F5. We only listen on the top-level
+  // table; the sub-tables (stages, steps, scripts, etc.) are typically
+  // refetched on demand when the user opens a specific playbook.
+  useEffect(() => {
+    if (!organization?.id) return;
+    const orgFilter = `organization_id=eq.${organization.id}`;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const debounce = (fn: () => void) => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(fn, 300);
+    };
+    const channel = supabase
+      .channel(`playbooks:${organization.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'playbooks', filter: orgFilter },
+        () => debounce(fetchPlaybooks))
+      .subscribe();
+    return () => {
+      if (timer) clearTimeout(timer);
+      supabase.removeChannel(channel);
+    };
+  }, [organization?.id, fetchPlaybooks]);
+
+  // Refetch on tab resume.
+  useEffect(() => {
+    if (!organization?.id) return;
+    return onTabResumed(() => { fetchPlaybooks(); });
+  }, [organization?.id, fetchPlaybooks]);
 
   const value: PlaybookContextType = {
     playbooks, fetchPlaybooks, addPlaybook, updatePlaybook, deletePlaybook, createPlaybookFromTemplate,

@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useCallback, useEffect, useMemo, type ReactNode } from 'react';
-import { supabase } from '../lib/supabase';
+import { supabase, onTabResumed } from '../lib/supabase';
 import { useAuth } from './AuthContext';
 import { notifyMany } from '../lib/notify';
 import type {
@@ -1031,6 +1031,48 @@ export function CheckinProvider({ children }: { children: ReactNode }) {
       fetchConfigs();
       fetchCheckins();
     }
+  }, [organization?.id, fetchPlantillas, fetchConfigs, fetchCheckins]);
+
+  // ===== REALTIME =====
+  // Follows the same single-channel-with-debounce pattern used in
+  // CRM/Project/OKR contexts. Until this addition, anything created by
+  // a teammate (plantilla, checkin, compromiso, métrica) only appeared
+  // after a manual page refresh.
+  useEffect(() => {
+    if (!organization?.id) return;
+    const orgFilter = `organization_id=eq.${organization.id}`;
+    const timers: Record<string, ReturnType<typeof setTimeout> | null> = {
+      plantillas: null, configs: null, checkins: null,
+    };
+    const debounce = (key: keyof typeof timers, fn: () => void) => {
+      if (timers[key]) clearTimeout(timers[key]!);
+      timers[key] = setTimeout(fn, 300);
+    };
+
+    const channel = supabase
+      .channel(`checkin:${organization.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'checkin_plantillas', filter: orgFilter },
+        () => debounce('plantillas', fetchPlantillas))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'checkin_config', filter: orgFilter },
+        () => debounce('configs', fetchConfigs))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'checkins', filter: orgFilter },
+        () => debounce('checkins', fetchCheckins))
+      .subscribe();
+
+    return () => {
+      Object.values(timers).forEach((t) => { if (t) clearTimeout(t); });
+      supabase.removeChannel(channel);
+    };
+  }, [organization?.id, fetchPlantillas, fetchConfigs, fetchCheckins]);
+
+  // ===== TAB RESUMED =====
+  useEffect(() => {
+    if (!organization?.id) return;
+    return onTabResumed(() => {
+      fetchPlantillas();
+      fetchConfigs();
+      fetchCheckins();
+    });
   }, [organization?.id, fetchPlantillas, fetchConfigs, fetchCheckins]);
 
   // ===== CONTEXT VALUE =====

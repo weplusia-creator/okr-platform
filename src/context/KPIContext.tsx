@@ -1,5 +1,5 @@
-import { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
-import { supabase } from '../lib/supabase';
+import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
+import { supabase, onTabResumed } from '../lib/supabase';
 import { useAuth } from './AuthContext';
 import type { KPICategory, KPI, KPIEntry } from '../types';
 
@@ -351,6 +351,45 @@ export function KPIProvider({ children }: { children: ReactNode }) {
       await fetchEntries(k.id);
     }
   }, [organization?.id, kpis, fetchKPIs, fetchEntries]);
+
+  // ===== REALTIME =====
+  useEffect(() => {
+    if (!organization?.id) return;
+    const orgFilter = `organization_id=eq.${organization.id}`;
+    const timers: Record<string, ReturnType<typeof setTimeout> | null> = {
+      categories: null, kpis: null, entries: null,
+    };
+    const debounce = (key: keyof typeof timers, fn: () => void) => {
+      if (timers[key]) clearTimeout(timers[key]!);
+      timers[key] = setTimeout(fn, 300);
+    };
+    const channel = supabase
+      .channel(`kpis:${organization.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'kpi_categories', filter: orgFilter },
+        () => debounce('categories', fetchCategories))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'kpis', filter: orgFilter },
+        () => debounce('kpis', fetchKPIs))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'kpi_entries', filter: orgFilter },
+        (payload: any) => {
+          const kpiId = payload.new?.kpi_id || payload.old?.kpi_id;
+          if (kpiId) debounce('entries', () => fetchEntries(kpiId));
+        })
+      .subscribe();
+    return () => {
+      Object.values(timers).forEach((t) => { if (t) clearTimeout(t); });
+      supabase.removeChannel(channel);
+    };
+  }, [organization?.id, fetchCategories, fetchKPIs, fetchEntries]);
+
+  useEffect(() => {
+    if (!organization?.id) return;
+    return onTabResumed(() => {
+      fetchCategories();
+      fetchKPIs();
+      // fetchEntries needs a specific kpiId; components that display
+      // a KPI detail will call it themselves on resume via their own effect.
+    });
+  }, [organization?.id, fetchCategories, fetchKPIs]);
 
   const value = {
     categories, kpis, entries, loading,

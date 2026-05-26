@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
-import { supabase } from '../lib/supabase';
+import { supabase, onTabResumed } from '../lib/supabase';
 import { useAuth } from './AuthContext';
 import type {
   Proposal,
@@ -863,6 +863,31 @@ export function ProposalProvider({ children }: { children: ReactNode }) {
       conversionRate,
     };
   }, [proposals]);
+
+  // ===== REALTIME =====
+  useEffect(() => {
+    const orgId = appUser?.organizationId;
+    if (!orgId) return;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const debounce = (fn: () => void) => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(fn, 300);
+    };
+    const channel = supabase
+      .channel(`proposals:${orgId}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'proposals', filter: `organization_id=eq.${orgId}` },
+        () => debounce(fetchProposals))
+      .subscribe();
+    return () => {
+      if (timer) clearTimeout(timer);
+      supabase.removeChannel(channel);
+    };
+  }, [appUser?.organizationId, fetchProposals]);
+
+  useEffect(() => {
+    if (!appUser?.organizationId) return;
+    return onTabResumed(() => { fetchProposals(); });
+  }, [appUser?.organizationId, fetchProposals]);
 
   return (
     <ProposalContext.Provider

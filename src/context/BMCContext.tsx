@@ -1,5 +1,5 @@
-import { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
-import { supabase } from '../lib/supabase';
+import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
+import { supabase, onTabResumed } from '../lib/supabase';
 import { useAuth } from './AuthContext';
 import type {
   BmcTemplate, BmcCanvas, BmcBlock, BmcQuestion,
@@ -752,6 +752,33 @@ export function BMCProvider({ children }: { children: ReactNode }) {
       console.error('Error casting BMC vote:', err);
     }
   }, []);
+
+  // ===== REALTIME =====
+  // Subscribe to bmc_canvases for this org so a new canvas (created by
+  // a teammate or in another tab) appears without F5.
+  useEffect(() => {
+    if (!organization?.id) return;
+    const orgFilter = `organization_id=eq.${organization.id}`;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const debounce = (fn: () => void) => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(fn, 300);
+    };
+    const channel = supabase
+      .channel(`bmc:${organization.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'bmc_canvases', filter: orgFilter },
+        () => debounce(fetchCanvases))
+      .subscribe();
+    return () => {
+      if (timer) clearTimeout(timer);
+      supabase.removeChannel(channel);
+    };
+  }, [organization?.id, fetchCanvases]);
+
+  useEffect(() => {
+    if (!organization?.id) return;
+    return onTabResumed(() => { fetchCanvases(); });
+  }, [organization?.id, fetchCanvases]);
 
   const value: BMCContextType = {
     templates, fetchTemplates, addTemplate, updateTemplate, deleteTemplate,

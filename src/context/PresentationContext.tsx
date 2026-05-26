@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
-import { supabase } from '../lib/supabase';
+import { supabase, onTabResumed } from '../lib/supabase';
 import { useAuth } from './AuthContext';
 import type {
   Presentation,
@@ -312,6 +312,31 @@ export function PresentationProvider({ children }: { children: ReactNode }) {
 
     return data.share_token;
   }, []);
+
+  // ===== REALTIME =====
+  useEffect(() => {
+    const orgId = appUser?.organizationId;
+    if (!orgId) return;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const debounce = (fn: () => void) => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(fn, 300);
+    };
+    const channel = supabase
+      .channel(`presentations:${orgId}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'presentations', filter: `organization_id=eq.${orgId}` },
+        () => debounce(fetchPresentations))
+      .subscribe();
+    return () => {
+      if (timer) clearTimeout(timer);
+      supabase.removeChannel(channel);
+    };
+  }, [appUser?.organizationId, fetchPresentations]);
+
+  useEffect(() => {
+    if (!appUser?.organizationId) return;
+    return onTabResumed(() => { fetchPresentations(); });
+  }, [appUser?.organizationId, fetchPresentations]);
 
   return (
     <PresentationContext.Provider

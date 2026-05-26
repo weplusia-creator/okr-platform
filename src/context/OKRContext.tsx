@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from './AuthContext';
 import type { Objective, KeyResult, OKRFilters, Initiative, InitiativeStatus, InitiativeComment } from '../types';
 import { getCurrentQuarter, getCurrentYear } from '../utils/helpers';
+import { useRealtimeTable } from '../hooks/useRealtimeTable';
 
 interface OKRContextType {
   objectives: Objective[];
@@ -429,6 +430,33 @@ export function OKRProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (organization?.id) fetchInitiatives();
   }, [organization?.id, fetchInitiatives]);
+
+  // ====== Realtime: keep OKR data in sync across users + tabs ======
+  // OKRs are typically collaborative — multiple users edit the same objectives.
+  // We listen to changes on objectives, key_results, and initiatives and refetch
+  // the affected list. If Realtime isn't enabled in Supabase, the hook silently
+  // disables itself; manual mutations still update state via the usual code paths.
+  const orgFilter = organization?.id ? `organization_id=eq.${organization.id}` : undefined;
+
+  useRealtimeTable({
+    table: 'objectives',
+    filter: orgFilter,
+    enabled: !!organization?.id,
+    onChange: () => { fetchObjectives(); },
+  });
+  useRealtimeTable({
+    // key_results doesn't carry organization_id directly, but it's scoped via the
+    // objective_id foreign key. We listen broadly and let fetchObjectives reconcile.
+    table: 'key_results',
+    enabled: !!organization?.id,
+    onChange: () => { fetchObjectives(); },
+  });
+  useRealtimeTable({
+    table: 'initiatives',
+    filter: orgFilter,
+    enabled: !!organization?.id,
+    onChange: () => { fetchInitiatives(); },
+  });
 
   const addInitiative = useCallback(async (keyResultId: string, data: { title: string; responsibleId?: string | null; dueDate?: string | null; description?: string | null }): Promise<Initiative | null> => {
     if (!organization?.id) return null;

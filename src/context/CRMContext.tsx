@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from './AuthContext';
 import { useFinance } from './FinanceContext';
 import { useProjects } from './ProjectContext';
+import { useRealtimeTable } from '../hooks/useRealtimeTable';
 import type {
   Lead, Deal, Activity, DealHistory, DealNote,
   LeadStatus, DealStage, CRMStats, PipelineStage,
@@ -559,7 +560,9 @@ export function CRMProvider({ children }: { children: ReactNode }) {
         from_stage: null,
         to_stage: data.stage || 'prospecto',
         changed_by: appUser?.id,
-      }).then(() => {}).catch(e => console.error('Error logging deal history:', e));
+      }).then(({ error }) => {
+        if (error) console.error('Error logging deal history:', error.message);
+      });
 
       const newDeal: Deal = {
         id: row.id,
@@ -659,7 +662,9 @@ export function CRMProvider({ children }: { children: ReactNode }) {
         to_stage: newStage,
         changed_by: appUser?.id,
         notes,
-      }).then(() => {}).catch(e => console.error('Error logging deal history:', e));
+      }).then(({ error }) => {
+        if (error) console.error('Error logging deal history:', error.message);
+      });
 
       setDeals(prev => prev.map(d =>
         d.id === id
@@ -768,7 +773,9 @@ export function CRMProvider({ children }: { children: ReactNode }) {
         to_stage: 'ganado',
         changed_by: appUser?.id,
         notes: options.wonNotes,
-      }).then(() => {}).catch(e => console.error('Error logging deal history:', e));
+      }).then(({ error }) => {
+        if (error) console.error('Error logging deal history:', error.message);
+      });
 
       setDeals(prev => prev.map(d =>
         d.id === id
@@ -816,7 +823,9 @@ export function CRMProvider({ children }: { children: ReactNode }) {
         to_stage: 'perdido',
         changed_by: appUser?.id,
         notes: lostReason,
-      }).then(() => {}).catch(e => console.error('Error logging deal history:', e));
+      }).then(({ error }) => {
+        if (error) console.error('Error logging deal history:', error.message);
+      });
 
       setDeals(prev => prev.map(d =>
         d.id === id
@@ -1194,6 +1203,37 @@ export function CRMProvider({ children }: { children: ReactNode }) {
       fetchActivities();
     }
   }, [organization?.id, fetchPipelineStages, fetchLeads, fetchDeals, fetchActivities]);
+
+  // ====== Realtime: keep CRM data in sync without page refresh ======
+  // Listens to changes on deals/leads/stages for this organization and
+  // triggers the matching refetch. Silently disables itself if Realtime
+  // is not enabled in the Supabase project.
+  const orgFilter = organization?.id ? `organization_id=eq.${organization.id}` : undefined;
+
+  useRealtimeTable({
+    table: 'crm_deals',
+    filter: orgFilter,
+    enabled: !!organization?.id,
+    onChange: () => { fetchDeals(); },
+  });
+  useRealtimeTable({
+    table: 'crm_leads',
+    filter: orgFilter,
+    enabled: !!organization?.id,
+    onChange: () => { fetchLeads(); },
+  });
+  useRealtimeTable({
+    table: 'crm_pipeline_stages',
+    filter: orgFilter,
+    enabled: !!organization?.id,
+    onChange: () => { fetchPipelineStages(); },
+  });
+  useRealtimeTable({
+    table: 'crm_activities',
+    filter: orgFilter,
+    enabled: !!organization?.id,
+    onChange: () => { fetchActivities(); },
+  });
 
   const value = useMemo<CRMContextType>(() => ({
     leads,

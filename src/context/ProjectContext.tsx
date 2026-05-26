@@ -5,6 +5,7 @@ import { fetchWithTimeout } from '../lib/fetchTimeout';
 import { useAuth } from './AuthContext';
 import { notify } from '../lib/notify';
 import { todayLocalISO } from '../utils/helpers';
+import { useRealtimeTable } from '../hooks/useRealtimeTable';
 import type {
   Project,
   ProjectParticipant,
@@ -386,6 +387,35 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       if (newProject.status !== 'cancelled' && newProject.monthlyFee && newProject.startDate && endForNewPayments) {
         try {
           await generatePaymentsForProject(newProject.id, newProject.startDate, endForNewPayments, newProject.monthlyFee);
+          // Refresh payments inline so the new auto-generated rows show up
+          // immediately. Previously they only loaded the next time the user
+          // opened the project, which felt like "I have to refresh the page".
+          // We do this inline instead of calling `fetchPayments` because that
+          // function is declared later in the file (temporal dead zone).
+          const { data: payData } = await db
+            .from('project_payments')
+            .select('*')
+            .eq('project_id', newProject.id)
+            .order('month');
+          if (payData) {
+            setPayments(prev => {
+              const others = prev.filter(p => p.projectId !== newProject.id);
+              return [
+                ...others,
+                ...payData.map((p: any) => ({
+                  id: p.id,
+                  projectId: p.project_id,
+                  month: p.month,
+                  amount: p.amount,
+                  status: p.status,
+                  paidDate: p.paid_date,
+                  invoiceId: p.invoice_id,
+                  notes: p.notes,
+                  createdAt: p.created_at,
+                })),
+              ];
+            });
+          }
         } catch (err) {
           console.error('Error auto-generating payments:', err);
         }
@@ -2921,6 +2951,39 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       fetchProducts();
     }
   }, [organization?.id, fetchProjects, fetchProducts]);
+
+  // ====== Realtime: keep project data in sync without page refresh ======
+  // Project rows are filtered by organization; child tables (payments,
+  // modules, deliverables, participants) belong to the projects we already
+  // loaded, so we just trigger a project refetch and let the existing
+  // detail fetches catch up on the next navigation.
+  const orgFilter = organization?.id ? `organization_id=eq.${organization.id}` : undefined;
+
+  useRealtimeTable({
+    table: 'projects',
+    filter: orgFilter,
+    enabled: !!organization?.id,
+    onChange: () => { fetchProjects(); },
+  });
+  // Payments live in the currently viewed project — refetch them when they change.
+  useRealtimeTable({
+    table: 'project_payments',
+    filter: currentProject?.id ? `project_id=eq.${currentProject.id}` : undefined,
+    enabled: !!currentProject?.id,
+    onChange: () => { if (currentProject?.id) fetchPayments(currentProject.id); },
+  });
+  useRealtimeTable({
+    table: 'project_modules',
+    filter: currentProject?.id ? `project_id=eq.${currentProject.id}` : undefined,
+    enabled: !!currentProject?.id,
+    onChange: () => { if (currentProject?.id) fetchModules(currentProject.id); },
+  });
+  useRealtimeTable({
+    table: 'project_deliverables',
+    filter: currentProject?.id ? `project_id=eq.${currentProject.id}` : undefined,
+    enabled: !!currentProject?.id,
+    onChange: () => { if (currentProject?.id) fetchDeliverables(currentProject.id); },
+  });
 
   // ===== CONTEXT VALUE =====
 

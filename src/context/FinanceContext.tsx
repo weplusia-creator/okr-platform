@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useCallback, useEffect, useRef, ty
 import { supabase } from '../lib/supabase';
 import { useAuth } from './AuthContext';
 import { notifyMany } from '../lib/notify';
+import { useRealtimeTable } from '../hooks/useRealtimeTable';
 import type {
   Client,
   Invoice,
@@ -386,9 +387,45 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
       }
     }
 
+    // Refetch full list (so list views stay consistent) AND build the fresh
+    // invoice directly from `invData` + `items`. The previous version called
+    // `invoices.find(...)` against the *pre-refetch* state and returned null
+    // until React re-rendered, which forced the caller to refresh the page.
     await fetchInvoices();
-    return invoices.find(i => i.id === invData.id) || null;
-  }, [organization?.id, fetchInvoices, invoices]);
+    // Cast: invData is typed by Supabase's generated schema, but the live DB
+    // has extra ARCA columns (cae, arca_status, cae_vencimiento) that aren't
+    // in the generated types yet. This matches the pattern used elsewhere in
+    // this file (e.g. fetchInvoices) until types are regenerated.
+    const inv = invData as Record<string, any>;
+    const freshInvoice: Invoice = {
+      id: inv.id,
+      organizationId: inv.organization_id,
+      clientId: inv.client_id,
+      invoiceNumber: inv.invoice_number,
+      status: inv.status as InvoiceStatus,
+      issueDate: inv.issue_date,
+      dueDate: inv.due_date,
+      paidDate: inv.paid_date,
+      subtotal: Number(inv.subtotal) || 0,
+      tax: Number(inv.tax) || 0,
+      total: Number(inv.total) || 0,
+      notes: inv.notes,
+      items: items.map((item, idx) => ({
+        id: `pending-${idx}`,
+        invoiceId: inv.id,
+        description: item.description,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+        total: item.total,
+      })),
+      arcaStatus: inv.arca_status ?? null,
+      cae: inv.cae ?? null,
+      caeVencimiento: inv.cae_vencimiento ?? null,
+      createdAt: inv.created_at,
+      updatedAt: inv.updated_at,
+    };
+    return freshInvoice;
+  }, [organization?.id, fetchInvoices]);
 
   const updateInvoice = useCallback(async (
     id: string,
@@ -1098,6 +1135,38 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
       fetchRecurringExpenses();
     }
   }, [organization?.id, fetchClients, fetchInvoices, fetchCategories, fetchTransactions, fetchRecurringExpenses]);
+
+  // ====== Realtime: keep finance data in sync without page refresh ======
+  // Each subscription triggers a targeted refetch on any INSERT/UPDATE/DELETE
+  // for this organization. If Realtime isn't enabled in the Supabase project,
+  // the hook silently removes the channel and the app falls back to manual
+  // mutations (no regressions).
+  const orgFilter = organization?.id ? `organization_id=eq.${organization.id}` : undefined;
+
+  useRealtimeTable({
+    table: 'invoices',
+    filter: orgFilter,
+    enabled: !!organization?.id,
+    onChange: () => { fetchInvoices(); },
+  });
+  useRealtimeTable({
+    table: 'cash_flow_transactions',
+    filter: orgFilter,
+    enabled: !!organization?.id,
+    onChange: () => { fetchTransactions(); },
+  });
+  useRealtimeTable({
+    table: 'clients',
+    filter: orgFilter,
+    enabled: !!organization?.id,
+    onChange: () => { fetchClients(); },
+  });
+  useRealtimeTable({
+    table: 'recurring_expenses',
+    filter: orgFilter,
+    enabled: !!organization?.id,
+    onChange: () => { fetchRecurringExpenses(); },
+  });
 
   // Check for overdue invoices once after initial load
   const overdueCheckedRef = useRef(false);

@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import type { Context, Config } from '@netlify/functions';
+import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 function stripHtmlToText(html: string, maxChars = 80000): string {
   let text = html;
@@ -50,11 +50,11 @@ Responde UNICAMENTE con un JSON array. Si no encuentras prospectos, responde con
   } catch { return []; }
 }
 
-export default async (req: Request, _context: Context) => {
-  if (req.method !== 'POST') return Response.json({ error: 'Method not allowed' }, { status: 405 });
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const authHeader = req.headers.get('authorization');
-  if (!authHeader) return Response.json({ error: 'Unauthorized' }, { status: 401 });
+  const authHeader = (req.headers['authorization'] as string | undefined);
+  if (!authHeader) return res.status(401).json({ error: 'Unauthorized' });
 
   const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
   const anonKey = process.env.VITE_SUPABASE_ANON_KEY || '';
@@ -68,12 +68,12 @@ export default async (req: Request, _context: Context) => {
       global: { headers: { Authorization: `Bearer ${token}` } },
     });
     const { data: { user }, error: authErr } = await client.auth.getUser(token);
-    if (authErr || !user) return Response.json({ error: 'Invalid token' }, { status: 401 });
+    if (authErr || !user) return res.status(401).json({ error: 'Invalid token' });
   }
 
-  const body = await req.json().catch(() => ({}));
+  const body = (req.body || {}) as any;
   const { query, industry, country, maxResults = 5 } = body;
-  if (!query || typeof query !== 'string') return Response.json({ error: 'query is required' }, { status: 400 });
+  if (!query || typeof query !== 'string') return res.status(400).json({ error: 'query is required' });
 
   let searchQuery = query;
   if (industry) searchQuery += ` ${industry}`;
@@ -81,17 +81,17 @@ export default async (req: Request, _context: Context) => {
 
   const googleKey = process.env.GOOGLE_SEARCH_API_KEY || '';
   const cseId = process.env.GOOGLE_CSE_ID || '';
-  if (!googleKey || !cseId) return Response.json({ error: 'Google Search API not configured (GOOGLE_SEARCH_API_KEY, GOOGLE_CSE_ID)' }, { status: 400 });
+  if (!googleKey || !cseId) return res.status(400).json({ error: 'Google Search API not configured (GOOGLE_SEARCH_API_KEY, GOOGLE_CSE_ID)' });
 
   try {
     const gUrl = `https://www.googleapis.com/customsearch/v1?key=${encodeURIComponent(googleKey)}&cx=${encodeURIComponent(cseId)}&q=${encodeURIComponent(searchQuery)}&num=10`;
     const gRes = await fetch(gUrl);
-    if (!gRes.ok) return Response.json({ error: 'Google Search failed' }, { status: 502 });
+    if (!gRes.ok) return res.status(502).json({ error: 'Google Search failed' });
     const gData = await gRes.json();
     const searchResults = (gData.items || []).slice(0, Math.min(maxResults, 10));
 
     if (searchResults.length === 0) {
-      return Response.json({ prospects: [], meta: { query: searchQuery, pagesScraped: 0, prospectsFound: 0 } });
+      return res.status(200).json({ prospects: [], meta: { query: searchQuery, pagesScraped: 0, prospectsFound: 0 } });
     }
 
     const pageTexts: string[] = [];
@@ -117,12 +117,8 @@ export default async (req: Request, _context: Context) => {
     const combinedText = (pageTexts.length > 0 ? pageTexts.join('\n\n') : searchResults.map((r: any) => `${r.title}: ${r.snippet}`).join('\n')).slice(0, 80000);
     const prospects = await extractWithClaude(combinedText, `Search query: ${searchQuery}`);
 
-    return Response.json({ prospects, meta: { query: searchQuery, pagesScraped: pageTexts.length, prospectsFound: prospects.length } });
+    return res.status(200).json({ prospects, meta: { query: searchQuery, pagesScraped: pageTexts.length, prospectsFound: prospects.length } });
   } catch (e: any) {
-    return Response.json({ error: e.message }, { status: 500 });
+    return res.status(500).json({ error: e.message });
   }
-};
-
-export const config: Config = {
-  path: '/api/prospector/search-web',
-};
+}

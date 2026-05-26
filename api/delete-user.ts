@@ -1,28 +1,28 @@
 import { createClient } from '@supabase/supabase-js';
-import type { Context, Config } from '@netlify/functions';
+import type { VercelRequest, VercelResponse } from '@vercel/node';
 
-export default async (req: Request, _context: Context) => {
+export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
-    return Response.json({ error: 'Method not allowed' }, { status: 405 });
+    return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const body = await req.json().catch(() => ({}));
+  const body = (req.body || {}) as any;
   const { userId } = body;
 
   if (!userId) {
-    return Response.json({ error: 'userId is required' }, { status: 400 });
+    return res.status(400).json({ error: 'userId is required' });
   }
 
-  const authHeader = req.headers.get('authorization');
+  const authHeader = (req.headers['authorization'] as string | undefined);
   if (!authHeader) {
-    return Response.json({ error: 'Unauthorized' }, { status: 401 });
+    return res.status(401).json({ error: 'Unauthorized' });
   }
 
   const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 
   if (!serviceRoleKey) {
-    return Response.json({ error: 'Service role key not configured' }, { status: 500 });
+    return res.status(500).json({ error: 'Service role key not configured' });
   }
 
   const adminClient = createClient(supabaseUrl, serviceRoleKey, {
@@ -35,16 +35,16 @@ export default async (req: Request, _context: Context) => {
   const token = authHeader.replace('Bearer ', '');
   const { data: { user: caller }, error: authErr } = await anonClient.auth.getUser(token);
   if (authErr || !caller) {
-    return Response.json({ error: 'Invalid token' }, { status: 401 });
+    return res.status(401).json({ error: 'Invalid token' });
   }
 
   const { data: callerData } = await adminClient.from('users').select('role').eq('id', caller.id).single();
   if (callerData?.role !== 'admin' && callerData?.role !== 'super_admin') {
-    return Response.json({ error: 'Only admins can delete users' }, { status: 403 });
+    return res.status(403).json({ error: 'Only admins can delete users' });
   }
 
   if (userId === caller.id) {
-    return Response.json({ error: 'No podés eliminarte a vos mismo' }, { status: 400 });
+    return res.status(400).json({ error: 'No podés eliminarte a vos mismo' });
   }
 
   try {
@@ -52,15 +52,11 @@ export default async (req: Request, _context: Context) => {
 
     const { error: deleteErr } = await adminClient.auth.admin.deleteUser(userId);
     if (deleteErr) {
-      return Response.json({ error: deleteErr.message }, { status: 400 });
+      return res.status(400).json({ error: deleteErr.message });
     }
 
-    return Response.json({ success: true });
+    return res.status(200).json({ success: true });
   } catch (err: any) {
-    return Response.json({ error: err.message }, { status: 500 });
+    return res.status(500).json({ error: err.message });
   }
-};
-
-export const config: Config = {
-  path: '/api/delete-user',
-};
+}

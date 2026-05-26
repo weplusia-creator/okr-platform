@@ -1,25 +1,25 @@
 import { createClient } from '@supabase/supabase-js';
-import type { Context, Config } from '@netlify/functions';
-import { WSAAClient } from '../../src/lib/arca/wsaa.js';
-import { WSFEV1Client } from '../../src/lib/arca/wsfev1.js';
-import type { FECAERequestParams, IVADetail } from '../../src/lib/arca/wsfev1.js';
-import { decryptData } from '../../src/lib/arca/crypto.js';
+import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { WSAAClient } from '../../../src/lib/arca/wsaa.js';
+import { WSFEV1Client } from '../../../src/lib/arca/wsfev1.js';
+import type { FECAERequestParams, IVADetail } from '../../../src/lib/arca/wsfev1.js';
+import { decryptData } from '../../../src/lib/arca/crypto.js';
 
-export default async (req: Request, _context: Context) => {
+export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
-    return Response.json({ error: 'Method not allowed' }, { status: 405 });
+    return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const authHeader = req.headers.get('authorization');
+  const authHeader = (req.headers['authorization'] as string | undefined);
   if (!authHeader) {
-    return Response.json({ error: 'Unauthorized' }, { status: 401 });
+    return res.status(401).json({ error: 'Unauthorized' });
   }
 
   const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 
   if (!serviceRoleKey) {
-    return Response.json({ error: 'Service role key not configured' }, { status: 500 });
+    return res.status(500).json({ error: 'Service role key not configured' });
   }
 
   const adminClient = createClient(supabaseUrl, serviceRoleKey, {
@@ -33,21 +33,21 @@ export default async (req: Request, _context: Context) => {
   const token = authHeader.replace('Bearer ', '');
   const { data: { user: caller }, error: authErr } = await anonClient.auth.getUser(token);
   if (authErr || !caller) {
-    return Response.json({ error: 'Invalid token' }, { status: 401 });
+    return res.status(401).json({ error: 'Invalid token' });
   }
 
   const { data: callerData } = await adminClient.from('users').select('role, organization_id').eq('id', caller.id).single();
   if (callerData?.role !== 'admin' && callerData?.role !== 'super_admin') {
-    return Response.json({ error: 'Only admins can emit invoices via ARCA' }, { status: 403 });
+    return res.status(403).json({ error: 'Only admins can emit invoices via ARCA' });
   }
 
-  const body = await req.json().catch(() => ({}));
+  const body = (req.body || {}) as any;
   const { invoiceId, organizationCuitId, puntoVentaId, tipoComprobante, items } = body;
 
   if (!invoiceId || !organizationCuitId || !puntoVentaId || !tipoComprobante) {
-    return Response.json({
+    return res.status(400).json({
       error: 'Missing required fields: invoiceId, organizationCuitId, puntoVentaId, tipoComprobante',
-    }, { status: 400 });
+    });
   }
 
   try {
@@ -84,7 +84,7 @@ export default async (req: Request, _context: Context) => {
         created_at: new Date().toISOString(),
       });
 
-      return Response.json({
+      return res.status(200).json({
         success: true,
         mock: true,
         cae: mockCae,
@@ -100,13 +100,13 @@ export default async (req: Request, _context: Context) => {
       .single();
 
     if (cuitError || !cuitConfig) {
-      return Response.json({ error: 'CUIT configuration not found' }, { status: 404 });
+      return res.status(404).json({ error: 'CUIT configuration not found' });
     }
 
     if (!cuitConfig.certificate_encrypted || !cuitConfig.private_key_encrypted) {
-      return Response.json({
+      return res.status(400).json({
         error: 'No se encontró certificado para este CUIT. Subí el certificado y la clave privada desde la configuración de ARCA.',
-      }, { status: 400 });
+      });
     }
 
     const certificate = decryptData(cuitConfig.certificate_encrypted);
@@ -170,7 +170,7 @@ export default async (req: Request, _context: Context) => {
       .single();
 
     if (invoiceError || !invoice) {
-      return Response.json({ error: 'Invoice not found' }, { status: 404 });
+      return res.status(404).json({ error: 'Invoice not found' });
     }
 
     const wsfev1 = new WSFEV1Client(wsaaToken, wsaaSign, cuit, environment);
@@ -278,7 +278,7 @@ export default async (req: Request, _context: Context) => {
       .update(updateData)
       .eq('id', invoiceId);
 
-    return Response.json({
+    return res.status(200).json({
       success: fecaeResponse.success,
       cae: fecaeResponse.cae,
       caeVencimiento: fecaeResponse.caeVencimiento,
@@ -289,12 +289,8 @@ export default async (req: Request, _context: Context) => {
     });
   } catch (err: any) {
     console.error('ARCA invoice emission error:', err);
-    return Response.json({
+    return res.status(500).json({
       error: err.message || 'Internal server error during ARCA invoice emission',
-    }, { status: 500 });
+    });
   }
-};
-
-export const config: Config = {
-  path: '/api/arca/invoices/emit',
-};
+}

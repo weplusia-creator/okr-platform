@@ -1,28 +1,27 @@
 import { createClient } from '@supabase/supabase-js';
-import type { Context, Config } from '@netlify/functions';
+import type { VercelRequest, VercelResponse } from '@vercel/node';
 
-export default async (req: Request, _context: Context) => {
-  if (req.method !== 'GET') return Response.json({ error: 'Method not allowed' }, { status: 405 });
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+  if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
 
-  const authHeader = req.headers.get('authorization');
-  if (!authHeader) return Response.json({ error: 'Unauthorized' }, { status: 401 });
+  const authHeader = (req.headers['authorization'] as string | undefined);
+  if (!authHeader) return res.status(401).json({ error: 'Unauthorized' });
 
   const token = authHeader.replace('Bearer ', '');
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
   if (!serviceRoleKey || token !== serviceRoleKey) {
-    return Response.json({ error: 'Invalid service role key' }, { status: 401 });
+    return res.status(401).json({ error: 'Invalid service role key' });
   }
 
-  const url = new URL(req.url);
-  const organizationId = url.searchParams.get('organization_id') || '';
-  if (!organizationId) return Response.json({ error: 'organization_id query param is required' }, { status: 400 });
+  const organizationId = (req.query['organization_id'] as string) || '';
+  if (!organizationId) return res.status(400).json({ error: 'organization_id query param is required' });
 
   const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
   const db = createClient(supabaseUrl, serviceRoleKey);
 
   const now = new Date();
-  const yearParam = url.searchParams.get('year');
-  const monthParam = url.searchParams.get('month');
+  const yearParam = (req.query['year'] as string | undefined);
+  const monthParam = (req.query['month'] as string | undefined);
   const year = yearParam ? Number(yearParam) : now.getFullYear();
   const month = monthParam ? Number(monthParam) : now.getMonth() + 1;
   const startDate = `${year}-${String(month).padStart(2, '0')}-01`;
@@ -37,7 +36,7 @@ export default async (req: Request, _context: Context) => {
       .lte('date', endDate)
       .order('date', { ascending: false });
 
-    if (error) return Response.json({ error: error.message }, { status: 500 });
+    if (error) return res.status(500).json({ error: error.message });
 
     const totalIncome = (transactions || [])
       .filter((t: any) => t.type === 'income')
@@ -46,16 +45,12 @@ export default async (req: Request, _context: Context) => {
       .filter((t: any) => t.type === 'expense')
       .reduce((sum: number, t: any) => sum + Number(t.amount), 0);
 
-    return Response.json({
+    return res.status(200).json({
       period: { year, month },
       summary: { totalIncome, totalExpenses, balance: totalIncome - totalExpenses },
       transactions,
     });
   } catch (err: any) {
-    return Response.json({ error: err.message }, { status: 500 });
+    return res.status(500).json({ error: err.message });
   }
-};
-
-export const config: Config = {
-  path: '/api/finanzas/flujo-caja',
-};
+}

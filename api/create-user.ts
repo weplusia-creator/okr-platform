@@ -1,28 +1,28 @@
 import { createClient } from '@supabase/supabase-js';
-import type { Context, Config } from '@netlify/functions';
+import type { VercelRequest, VercelResponse } from '@vercel/node';
 
-export default async (req: Request, _context: Context) => {
+export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
-    return Response.json({ error: 'Method not allowed' }, { status: 405 });
+    return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const body = await req.json().catch(() => ({}));
+  const body = (req.body || {}) as any;
   const { email, password, fullName, organizationId, role: userRole, jobTitle, userType, clientId } = body;
 
   if (!email || !password) {
-    return Response.json({ error: 'Email and password are required' }, { status: 400 });
+    return res.status(400).json({ error: 'Email and password are required' });
   }
 
-  const authHeader = req.headers.get('authorization');
+  const authHeader = (req.headers['authorization'] as string | undefined);
   if (!authHeader) {
-    return Response.json({ error: 'Unauthorized' }, { status: 401 });
+    return res.status(401).json({ error: 'Unauthorized' });
   }
 
   const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 
   if (!serviceRoleKey) {
-    return Response.json({ error: 'Service role key not configured' }, { status: 500 });
+    return res.status(500).json({ error: 'Service role key not configured' });
   }
 
   const adminClient = createClient(supabaseUrl, serviceRoleKey, {
@@ -35,12 +35,12 @@ export default async (req: Request, _context: Context) => {
   const token = authHeader.replace('Bearer ', '');
   const { data: { user: caller }, error: authErr } = await anonClient.auth.getUser(token);
   if (authErr || !caller) {
-    return Response.json({ error: 'Invalid token' }, { status: 401 });
+    return res.status(401).json({ error: 'Invalid token' });
   }
 
   const { data: callerData } = await adminClient.from('users').select('role').eq('id', caller.id).single();
   if (callerData?.role !== 'admin' && callerData?.role !== 'super_admin') {
-    return Response.json({ error: 'Only admins can create users' }, { status: 403 });
+    return res.status(403).json({ error: 'Only admins can create users' });
   }
 
   try {
@@ -52,7 +52,7 @@ export default async (req: Request, _context: Context) => {
     });
 
     if (createErr) {
-      return Response.json({ error: createErr.message }, { status: 400 });
+      return res.status(400).json({ error: createErr.message });
     }
 
     const authUserId = authData.user.id;
@@ -77,26 +77,22 @@ export default async (req: Request, _context: Context) => {
         ...userData,
       });
       if (insertErr) {
-        return Response.json({ error: `Error creating user record: ${insertErr.message}` }, { status: 400 });
+        return res.status(400).json({ error: `Error creating user record: ${insertErr.message}` });
       }
     } else {
       const { error: updateErr } = await adminClient.from('users').update(userData).eq('id', authUserId);
       if (updateErr) {
-        return Response.json({ error: `Error updating user record: ${updateErr.message}` }, { status: 400 });
+        return res.status(400).json({ error: `Error updating user record: ${updateErr.message}` });
       }
     }
 
     const { data: verify } = await adminClient.from('users').select('organization_id').eq('id', authUserId).single();
     if (!verify?.organization_id) {
-      return Response.json({ error: 'User created but organization_id not set. Check database triggers.' }, { status: 500 });
+      return res.status(500).json({ error: 'User created but organization_id not set. Check database triggers.' });
     }
 
-    return Response.json({ userId: authUserId, email });
+    return res.status(200).json({ userId: authUserId, email });
   } catch (err: any) {
-    return Response.json({ error: err.message }, { status: 500 });
+    return res.status(500).json({ error: err.message });
   }
-};
-
-export const config: Config = {
-  path: '/api/create-user',
-};
+}

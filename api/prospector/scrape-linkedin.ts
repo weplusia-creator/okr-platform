@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import type { Context, Config } from '@netlify/functions';
+import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 async function extractWithClaude(text: string, hint?: string) {
   const apiKey = process.env.ANTHROPIC_API_KEY || '';
@@ -32,11 +32,11 @@ Responde UNICAMENTE con un JSON array. Si no encuentras prospectos, responde con
   } catch { return []; }
 }
 
-export default async (req: Request, _context: Context) => {
-  if (req.method !== 'POST') return Response.json({ error: 'Method not allowed' }, { status: 405 });
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const authHeader = req.headers.get('authorization');
-  if (!authHeader) return Response.json({ error: 'Unauthorized' }, { status: 401 });
+  const authHeader = (req.headers['authorization'] as string | undefined);
+  if (!authHeader) return res.status(401).json({ error: 'Unauthorized' });
 
   const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
   const anonKey = process.env.VITE_SUPABASE_ANON_KEY || '';
@@ -50,17 +50,17 @@ export default async (req: Request, _context: Context) => {
       global: { headers: { Authorization: `Bearer ${token}` } },
     });
     const { data: { user }, error: authErr } = await client.auth.getUser(token);
-    if (authErr || !user) return Response.json({ error: 'Invalid token' }, { status: 401 });
+    if (authErr || !user) return res.status(401).json({ error: 'Invalid token' });
   }
 
-  const body = await req.json().catch(() => ({}));
+  const body = (req.body || {}) as any;
   const { url, searchQuery, rawText } = body;
-  if (!url && !searchQuery && !rawText) return Response.json({ error: 'Provide url, searchQuery, or rawText' }, { status: 400 });
+  if (!url && !searchQuery && !rawText) return res.status(400).json({ error: 'Provide url, searchQuery, or rawText' });
 
   try {
     if (rawText && typeof rawText === 'string') {
       const prospects = await extractWithClaude(rawText, 'This is raw text copied from LinkedIn profile(s). Extract all contact/company data.');
-      return Response.json({ prospects, meta: { method: 'raw_text', prospectsFound: prospects.length } });
+      return res.status(200).json({ prospects, meta: { method: 'raw_text', prospectsFound: prospects.length } });
     }
 
     if (url && typeof url === 'string') {
@@ -82,37 +82,33 @@ export default async (req: Request, _context: Context) => {
               country: profile.country_full_name || null, city: profile.city || null,
               notes: profile.summary || null,
             };
-            return Response.json({ prospects: [prospect], meta: { method: 'proxycurl', prospectsFound: 1 } });
+            return res.status(200).json({ prospects: [prospect], meta: { method: 'proxycurl', prospectsFound: 1 } });
           }
         } catch { /* fall through */ }
       }
-      return Response.json({ error: 'Could not extract data from this LinkedIn URL. Try pasting the profile text directly.' }, { status: 422 });
+      return res.status(422).json({ error: 'Could not extract data from this LinkedIn URL. Try pasting the profile text directly.' });
     }
 
     if (searchQuery && typeof searchQuery === 'string') {
       const googleKey = process.env.GOOGLE_SEARCH_API_KEY || '';
       const cseId = process.env.GOOGLE_CSE_ID || '';
-      if (!googleKey || !cseId) return Response.json({ error: 'Google Search API not configured' }, { status: 400 });
+      if (!googleKey || !cseId) return res.status(400).json({ error: 'Google Search API not configured' });
 
       const query = `site:linkedin.com/in/ ${searchQuery}`;
       const gUrl = `https://www.googleapis.com/customsearch/v1?key=${encodeURIComponent(googleKey)}&cx=${encodeURIComponent(cseId)}&q=${encodeURIComponent(query)}&num=10`;
       const gRes = await fetch(gUrl);
-      if (!gRes.ok) return Response.json({ error: 'Google Search failed' }, { status: 502 });
+      if (!gRes.ok) return res.status(502).json({ error: 'Google Search failed' });
       const gData = await gRes.json();
       const items = gData.items || [];
-      if (items.length === 0) return Response.json({ prospects: [], meta: { method: 'linkedin_search', prospectsFound: 0 } });
+      if (items.length === 0) return res.status(200).json({ prospects: [], meta: { method: 'linkedin_search', prospectsFound: 0 } });
 
       const snippetText = items.map((r: any) => `Profile: ${r.title}\n${r.snippet}\nURL: ${r.link}`).join('\n\n');
       const prospects = await extractWithClaude(snippetText, `LinkedIn search for: ${searchQuery}`);
-      return Response.json({ prospects, meta: { method: 'linkedin_search', prospectsFound: prospects.length } });
+      return res.status(200).json({ prospects, meta: { method: 'linkedin_search', prospectsFound: prospects.length } });
     }
 
-    return Response.json({ error: 'No valid input provided' }, { status: 400 });
+    return res.status(400).json({ error: 'No valid input provided' });
   } catch (e: any) {
-    return Response.json({ error: e.message }, { status: 500 });
+    return res.status(500).json({ error: e.message });
   }
-};
-
-export const config: Config = {
-  path: '/api/prospector/scrape-linkedin',
-};
+}

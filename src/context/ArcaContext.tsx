@@ -159,9 +159,10 @@ export function ArcaProvider({ children }: { children: ReactNode }) {
       if (err) throw err;
 
       setCuits(prev => prev.map(c => c.id === id ? { ...c, ...data } : c));
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error updating CUIT:', err);
       setError('Error al actualizar CUIT');
+      throw new Error(err?.message || 'Error al actualizar CUIT');
     }
   }, []);
 
@@ -175,9 +176,10 @@ export function ArcaProvider({ children }: { children: ReactNode }) {
       if (err) throw err;
 
       setCuits(prev => prev.filter(c => c.id !== id));
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error deleting CUIT:', err);
       setError('Error al eliminar CUIT');
+      throw new Error(err?.message || 'Error al eliminar CUIT');
     }
   }, []);
 
@@ -259,10 +261,10 @@ export function ArcaProvider({ children }: { children: ReactNode }) {
 
       setPuntosVenta(prev => [...prev, newPV].sort((a, b) => a.numero - b.numero));
       return newPV;
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error adding punto de venta:', err);
       setError('Error al crear punto de venta');
-      return null;
+      throw new Error(err?.message || 'Error al crear punto de venta');
     }
   }, []);
 
@@ -276,9 +278,10 @@ export function ArcaProvider({ children }: { children: ReactNode }) {
       if (err) throw err;
 
       setPuntosVenta(prev => prev.filter(p => p.id !== id));
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error deleting punto de venta:', err);
       setError('Error al eliminar punto de venta');
+      throw new Error(err?.message || 'Error al eliminar punto de venta');
     }
   }, []);
 
@@ -317,9 +320,10 @@ export function ArcaProvider({ children }: { children: ReactNode }) {
           return p;
         })
       );
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error setting default punto de venta:', err);
       setError('Error al establecer punto de venta por defecto');
+      throw new Error(err?.message || 'Error al establecer punto de venta por defecto');
     }
   }, [puntosVenta]);
 

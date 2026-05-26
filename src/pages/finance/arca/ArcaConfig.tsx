@@ -135,8 +135,12 @@ export function ArcaConfig() {
 
   const handleDelete = async () => {
     if (deleteTarget) {
-      await deleteCuit(deleteTarget.id);
-      setDeleteTarget(null);
+      try {
+        await deleteCuit(deleteTarget.id);
+        setDeleteTarget(null);
+      } catch (err: any) {
+        alert('No se pudo eliminar el CUIT: ' + (err?.message || 'Error desconocido'));
+      }
     }
   };
 

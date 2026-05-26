@@ -40,21 +40,30 @@ export function ArcaPuntosVenta() {
     const numero = parseInt(newNumero, 10);
     if (!selectedCuitId || isNaN(numero) || numero <= 0) return;
 
-    await addPuntoVenta(selectedCuitId, numero, newDescription || undefined);
-    setShowAddModal(false);
-    setNewNumero('');
-    setNewDescription('');
+    try {
+      await addPuntoVenta(selectedCuitId, numero, newDescription || undefined);
+      setShowAddModal(false);
+      setNewNumero('');
+      setNewDescription('');
+    } catch (err: any) {
+      alert('No se pudo crear el punto de venta: ' + (err?.message || 'Error desconocido'));
+    }
   };
 
   const handleDelete = async () => {
     if (deleteTarget) {
-      await deletePuntoVenta(deleteTarget);
-      setDeleteTarget(null);
+      try {
+        await deletePuntoVenta(deleteTarget);
+        setDeleteTarget(null);
+      } catch (err: any) {
+        alert('No se pudo eliminar el punto de venta: ' + (err?.message || 'Error desconocido'));
+      }
     }
   };
 
   const handleSetDefault = async (id: string) => {
-    await setDefaultPuntoVenta(id);
+    try { await setDefaultPuntoVenta(id); }
+    catch (err: any) { alert('No se pudo establecer como predeterminado: ' + (err?.message || 'Error desconocido')); }
   };
 
   // ---------- Loading ----------

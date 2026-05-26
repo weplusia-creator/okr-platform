@@ -315,11 +315,13 @@ export function DealDetail() {
   };
 
   const handleDeleteNote = async (noteId: string) => {
-    await deleteDealNote(noteId);
+    try { await deleteDealNote(noteId); }
+    catch (err: any) { alert('No se pudo eliminar la nota: ' + (err?.message || 'Error desconocido')); }
   };
 
   const handleCompleteActivity = async (activityId: string) => {
-    await completeActivity(activityId);
+    try { await completeActivity(activityId); }
+    catch (err: any) { alert('No se pudo completar la actividad: ' + (err?.message || 'Error desconocido')); }
   };
 
   if (loading) {

@@ -221,7 +221,8 @@ export function LeadDetail() {
 
   const handleToggleActivityComplete = async (activityId: string, isCompleted: boolean) => {
     if (!isCompleted) {
-      await completeActivity(activityId);
+      try { await completeActivity(activityId); }
+      catch (err: any) { alert('No se pudo completar la actividad: ' + (err?.message || 'Error desconocido')); }
     }
   };
 

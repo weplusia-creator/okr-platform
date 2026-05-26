@@ -59,7 +59,8 @@ export function ActivityList() {
   const handleComplete = async (id: string, e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    await completeActivity(id);
+    try { await completeActivity(id); }
+    catch (err: any) { alert('No se pudo completar la actividad: ' + (err?.message || 'Error desconocido')); }
   };
 
   return (

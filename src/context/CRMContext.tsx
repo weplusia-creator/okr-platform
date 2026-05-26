@@ -933,9 +933,10 @@ export function CRMProvider({ children }: { children: ReactNode }) {
       if (err) throw err;
 
       setDealNotes(prev => prev.filter(n => n.id !== noteId));
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error deleting deal note:', err);
       setError('Error al eliminar nota');
+      throw new Error(err?.message || 'No se pudo eliminar la nota');
     }
   }, []);
 
@@ -1072,9 +1073,10 @@ export function CRMProvider({ children }: { children: ReactNode }) {
       if (err) throw err;
 
       setActivities(prev => prev.map(a => a.id === id ? { ...a, ...updates } : a));
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error updating activity:', err);
       setError('Error al actualizar actividad');
+      throw new Error(err?.message || 'No se pudo actualizar la actividad');
     }
   }, []);
 
@@ -1096,9 +1098,10 @@ export function CRMProvider({ children }: { children: ReactNode }) {
           ? { ...a, isCompleted: true, completedAt: new Date().toISOString(), completedBy: appUser?.id || null }
           : a
       ));
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error completing activity:', err);
       setError('Error al completar actividad');
+      throw new Error(err?.message || 'No se pudo completar la actividad');
     }
   }, [appUser?.id]);
 
@@ -1112,9 +1115,10 @@ export function CRMProvider({ children }: { children: ReactNode }) {
       if (err) throw err;
 
       setActivities(prev => prev.filter(a => a.id !== id));
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error deleting activity:', err);
       setError('Error al eliminar actividad');
+      throw new Error(err?.message || 'No se pudo eliminar la actividad');
     }
   }, []);
 

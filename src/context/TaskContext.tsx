@@ -12,7 +12,7 @@ interface TaskContextType {
   deleteTask: (id: string) => Promise<void>;
   taskComments: Record<string, TaskComment[]>;
   fetchTaskComments: (taskId: string) => Promise<void>;
-  addTaskComment: (taskId: string, text: string) => Promise<void>;
+  addTaskComment: (taskId: string, text: string) => Promise<TaskComment>;
   deleteTaskComment: (commentId: string, taskId: string) => Promise<void>;
 
   // Labels
@@ -213,33 +213,36 @@ export function TaskProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const addTaskComment = useCallback(async (taskId: string, text: string) => {
-    if (!appUser) return;
-    try {
-      const { data, error: err } = await supabase
-        .from('task_comments')
-        .insert({ task_id: taskId, user_id: appUser.id, text })
-        .select('*, users(full_name)')
-        .single();
-
-      if (err) throw err;
-
-      const newComment: TaskComment = {
-        id: data.id,
-        taskId: data.task_id,
-        userId: data.user_id,
-        userName: data.users?.full_name || null,
-        text: data.text,
-        createdAt: data.created_at,
-      };
-
-      setTaskComments(prev => ({
-        ...prev,
-        [taskId]: [...(prev[taskId] || []), newComment],
-      }));
-    } catch (err) {
-      console.error('Error adding task comment:', err);
+  const addTaskComment = useCallback(async (taskId: string, text: string): Promise<TaskComment> => {
+    if (!appUser) {
+      throw new Error('Sesión no inicializada. Cerrá sesión y volvé a iniciar.');
     }
+    const { data, error: err } = await supabase
+      .from('task_comments')
+      .insert({ task_id: taskId, user_id: appUser.id, text })
+      .select('*, users(full_name)')
+      .single();
+
+    if (err) {
+      console.error('Error adding task comment:', err);
+      throw new Error(err.message || 'No se pudo publicar el comentario');
+    }
+    if (!data) throw new Error('No se pudo publicar el comentario');
+
+    const newComment: TaskComment = {
+      id: data.id,
+      taskId: data.task_id,
+      userId: data.user_id,
+      userName: data.users?.full_name || null,
+      text: data.text,
+      createdAt: data.created_at,
+    };
+
+    setTaskComments(prev => ({
+      ...prev,
+      [taskId]: [...(prev[taskId] || []), newComment],
+    }));
+    return newComment;
   }, [appUser]);
 
   const deleteTaskComment = useCallback(async (commentId: string, taskId: string) => {

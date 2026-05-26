@@ -25,7 +25,7 @@ interface OKRContextType {
   deleteInitiative: (id: string) => Promise<void>;
   initiativeComments: Record<string, InitiativeComment[]>;
   fetchComments: (initiativeId: string) => Promise<void>;
-  addComment: (initiativeId: string, text: string) => Promise<void>;
+  addComment: (initiativeId: string, text: string) => Promise<InitiativeComment>;
   deleteComment: (commentId: string, initiativeId: string) => Promise<void>;
 }
 
@@ -455,6 +455,12 @@ export function OKRProvider({ children }: { children: ReactNode }) {
         () => debounce('keyResults', fetchObjectives))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'initiatives', filter: orgFilter },
         () => debounce('initiatives', fetchInitiatives))
+      // Comments don't carry organization_id; refetch any open thread.
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'initiative_comments' },
+        (payload: any) => {
+          const initId = payload.new?.initiative_id || payload.old?.initiative_id;
+          if (initId) debounce('initiatives', () => fetchComments(initId));
+        })
       .subscribe();
 
     return () => {
@@ -574,37 +580,41 @@ export function OKRProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const addComment = useCallback(async (initiativeId: string, text: string) => {
-    if (!appUser) return;
-    try {
-      const { data, error: err } = await supabase
-        .from('initiative_comments')
-        .insert({
-          initiative_id: initiativeId,
-          user_id: appUser.id,
-          text,
-        })
-        .select('*, users(full_name)')
-        .single();
-
-      if (err) throw err;
-
-      const newComment: InitiativeComment = {
-        id: data.id,
-        initiativeId: data.initiative_id,
-        userId: data.user_id,
-        userName: data.users?.full_name || null,
-        text: data.text,
-        createdAt: data.created_at,
-      };
-
-      setInitiativeComments(prev => ({
-        ...prev,
-        [initiativeId]: [...(prev[initiativeId] || []), newComment],
-      }));
-    } catch (err) {
-      console.error('Error adding comment:', err);
+  const addComment = useCallback(async (initiativeId: string, text: string): Promise<InitiativeComment> => {
+    if (!appUser) {
+      // Surface this instead of returning silently — caller can show a real error.
+      throw new Error('Sesión no inicializada. Cerrá sesión y volvé a iniciar.');
     }
+    const { data, error: err } = await supabase
+      .from('initiative_comments')
+      .insert({
+        initiative_id: initiativeId,
+        user_id: appUser.id,
+        text,
+      })
+      .select('*, users(full_name)')
+      .single();
+
+    if (err) {
+      console.error('Error adding comment:', err);
+      throw new Error(err.message || 'No se pudo publicar el comentario');
+    }
+    if (!data) throw new Error('No se pudo publicar el comentario');
+
+    const newComment: InitiativeComment = {
+      id: data.id,
+      initiativeId: data.initiative_id,
+      userId: data.user_id,
+      userName: data.users?.full_name || null,
+      text: data.text,
+      createdAt: data.created_at,
+    };
+
+    setInitiativeComments(prev => ({
+      ...prev,
+      [initiativeId]: [...(prev[initiativeId] || []), newComment],
+    }));
+    return newComment;
   }, [appUser]);
 
   const deleteComment = useCallback(async (commentId: string, initiativeId: string) => {

@@ -299,8 +299,16 @@ export function DealDetail() {
     if (!id || !noteContent.trim()) return;
     setPostingNote(true);
     try {
-      await addDealNote(id, noteContent.trim());
+      const created = await addDealNote(id, noteContent.trim());
+      if (!created) {
+        // addDealNote returns null on failure (network, RLS, etc.).
+        // Surface it so the user knows their text wasn't saved.
+        alert('No se pudo publicar la nota. Revisá tu conexión y volvé a intentar.');
+        return;
+      }
       setNoteContent('');
+    } catch (err: any) {
+      alert('No se pudo publicar la nota: ' + (err?.message || 'Error desconocido'));
     } finally {
       setPostingNote(false);
     }

@@ -102,10 +102,17 @@ export function InitiativeRow({ initiative }: InitiativeRowProps) {
   };
 
   const handleAddComment = async () => {
-    if (!commentText.trim()) return;
     const text = commentText.trim();
-    setCommentText('');
-    await addComment(initiative.id, text);
+    if (!text) return;
+    try {
+      await addComment(initiative.id, text);
+      // Only clear the input AFTER the comment is confirmed published.
+      // Previously we cleared first, so on any failure (RLS, network,
+      // expired session) the user lost their text and saw nothing happen.
+      setCommentText('');
+    } catch (err: any) {
+      alert('No se pudo publicar el comentario: ' + (err?.message || 'Error desconocido'));
+    }
   };
 
   const StatusIcon = STATUS_ICON[initiative.status];

@@ -129,9 +129,14 @@ export function OKRInitiatives() {
   };
 
   const handleAddComment = async (initId: string) => {
-    if (!commentText.trim()) return;
-    await addComment(initId, commentText.trim());
-    setCommentText('');
+    const text = commentText.trim();
+    if (!text) return;
+    try {
+      await addComment(initId, text);
+      setCommentText('');
+    } catch (err: any) {
+      alert('No se pudo publicar el comentario: ' + (err?.message || 'Error desconocido'));
+    }
   };
 
   const activeUsers = orgUsers.filter(u => u.status === 'active' && u.userType !== 'client');

@@ -386,6 +386,34 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       if (newProject.status !== 'cancelled' && newProject.monthlyFee && newProject.startDate && endForNewPayments) {
         try {
           await generatePaymentsForProject(newProject.id, newProject.startDate, endForNewPayments, newProject.monthlyFee);
+          // Refresh payments so the new auto-generated rows show up immediately.
+          // Previously they only appeared the next time the user opened the
+          // project, which felt like "I have to refresh the page". Inlined
+          // because fetchPayments is declared later (temporal dead zone).
+          const { data: payData } = await db
+            .from('project_payments')
+            .select('*')
+            .eq('project_id', newProject.id)
+            .order('month');
+          if (payData) {
+            setPayments(prev => {
+              const others = prev.filter(p => p.projectId !== newProject.id);
+              return [
+                ...others,
+                ...payData.map((p: any) => ({
+                  id: p.id,
+                  projectId: p.project_id,
+                  month: p.month,
+                  amount: p.amount,
+                  status: p.status,
+                  paidDate: p.paid_date,
+                  invoiceId: p.invoice_id,
+                  notes: p.notes,
+                  createdAt: p.created_at,
+                })),
+              ];
+            });
+          }
         } catch (err) {
           console.error('Error auto-generating payments:', err);
         }

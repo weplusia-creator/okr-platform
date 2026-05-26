@@ -559,7 +559,7 @@ export function CRMProvider({ children }: { children: ReactNode }) {
         from_stage: null,
         to_stage: data.stage || 'prospecto',
         changed_by: appUser?.id,
-      }).then(() => {}).catch(e => console.error('Error logging deal history:', e));
+      }).then(({ error }) => { if (error) console.error('Error logging deal history:', error.message); });
 
       const newDeal: Deal = {
         id: row.id,
@@ -659,7 +659,7 @@ export function CRMProvider({ children }: { children: ReactNode }) {
         to_stage: newStage,
         changed_by: appUser?.id,
         notes,
-      }).then(() => {}).catch(e => console.error('Error logging deal history:', e));
+      }).then(({ error }) => { if (error) console.error('Error logging deal history:', error.message); });
 
       setDeals(prev => prev.map(d =>
         d.id === id
@@ -768,7 +768,7 @@ export function CRMProvider({ children }: { children: ReactNode }) {
         to_stage: 'ganado',
         changed_by: appUser?.id,
         notes: options.wonNotes,
-      }).then(() => {}).catch(e => console.error('Error logging deal history:', e));
+      }).then(({ error }) => { if (error) console.error('Error logging deal history:', error.message); });
 
       setDeals(prev => prev.map(d =>
         d.id === id
@@ -816,7 +816,7 @@ export function CRMProvider({ children }: { children: ReactNode }) {
         to_stage: 'perdido',
         changed_by: appUser?.id,
         notes: lostReason,
-      }).then(() => {}).catch(e => console.error('Error logging deal history:', e));
+      }).then(({ error }) => { if (error) console.error('Error logging deal history:', error.message); });
 
       setDeals(prev => prev.map(d =>
         d.id === id

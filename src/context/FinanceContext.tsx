@@ -386,9 +386,40 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
       }
     }
 
+    // Refetch full list for views, but build the fresh invoice directly from
+    // invData + items. The previous version searched the *pre-refetch* state
+    // and returned null until React re-rendered, forcing a page refresh.
     await fetchInvoices();
-    return invoices.find(i => i.id === invData.id) || null;
-  }, [organization?.id, fetchInvoices, invoices]);
+    const inv = invData as Record<string, any>;
+    const freshInvoice: Invoice = {
+      id: inv.id,
+      organizationId: inv.organization_id,
+      clientId: inv.client_id,
+      invoiceNumber: inv.invoice_number,
+      status: inv.status as InvoiceStatus,
+      issueDate: inv.issue_date,
+      dueDate: inv.due_date,
+      paidDate: inv.paid_date,
+      subtotal: Number(inv.subtotal) || 0,
+      tax: Number(inv.tax) || 0,
+      total: Number(inv.total) || 0,
+      notes: inv.notes,
+      items: items.map((item, idx) => ({
+        id: `pending-${idx}`,
+        invoiceId: inv.id,
+        description: item.description,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+        total: item.total,
+      })),
+      arcaStatus: inv.arca_status ?? null,
+      cae: inv.cae ?? null,
+      caeVencimiento: inv.cae_vencimiento ?? null,
+      createdAt: inv.created_at,
+      updatedAt: inv.updated_at,
+    };
+    return freshInvoice;
+  }, [organization?.id, fetchInvoices]);
 
   const updateInvoice = useCallback(async (
     id: string,

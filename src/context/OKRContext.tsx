@@ -1,5 +1,5 @@
 import { createContext, useContext, useMemo, useCallback, useState, useEffect, type ReactNode } from 'react';
-import { supabase } from '../lib/supabase';
+import { supabase, onTabResumed } from '../lib/supabase';
 import { useAuth } from './AuthContext';
 import type { Objective, KeyResult, OKRFilters, Initiative, InitiativeStatus, InitiativeComment } from '../types';
 import { getCurrentQuarter, getCurrentYear } from '../utils/helpers';
@@ -429,6 +429,50 @@ export function OKRProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (organization?.id) fetchInitiatives();
   }, [organization?.id, fetchInitiatives]);
+
+  // ===== REALTIME =====
+  // Same pattern as CRM/Finance/Project: single channel per org with
+  // debounced refetches. Catches changes from other tabs / users without
+  // forcing a page refresh. Falls back gracefully if Realtime is not
+  // enabled in the Supabase project (channel just stays idle).
+  useEffect(() => {
+    if (!organization?.id) return;
+    const orgFilter = `organization_id=eq.${organization.id}`;
+    const timers: Record<string, ReturnType<typeof setTimeout> | null> = {
+      objectives: null, keyResults: null, initiatives: null,
+    };
+    const debounce = (key: keyof typeof timers, fn: () => void) => {
+      if (timers[key]) clearTimeout(timers[key]!);
+      timers[key] = setTimeout(fn, 300);
+    };
+
+    const channel = supabase
+      .channel(`okr:${organization.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'objectives', filter: orgFilter },
+        () => debounce('objectives', fetchObjectives))
+      // key_results doesn't carry organization_id directly; refetch via objectives.
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'key_results' },
+        () => debounce('keyResults', fetchObjectives))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'initiatives', filter: orgFilter },
+        () => debounce('initiatives', fetchInitiatives))
+      .subscribe();
+
+    return () => {
+      Object.values(timers).forEach((t) => { if (t) clearTimeout(t); });
+      supabase.removeChannel(channel);
+    };
+  }, [organization?.id, fetchObjectives, fetchInitiatives]);
+
+  // ===== TAB RESUMED =====
+  // When the user returns to a backgrounded tab the realtime channel may
+  // have missed events while Chrome was throttling. Refetch top-level data.
+  useEffect(() => {
+    if (!organization?.id) return;
+    return onTabResumed(() => {
+      fetchObjectives();
+      fetchInitiatives();
+    });
+  }, [organization?.id, fetchObjectives, fetchInitiatives]);
 
   const addInitiative = useCallback(async (keyResultId: string, data: { title: string; responsibleId?: string | null; dueDate?: string | null; description?: string | null }): Promise<Initiative | null> => {
     if (!organization?.id) return null;

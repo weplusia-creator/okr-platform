@@ -92,35 +92,33 @@ export function HomeDashboard() {
   return (
     <div className="space-y-10 pb-12">
       {/* ── Hero ────────────────────────────────────────── */}
-      <div className="relative overflow-hidden rounded-2xl border border-gray-200/60 dark:border-gray-800 bg-gradient-to-br from-primary-50 via-white to-amber-50 dark:from-primary-950/40 dark:via-gray-900 dark:to-amber-950/30 px-6 py-8 sm:px-8 sm:py-10">
-        {/* Decorative blurred blobs */}
-        <div className="pointer-events-none absolute -top-10 -right-10 w-56 h-56 rounded-full bg-primary-300/30 dark:bg-primary-500/20 blur-3xl" />
-        <div className="pointer-events-none absolute -bottom-12 -left-12 w-56 h-56 rounded-full bg-amber-300/30 dark:bg-amber-500/10 blur-3xl" />
+      {/* Solid black panel with lime-green accents — high contrast, brand-forward. */}
+      <div className="relative overflow-hidden rounded-2xl bg-black px-6 py-8 sm:px-10 sm:py-12 shadow-xl">
+        {/* Subtle lime glow in the corners (no readability impact) */}
+        <div className="pointer-events-none absolute -top-16 -right-16 w-64 h-64 rounded-full bg-lime-400/20 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-20 -left-20 w-64 h-64 rounded-full bg-lime-400/10 blur-3xl" />
 
         <div className="relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
-          <div className="flex items-center gap-4">
-            <picture>
-              <source srcSet="/wau-logo-white.png" media="(prefers-color-scheme: dark)" />
-              <img
-                src="/wau-logo-black.png"
-                alt="WAU"
-                className="h-10 sm:h-12 w-auto object-contain drop-shadow-sm"
-              />
-            </picture>
-            <div className="hidden sm:block w-px h-10 bg-gray-200 dark:bg-gray-700" />
+          <div className="flex items-center gap-5">
+            <img
+              src="/wau-logo-white.png"
+              alt="WAU"
+              className="h-12 sm:h-14 w-auto object-contain drop-shadow-md"
+            />
+            <div className="hidden sm:block w-px h-12 bg-white/15" />
             <div>
-              <p className="text-xs uppercase tracking-wider text-primary-700 dark:text-primary-400 font-medium">
+              <p className="text-[11px] uppercase tracking-[0.18em] font-semibold text-lime-400/90">
                 {organization?.name || 'WAU Platform'}
               </p>
-              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">
+              <h1 className="mt-1 text-2xl sm:text-3xl font-bold text-lime-400">
                 {greeting}{firstName ? `, ${firstName}` : ''}
               </h1>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 text-sm">
-            <Sparkles className="w-4 h-4 text-amber-500" />
-            <span className="text-gray-600 dark:text-gray-300">
+          <div className="flex items-center gap-2 text-sm px-3 py-1.5 rounded-full bg-lime-400/10 border border-lime-400/30">
+            <Sparkles className="w-4 h-4 text-lime-400" />
+            <span className="text-lime-300 font-medium">
               {activeProjects.length} {activeProjects.length === 1 ? 'proyecto activo' : 'proyectos activos'}
             </span>
           </div>

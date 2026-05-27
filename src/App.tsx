@@ -4,6 +4,7 @@ import {
   Login,
   Register,
   Dashboard,
+  OKRClientsHub,
   TableroControl,
   FinanceDashboard,
   Clients,
@@ -150,7 +151,9 @@ function AppRoutes() {
         {/* General / OKR Routes */}
         <Route path="/home" element={<HomeRedirect />} />
         <Route path="/dashboard" element={<TableroControl />} />
-        <Route path="/okrs" element={<Dashboard />} />
+        <Route path="/okrs" element={<OKRClientsHub />} />
+        <Route path="/okrs/internal" element={<Dashboard scope="internal" />} />
+        <Route path="/okrs/clients/:clientId" element={<Dashboard />} />
         <Route path="/okrs/initiatives" element={<OKRInitiatives />} />
         <Route path="/tareas" element={<TaskBoard />} />
         <Route path="/gestion" element={<TaskBoard />} />

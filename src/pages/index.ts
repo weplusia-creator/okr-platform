@@ -4,6 +4,7 @@ export { AgroGuiaLanding } from './AgroGuiaLanding';
 export { Login } from './Login';
 export { Register } from './Register';
 export { Dashboard } from './Dashboard';
+export { OKRClientsHub } from './OKRClientsHub';
 export { TableroControl } from './TableroControl';
 export * from './finance';
 export * from './projects';

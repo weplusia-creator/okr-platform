@@ -49,8 +49,17 @@ export function ObjectiveDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { objectives, initiatives, deleteObjective, addKeyResult } = useOKR();
-  const { isAdmin } = useAuth();
+  const { isAdmin, appUser } = useAuth();
   const { clients } = useFinance();
+
+  // Client users live under /portal/* so we send them back there
+  // instead of the admin-only /okrs/clients/:id route.
+  const isClientUser = appUser?.userType === 'client';
+  const listBackPath = isClientUser
+    ? '/portal/okrs'
+    : (objectives.find(o => o.id === id)?.clientId
+        ? `/okrs/clients/${objectives.find(o => o.id === id)?.clientId}`
+        : '/okrs/internal');
 
   const objective = useMemo(() => objectives.find(o => o.id === id), [objectives, id]);
 
@@ -133,7 +142,7 @@ export function ObjectiveDetail() {
 
   const handleDelete = () => {
     deleteObjective(objective.id);
-    navigate(client ? `/okrs/clients/${client.id}` : '/okrs');
+    navigate(isClientUser ? '/portal/okrs' : (client ? `/okrs/clients/${client.id}` : '/okrs'));
   };
 
   const handleAddKR = (e: FormEvent) => {
@@ -149,24 +158,18 @@ export function ObjectiveDetail() {
     <div className="space-y-6 pb-12">
       {/* ─── Breadcrumb ─── */}
       <div className="flex items-center gap-2 text-sm">
-        <Link to="/okrs" className="text-gray-400 hover:text-gray-700 dark:hover:text-gray-200">OKRs</Link>
+        <Link
+          to={isClientUser ? '/portal/okrs' : '/okrs'}
+          className="text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+        >
+          {isClientUser ? 'Mis OKRs' : 'OKRs'}
+        </Link>
         <span className="text-gray-300 dark:text-gray-600">/</span>
-        {client ? (
-          <>
-            <Link to={`/okrs/clients/${client.id}`} className="text-gray-400 hover:text-gray-700 dark:hover:text-gray-200">{client.name}</Link>
-            <span className="text-gray-300 dark:text-gray-600">/</span>
-          </>
-        ) : (
-          <>
-            <Link to="/okrs/internal" className="text-gray-400 hover:text-gray-700 dark:hover:text-gray-200">Internos</Link>
-            <span className="text-gray-300 dark:text-gray-600">/</span>
-          </>
-        )}
         <span className="text-gray-700 dark:text-gray-200 truncate">{objective.title}</span>
       </div>
 
       <Link
-        to={client ? `/okrs/clients/${client.id}` : '/okrs/internal'}
+        to={listBackPath}
         className="inline-flex items-center gap-1 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
       >
         <ArrowLeft className="w-4 h-4" />

@@ -1,7 +1,7 @@
 import { createContext, useContext, useMemo, useCallback, useState, useEffect, useRef, type ReactNode } from 'react';
 import { supabase, onTabResumed } from '../lib/supabase';
 import { useAuth } from './AuthContext';
-import type { Objective, KeyResult, OKRFilters, Initiative, InitiativeStatus, InitiativeComment } from '../types';
+import type { Objective, KeyResult, OKRFilters, Initiative, InitiativeStatus, InitiativeComment, OKRArea } from '../types';
 import { getCurrentQuarter, getCurrentYear } from '../utils/helpers';
 
 interface OKRContextType {

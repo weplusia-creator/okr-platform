@@ -149,6 +149,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let isMounted = true;
 
+    // ── Hard reload safety net (last resort) ────────────────────
+    // If the app is still loading after 12 seconds, the Supabase
+    // client / network state is almost certainly stuck (this happens
+    // when the tab was backgrounded for a long time and the
+    // WebSocket/auth token recovery hangs). Auto-reload — matches what
+    // the user would do manually with F5, but without forcing them to
+    // notice the eternal spinner first.
+    let bootstrapResolved = false;
+    const hardReloadTimeout = setTimeout(() => {
+      if (!isMounted || bootstrapResolved) return;
+      // Only reload if we are visibly stuck — if loading already
+      // resolved (logged in or logged out), bootstrapResolved=true and
+      // we skip the reload. Matches what the user would do manually
+      // with F5, but without forcing them to notice the eternal spinner.
+      try { window.location.reload(); } catch {}
+    }, 12_000);
+
     // Safety timeout: if session hasn't loaded after 5s, retry once before giving up
     const timeout = setTimeout(() => {
       if (!isMounted || session || user) return;
@@ -159,14 +176,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setSession(s);
           setUser(s.user);
           fetchUserData(s.user.id).finally(() => {
-            if (isMounted) setLoading(false);
+            if (isMounted) { bootstrapResolved = true; setLoading(false); }
           });
         } else {
-          setLoading(false);
+          bootstrapResolved = true; setLoading(false);
         }
       }).catch((err) => {
         console.warn('[AuthContext] getSession (fallback) failed:', err);
-        if (isMounted) setLoading(false);
+        if (isMounted) { bootstrapResolved = true; setLoading(false); }
       });
     }, 5000);
 
@@ -178,10 +195,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(session?.user ?? null);
         if (session?.user) {
           fetchUserData(session.user.id).finally(() => {
-            if (isMounted) setLoading(false);
+            if (isMounted) { bootstrapResolved = true; setLoading(false); }
           });
         } else {
-          setLoading(false);
+          bootstrapResolved = true; setLoading(false);
         }
       }).catch((err) => {
         const msg = String(err?.message || err);
@@ -191,7 +208,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return;
         }
         console.error('Error getting session:', err);
-        if (isMounted) setLoading(false);
+        if (isMounted) { bootstrapResolved = true; setLoading(false); }
       });
     };
     tryGetSession();
@@ -214,12 +231,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setOrganization(null);
       }
 
-      if (isMounted) setLoading(false);
+      if (isMounted) { bootstrapResolved = true; setLoading(false); }
     });
 
     return () => {
       isMounted = false;
       clearTimeout(timeout);
+      clearTimeout(hardReloadTimeout);
       subscription.unsubscribe();
     };
   }, [fetchUserData]);

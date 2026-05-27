@@ -166,7 +166,18 @@ export function ProjectDetail() {
   const isAlumno = currentParticipant?.role === 'alumno';
   const isAdminOrConsultor = currentParticipant?.role === 'admin' || currentParticipant?.role === 'consultor';
   const showOnboardingTab = isAlumno || isAdminOrConsultor;
+  // Playbooks linked to this project (by project_id field on the playbook row)
+  const projectPlaybooks = useMemo(
+    () => playbooks.filter((pb: any) => pb.projectId === id || pb.project_id === id),
+    [playbooks, id],
+  );
   const hasPlaybook = projectPlaybooks.length > 0;
+
+  // Check-ins linked to this project (filter the global list by project_id)
+  const projectCheckins = useMemo(
+    () => checkins.filter((ci: any) => ci.projectId === id || ci.project_id === id),
+    [checkins, id],
+  );
 
   // Default tab for alumnos
   useEffect(() => {
@@ -223,12 +234,11 @@ export function ProjectDetail() {
     fetchDocuments(projectId).catch(e => console.error('[ProjectDetail] fetchDocuments error:', e));
     fetchActivityLog(projectId).catch(e => console.error('[ProjectDetail] fetchActivityLog error:', e));
     fetchNovedades(projectId).catch(e => console.error('[ProjectDetail] fetchNovedades error:', e));
-    fetchCanvases(projectId).catch(e => console.error('[ProjectDetail] fetchCanvases error:', e));
     fetchPlaybooks().catch(e => console.error('[ProjectDetail] fetchPlaybooks error:', e));
     fetchCheckins(projectId).catch(e => console.error('[ProjectDetail] fetchCheckins error:', e));
     fetchConfigs().catch(e => console.error('[ProjectDetail] fetchConfigs error:', e));
   }, [getProject, fetchParticipants, fetchDeliverables, fetchModules, fetchDocuments, fetchActivityLog,
-      fetchNovedades, fetchCanvases, fetchPlaybooks, fetchCheckins, fetchConfigs]);
+      fetchNovedades, fetchPlaybooks, fetchCheckins, fetchConfigs]);
 
   useEffect(() => {
     if (!id) return;
@@ -1003,38 +1013,6 @@ export function ProjectDetail() {
               </div>
             )}
           </div>
-        )}
-
-        {/* ===== BMC ===== */}
-        {activeTab === 'bmc' && (
-          hasBMC ? (
-            <div className="space-y-4">
-              {projectCanvases.map(canvas => (
-                <div key={canvas.id} className="card p-5">
-                  <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{canvas.name}</h3>
-                    <Link
-                      to={`/bmc/${canvas.id}`}
-                      className="text-sm text-primary-600 hover:text-primary-700 dark:text-primary-400 hover:underline"
-                    >
-                      Abrir canvas completo →
-                    </Link>
-                  </div>
-                  {canvas.description && (
-                    <p className="text-sm text-gray-500 dark:text-gray-400">{canvas.description}</p>
-                  )}
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="card p-12 text-center">
-              <LayoutGrid className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
-              <p className="text-gray-500 dark:text-gray-400 mb-4">No hay BMC vinculado a este proyecto</p>
-              <Link to="/bmc" className="btn-primary inline-flex items-center gap-2">
-                <Plus className="w-4 h-4" /> Crear BMC
-              </Link>
-            </div>
-          )
         )}
 
         {/* ===== PLAYBOOK ===== */}

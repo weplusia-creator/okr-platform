@@ -49,12 +49,15 @@ export function HomeDashboard() {
   const { clients } = useFinance();
   const [showArchived, setShowArchived] = useState(false);
 
-  // Map client id → name + logo so each project card can render the
-  // client's brand mark prominently (with a fallback initial when there's
-  // no logo uploaded).
+  // Map client id → name + logo + website. Each project card renders
+  // the client's brand mark on the left: first the uploaded logo, then
+  // the website favicon (via Google's s2 endpoint — same trick used by
+  // /projects/list), then initials as the final fallback.
   const clientById = useMemo(() => {
-    const map: Record<string, { name: string; logoUrl: string | null }> = {};
-    clients.forEach(c => { map[c.id] = { name: c.name, logoUrl: c.logoUrl }; });
+    const map: Record<string, { name: string; logoUrl: string | null; website: string | null }> = {};
+    clients.forEach(c => {
+      map[c.id] = { name: c.name, logoUrl: c.logoUrl, website: c.website };
+    });
     return map;
   }, [clients]);
 
@@ -242,7 +245,7 @@ function ProjectCard({
   dim = false,
 }: {
   project: Project;
-  client?: { name: string; logoUrl: string | null };
+  client?: { name: string; logoUrl: string | null; website: string | null };
   progress?: { total: number; completed: number };
   dim?: boolean;
 }) {
@@ -276,6 +279,7 @@ function ProjectCard({
             <ClientAvatar
               name={client?.name}
               logoUrl={client?.logoUrl}
+              website={client?.website}
             />
           </Link>
 
@@ -373,7 +377,16 @@ function ProjectCard({
 // has a strong visual anchor on the left.
 // ────────────────────────────────────────────────────────
 
-function ClientAvatar({ name, logoUrl }: { name?: string; logoUrl?: string | null }) {
+function ClientAvatar({
+  name,
+  logoUrl,
+  website,
+}: {
+  name?: string;
+  logoUrl?: string | null;
+  website?: string | null;
+}) {
+  // 1) Uploaded logo wins if available.
   if (logoUrl) {
     return (
       <div className="w-12 h-12 rounded-xl bg-white dark:bg-gray-100 border border-gray-200 dark:border-gray-300 shadow-sm overflow-hidden flex items-center justify-center">
@@ -387,6 +400,37 @@ function ClientAvatar({ name, logoUrl }: { name?: string; logoUrl?: string | nul
     );
   }
 
+  // 2) Website favicon via Google's s2/favicons endpoint — same approach
+  //    used in /projects/list. This gives us a brand mark automatically as
+  //    long as the client has a `website` field set, no manual upload.
+  const domain = (() => {
+    if (!website) return null;
+    try {
+      const url = website.startsWith('http') ? website : `https://${website}`;
+      return new URL(url).hostname;
+    } catch {
+      return null;
+    }
+  })();
+
+  if (domain) {
+    return (
+      <div className="w-12 h-12 rounded-xl bg-white dark:bg-gray-100 border border-gray-200 dark:border-gray-300 shadow-sm overflow-hidden flex items-center justify-center">
+        <img
+          src={`https://www.google.com/s2/favicons?domain=${domain}&sz=128`}
+          alt={name ? `Logo ${name}` : 'Logo cliente'}
+          className="w-9 h-9 object-contain"
+          loading="lazy"
+          onError={(e) => {
+            // Fallback to initials if Google returns an empty/broken image
+            (e.currentTarget as HTMLImageElement).style.display = 'none';
+          }}
+        />
+      </div>
+    );
+  }
+
+  // 3) Initials fallback with deterministic gradient colour.
   const initials = (name || '?')
     .split(/\s+/)
     .map(w => w[0])
@@ -395,7 +439,6 @@ function ClientAvatar({ name, logoUrl }: { name?: string; logoUrl?: string | nul
     .join('')
     .toUpperCase();
 
-  // Derive a stable colour from the name so the avatar is recognisable.
   const palette = [
     'from-primary-500 to-primary-600',
     'from-emerald-500 to-emerald-600',

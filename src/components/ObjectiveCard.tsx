@@ -19,6 +19,9 @@ interface ObjectiveCardProps {
  */
 export function ObjectiveCard({ objective }: ObjectiveCardProps) {
   const progress = calculateObjectiveProgress(objective);
+  // Find this objective's area (if any) so we can render a colored chip
+  const { areas } = useOKR();
+  const area = areas.find(a => a.id === objective.areaId);
   const timeProgress = calcTimeProgress(objective.startDate, objective.endDate);
   const delta = progress - timeProgress;
 
@@ -43,11 +46,21 @@ export function ObjectiveCard({ objective }: ObjectiveCardProps) {
 
         {/* Title + meta row */}
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
+          <div className="flex items-center gap-2 mb-1 flex-wrap">
             <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
               {objective.quarter} · {objective.year}
             </span>
             <StatusBadge status={objective.status} size="sm" />
+            {area && (
+              <span
+                className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider rounded-md text-white shadow-sm"
+                style={{ backgroundColor: area.color }}
+                title={`Área: ${area.name}`}
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-white/80" />
+                {area.name}
+              </span>
+            )}
           </div>
           <h3 className="text-sm font-semibold text-gray-900 dark:text-white truncate group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">
             {objective.title}

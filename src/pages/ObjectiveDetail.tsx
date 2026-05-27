@@ -48,7 +48,7 @@ import { calculateObjectiveProgress, formatDate } from '../utils/helpers';
 export function ObjectiveDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { objectives, initiatives, deleteObjective, addKeyResult } = useOKR();
+  const { objectives, initiatives, deleteObjective, addKeyResult, areas } = useOKR();
   const { isAdmin, appUser } = useAuth();
   const { clients } = useFinance();
 
@@ -189,6 +189,19 @@ export function ObjectiveDetail() {
                 {objective.quarter} · {objective.year}
               </span>
               <StatusBadge status={objective.status} size="sm" />
+              {(() => {
+                const area = areas.find(a => a.id === objective.areaId);
+                return area ? (
+                  <span
+                    className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider rounded-md text-white shadow-sm"
+                    style={{ backgroundColor: area.color }}
+                    title={`Área: ${area.name}`}
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full bg-white/80" />
+                    {area.name}
+                  </span>
+                ) : null;
+              })()}
               <span className={`inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-semibold rounded-md border ${tone.chip}`}>
                 <pacing.Icon className="w-3 h-3" />
                 {pacing.label}

@@ -25,11 +25,24 @@ export interface KeyResult {
   unit?: string | null;
 }
 
+export interface OKRArea {
+  id: string;
+  organizationId: string;
+  /** Optional: if set, this area only applies to OKRs of that client. */
+  clientId: string | null;
+  name: string;
+  /** Hex colour, e.g. '#10b981'. */
+  color: string;
+  sortOrder: number;
+}
+
 export interface Objective {
   id: string;
   organizationId: string;
   /** Optional: if set, this OKR is scoped to a specific client (multi-tenant). */
   clientId: string | null;
+  /** Optional area/category (e.g. Ventas, RRHH). Coloured chip on the card. */
+  areaId: string | null;
   title: string;
   description?: string | null;
   status: OKRStatus;

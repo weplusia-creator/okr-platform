@@ -24,7 +24,7 @@ interface KeyResultInput {
 }
 
 export function ObjectiveForm({ isOpen, onClose, objective }: ObjectiveFormProps) {
-  const { addObjective, updateObjective } = useOKR();
+  const { addObjective, updateObjective, areas, addArea } = useOKR();
   const { orgUsers, appUser } = useAuth();
   const { clients } = useFinance();
   const isEditing = !!objective;
@@ -41,6 +41,7 @@ export function ObjectiveForm({ isOpen, onClose, objective }: ObjectiveFormProps
     year: currentYear,
     owner: '',
     clientId: '' as string,
+    areaId: '' as string,
     startDate: defaultDates.start,
     endDate: defaultDates.end,
   });
@@ -60,6 +61,7 @@ export function ObjectiveForm({ isOpen, onClose, objective }: ObjectiveFormProps
         year: objective.year,
         owner: objective.owner,
         clientId: objective.clientId ?? '',
+        areaId: objective.areaId ?? '',
         startDate: objective.startDate,
         endDate: objective.endDate,
       });
@@ -82,6 +84,7 @@ export function ObjectiveForm({ isOpen, onClose, objective }: ObjectiveFormProps
         year: currentYear,
         owner: '',
         clientId: appUser?.userType === 'client' ? (appUser?.clientId ?? '') : '',
+        areaId: '',
         startDate: defaultDates.start,
         endDate: defaultDates.end,
       });
@@ -193,6 +196,7 @@ export function ObjectiveForm({ isOpen, onClose, objective }: ObjectiveFormProps
         const newObjective = await addObjective({
           ...formData,
           clientId: formData.clientId || null,
+          areaId: formData.areaId || null,
         });
         if (processedKeyResults.length > 0 && newObjective) {
           await updateObjective(newObjective.id, {
@@ -301,6 +305,58 @@ export function ObjectiveForm({ isOpen, onClose, objective }: ObjectiveFormProps
               Este OKR se asigna automáticamente a tu empresa.
             </p>
           )}
+        </div>
+
+        {/* Area picker — coloured chip selector. Filters areas by the
+            selected client (and includes any org-level areas with no
+            client_id) so the dropdown only shows what's relevant. */}
+        <div>
+          <label className="label">
+            Área <span className="text-xs text-gray-400 font-normal">(opcional)</span>
+          </label>
+          <div className="flex items-center gap-2">
+            <select
+              value={formData.areaId}
+              onChange={(e) => setFormData({ ...formData, areaId: e.target.value })}
+              className="select flex-1"
+            >
+              <option value="">— Sin área —</option>
+              {areas
+                .filter(a => !formData.clientId || !a.clientId || a.clientId === formData.clientId)
+                .sort((a, b) => a.name.localeCompare(b.name))
+                .map(a => (
+                  <option key={a.id} value={a.id}>{a.name}</option>
+                ))}
+            </select>
+            <button
+              type="button"
+              onClick={async () => {
+                const name = prompt('Nombre de la nueva área (ej. Ventas, RRHH, Marketing):');
+                if (!name?.trim()) return;
+                const color = prompt('Color en hex (#10b981 para verde):', '#10b981');
+                if (!color) return;
+                const created = await addArea({
+                  name: name.trim(),
+                  color,
+                  clientId: formData.clientId || null,
+                });
+                if (created) setFormData({ ...formData, areaId: created.id });
+              }}
+              className="px-3 py-1.5 text-xs rounded-md border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:border-primary-500 hover:text-primary-700 transition-colors"
+            >
+              + Nueva
+            </button>
+          </div>
+          {/* Show a preview of the selected area's colour */}
+          {formData.areaId && (() => {
+            const a = areas.find(x => x.id === formData.areaId);
+            return a ? (
+              <div className="mt-1.5 inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-semibold text-white" style={{ backgroundColor: a.color }}>
+                <span className="w-1.5 h-1.5 rounded-full bg-white/80" />
+                {a.name}
+              </div>
+            ) : null;
+          })()}
         </div>
 
         {/* Quarter, Year, Status */}

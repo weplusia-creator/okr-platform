@@ -665,6 +665,70 @@ export function OKRProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+
+  // ────────── AREAS ──────────
+  const fetchAreas = useCallback(async () => {
+    if (!organization?.id) { setAreas([]); return; }
+    const { data, error } = await (supabase as any)
+      .from('okr_areas')
+      .select('*')
+      .eq('organization_id', organization.id)
+      .order('sort_order', { ascending: true });
+    if (error) { console.error('Error fetching areas:', error); return; }
+    setAreas(((data as any[]) || []).map((a) => ({
+      id: a.id,
+      organizationId: a.organization_id,
+      clientId: a.client_id ?? null,
+      name: a.name,
+      color: a.color,
+      sortOrder: a.sort_order ?? 0,
+    })));
+  }, [organization?.id]);
+
+  useEffect(() => { if (organization?.id) fetchAreas(); }, [organization?.id, fetchAreas]);
+
+  const addArea = useCallback(async (data: { name: string; color: string; clientId?: string | null }): Promise<OKRArea | null> => {
+    if (!organization?.id) return null;
+    const { data: row, error } = await (supabase as any)
+      .from('okr_areas')
+      .insert({
+        organization_id: organization.id,
+        client_id: data.clientId ?? null,
+        name: data.name,
+        color: data.color,
+        sort_order: areas.length,
+      })
+      .select()
+      .single();
+    if (error) { console.error('Error creating area:', error); return null; }
+    const newArea: OKRArea = {
+      id: row.id,
+      organizationId: row.organization_id,
+      clientId: row.client_id ?? null,
+      name: row.name,
+      color: row.color,
+      sortOrder: row.sort_order ?? 0,
+    };
+    setAreas(prev => [...prev, newArea]);
+    return newArea;
+  }, [organization?.id, areas.length]);
+
+  const updateArea = useCallback(async (id: string, updates: Partial<Pick<OKRArea, 'name' | 'color' | 'sortOrder'>>) => {
+    const dbUpdates: any = {};
+    if (updates.name !== undefined) dbUpdates.name = updates.name;
+    if (updates.color !== undefined) dbUpdates.color = updates.color;
+    if (updates.sortOrder !== undefined) dbUpdates.sort_order = updates.sortOrder;
+    const { error } = await (supabase as any).from('okr_areas').update(dbUpdates).eq('id', id);
+    if (error) { console.error('Error updating area:', error); return; }
+    setAreas(prev => prev.map(a => a.id === id ? { ...a, ...updates } : a));
+  }, []);
+
+  const deleteArea = useCallback(async (id: string) => {
+    const { error } = await (supabase as any).from('okr_areas').delete().eq('id', id);
+    if (error) { console.error('Error deleting area:', error); return; }
+    setAreas(prev => prev.filter(a => a.id !== id));
+  }, []);
+
   const value = useMemo(
     () => ({
       objectives,
@@ -676,6 +740,11 @@ export function OKRProvider({ children }: { children: ReactNode }) {
       addObjective,
       updateObjective,
       deleteObjective,
+      areas,
+      fetchAreas,
+      addArea,
+      updateArea,
+      deleteArea,
       addKeyResult,
       updateKeyResult,
       deleteKeyResult,
@@ -699,6 +768,11 @@ export function OKRProvider({ children }: { children: ReactNode }) {
       addObjective,
       updateObjective,
       deleteObjective,
+      areas,
+      fetchAreas,
+      addArea,
+      updateArea,
+      deleteArea,
       addKeyResult,
       updateKeyResult,
       deleteKeyResult,

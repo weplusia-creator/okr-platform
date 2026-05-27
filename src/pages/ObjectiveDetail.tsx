@@ -5,7 +5,6 @@ import {
   Edit2,
   Trash2,
   Plus,
-  Calendar,
   Target,
   ListTodo,
   TrendingUp,
@@ -13,8 +12,20 @@ import {
   Clock,
   CheckCircle2,
   AlertTriangle,
-  User,
 } from 'lucide-react';
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip,
+  Cell,
+  ReferenceLine,
+  PieChart,
+  Pie,
+} from 'recharts';
 import { useOKR } from '../context/OKRContext';
 import { useAuth } from '../context/AuthContext';
 import { useFinance } from '../context/FinanceContext';
@@ -24,12 +35,15 @@ import { ObjectiveForm } from '../components/ObjectiveForm';
 import { calculateObjectiveProgress, formatDate } from '../utils/helpers';
 
 /**
- * Full-page detail view for an Objective.
+ * Full-page detail for an Objective with proper analytical charts.
  *
- * Reached via /okrs/objectives/:id. Shows everything that used to be
- * crammed into the list-card: pacing analysis, KRs with their own
- * progress, initiative counts, owner, full date range, delete /
- * edit / add-KR controls.
+ * Layout:
+ *   1) Hero: title + meta + KPI cards
+ *   2) Two-column charts row:
+ *        a) Circular gauge (actual vs expected)
+ *        b) Horizontal bar chart of KR progress (real fill + expected line)
+ *   3) Timeline strip: start ─── today ─── end with progress markers
+ *   4) Key Results full-width list with their initiatives
  */
 export function ObjectiveDetail() {
   const { id } = useParams<{ id: string }>();
@@ -38,10 +52,7 @@ export function ObjectiveDetail() {
   const { isAdmin } = useAuth();
   const { clients } = useFinance();
 
-  const objective = useMemo(
-    () => objectives.find(o => o.id === id),
-    [objectives, id],
-  );
+  const objective = useMemo(() => objectives.find(o => o.id === id), [objectives, id]);
 
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -53,11 +64,9 @@ export function ObjectiveDetail() {
       <div className="rounded-xl border border-dashed border-gray-200 dark:border-gray-700 p-12 text-center">
         <Target className="w-10 h-10 mx-auto text-gray-300 dark:text-gray-600 mb-3" />
         <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-          Objetivo no encontrado. Puede haber sido eliminado.
+          Objetivo no encontrado.
         </p>
-        <Link to="/okrs" className="btn-primary inline-flex">
-          Volver al hub
-        </Link>
+        <Link to="/okrs" className="btn-primary inline-flex">Volver al hub</Link>
       </div>
     );
   }
@@ -67,15 +76,14 @@ export function ObjectiveDetail() {
   const delta = progress - timeProgress;
 
   const pacing =
-    objective.status === 'completed' ? { label: 'Completado',                  tone: 'emerald', Icon: CheckCircle2 }
-    : objective.status === 'cancelled' ? { label: 'Cancelado',                tone: 'gray',    Icon: Clock }
-    : delta >= 5   ? { label: `Adelantado +${Math.round(delta)} pts`,         tone: 'emerald', Icon: TrendingUp }
-    : delta >= -10 ? { label: 'En tiempo',                                    tone: 'primary', Icon: Clock }
-                   : { label: `Atrasado ${Math.round(delta)} pts`,            tone: 'rose',    Icon: TrendingDown };
+    objective.status === 'completed' ? { label: 'Completado',           tone: 'emerald', Icon: CheckCircle2 }
+    : objective.status === 'cancelled' ? { label: 'Cancelado',         tone: 'gray',    Icon: Clock }
+    : delta >= 5   ? { label: `Adelantado +${Math.round(delta)} pts`,  tone: 'emerald', Icon: TrendingUp }
+    : delta >= -10 ? { label: 'En tiempo',                             tone: 'primary', Icon: Clock }
+                   : { label: `Atrasado ${Math.round(delta)} pts`,     tone: 'rose',    Icon: TrendingDown };
 
   const tone = TONE[pacing.tone];
 
-  // Initiatives bound to KRs of this objective.
   const objInitiatives = useMemo(() => {
     const krIds = new Set(objective.keyResults.map(kr => kr.id));
     return initiatives.filter(i => krIds.has(i.keyResultId));
@@ -83,6 +91,8 @@ export function ObjectiveDetail() {
 
   const initiativeStats = useMemo(() => ({
     done: objInitiatives.filter(i => i.status === 'done').length,
+    inProgress: objInitiatives.filter(i => i.status === 'in_progress').length,
+    todo: objInitiatives.filter(i => i.status === 'todo').length,
     total: objInitiatives.length,
   }), [objInitiatives]);
 
@@ -94,9 +104,32 @@ export function ObjectiveDetail() {
   const daysRemaining = Math.max(0, Math.ceil(
     (new Date(objective.endDate).getTime() - Date.now()) / 86_400_000,
   ));
+  const totalDays = Math.max(1, Math.ceil(
+    (new Date(objective.endDate).getTime() - new Date(objective.startDate).getTime()) / 86_400_000,
+  ));
+  const daysElapsed = totalDays - daysRemaining;
 
   const ownerInitials = (objective.owner || '?')
     .split(/\s+/).map(w => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase();
+
+  // Data for the KR breakdown chart.
+  const krChartData = useMemo(
+    () => objective.keyResults.map((kr, idx) => ({
+      name: `KR${idx + 1}`,
+      fullName: kr.title,
+      progress: kr.progress || 0,
+      expected: timeProgress,
+      remaining: Math.max(0, 100 - (kr.progress || 0)),
+    })),
+    [objective.keyResults, timeProgress],
+  );
+
+  // Initiative status pie data.
+  const initiativePieData = useMemo(() => [
+    { name: 'Hechas',       value: initiativeStats.done,       color: '#10b981' },
+    { name: 'En progreso',  value: initiativeStats.inProgress, color: '#f59e0b' },
+    { name: 'Por hacer',    value: initiativeStats.todo,       color: '#94a3b8' },
+  ].filter(d => d.value > 0), [initiativeStats]);
 
   const handleDelete = () => {
     deleteObjective(objective.id);
@@ -116,20 +149,16 @@ export function ObjectiveDetail() {
     <div className="space-y-6 pb-12">
       {/* ─── Breadcrumb ─── */}
       <div className="flex items-center gap-2 text-sm">
-        <Link to="/okrs" className="text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors">OKRs</Link>
+        <Link to="/okrs" className="text-gray-400 hover:text-gray-700 dark:hover:text-gray-200">OKRs</Link>
         <span className="text-gray-300 dark:text-gray-600">/</span>
         {client ? (
           <>
-            <Link to={`/okrs/clients/${client.id}`} className="text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors">
-              {client.name}
-            </Link>
+            <Link to={`/okrs/clients/${client.id}`} className="text-gray-400 hover:text-gray-700 dark:hover:text-gray-200">{client.name}</Link>
             <span className="text-gray-300 dark:text-gray-600">/</span>
           </>
         ) : (
           <>
-            <Link to="/okrs/internal" className="text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors">
-              Internos
-            </Link>
+            <Link to="/okrs/internal" className="text-gray-400 hover:text-gray-700 dark:hover:text-gray-200">Internos</Link>
             <span className="text-gray-300 dark:text-gray-600">/</span>
           </>
         )}
@@ -144,7 +173,9 @@ export function ObjectiveDetail() {
         Volver a la lista
       </Link>
 
-      {/* ─── Hero ─── */}
+      {/* ═══════════════════════════════════════════════════
+         1) HERO
+         ═══════════════════════════════════════════════════ */}
       <header className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900/40 overflow-hidden">
         <div className={`h-1 ${tone.bar}`} />
 
@@ -196,61 +227,194 @@ export function ObjectiveDetail() {
             </p>
           )}
 
-          {/* Meta row */}
-          <div className="mt-4 flex items-center gap-x-5 gap-y-2 flex-wrap text-sm text-gray-500 dark:text-gray-400">
-            <span className="inline-flex items-center gap-2">
-              <span className="w-7 h-7 rounded-full bg-gradient-to-br from-primary-500 to-primary-600 text-white text-[10px] font-bold flex items-center justify-center">
-                {ownerInitials}
-              </span>
-              <span className="text-gray-700 dark:text-gray-300">{objective.owner}</span>
-            </span>
-            <span className="inline-flex items-center gap-1.5">
-              <Calendar className="w-4 h-4" />
-              {formatDate(objective.startDate)} → {formatDate(objective.endDate)}
-            </span>
-            <span className="inline-flex items-center gap-1.5">
-              <Target className="w-4 h-4" />
-              {objective.keyResults.length} {objective.keyResults.length === 1 ? 'Key Result' : 'Key Results'}
-            </span>
-            {initiativeStats.total > 0 && (
-              <span className="inline-flex items-center gap-1.5">
-                <ListTodo className="w-4 h-4" />
-                {initiativeStats.done}/{initiativeStats.total} iniciativas
-              </span>
-            )}
-          </div>
-        </div>
-
-        {/* ─── Pacing chart ─── */}
-        <div className="px-6 pb-6">
-          <div className="grid grid-cols-3 gap-4 mb-3">
-            <Stat label="Avance real" value={`${progress}%`} highlight />
-            <Stat label="Esperado hoy" value={`${timeProgress}%`} />
-            <Stat label="Tiempo restante" value={`${daysRemaining} días`} />
-          </div>
-          <div className="relative h-3 rounded-full bg-gray-100 dark:bg-gray-800 overflow-visible">
-            <div
-              className={`absolute inset-y-0 left-0 rounded-full ${tone.bar} transition-all duration-700`}
-              style={{ width: `${Math.min(100, progress)}%` }}
-            />
-            <div
-              className="absolute top-1/2 -translate-y-1/2 h-5 w-0.5 bg-gray-500 dark:bg-gray-400 rounded-full"
-              style={{ left: `calc(${Math.min(100, timeProgress)}% - 1px)` }}
-            />
-            <div
-              className="absolute -top-5 text-[10px] uppercase tracking-wider font-bold text-gray-500 dark:text-gray-400 whitespace-nowrap"
-              style={{ left: `calc(${Math.min(100, timeProgress)}% - 14px)` }}
-            >
-              hoy
-            </div>
+          {/* KPI cards row */}
+          <div className="mt-6 grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <KPICard label="Avance real" value={`${progress}%`} tint="emerald" highlight />
+            <KPICard label="Esperado hoy" value={`${timeProgress}%`} tint="primary" />
+            <KPICard label="Día actual" value={`${daysElapsed} / ${totalDays}`} sublabel={`${daysRemaining} restantes`} tint="amber" />
+            <KPICard label="Iniciativas" value={`${initiativeStats.done}/${initiativeStats.total}`} sublabel="hechas" tint="rose" />
           </div>
         </div>
       </header>
 
-      {/* ─── Key Results ─── */}
+      {/* ═══════════════════════════════════════════════════
+         2) CHARTS ROW — Gauge + KR breakdown + Pie
+         ═══════════════════════════════════════════════════ */}
+      <section className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+
+        {/* ─── 2a) Gauge ─── */}
+        <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900/40 p-5">
+          <h2 className="text-sm font-semibold text-gray-900 dark:text-white mb-1">Real vs esperado</h2>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">El objetivo debería estar al {timeProgress}% hoy.</p>
+          <div className="relative w-44 h-44 mx-auto">
+            <svg className="w-full h-full -rotate-90" viewBox="0 0 120 120">
+              {/* Track */}
+              <circle cx="60" cy="60" r="52" fill="none" strokeWidth="10" className="stroke-gray-100 dark:stroke-gray-800" />
+              {/* Expected (faded) */}
+              <circle
+                cx="60" cy="60" r="52" fill="none" strokeWidth="10"
+                stroke="currentColor"
+                className="text-gray-300 dark:text-gray-600 opacity-70"
+                strokeDasharray={`${(Math.min(100, timeProgress) / 100) * (2 * Math.PI * 52)} 999`}
+              />
+              {/* Actual */}
+              <circle
+                cx="60" cy="60" r="52" fill="none" strokeWidth="10"
+                stroke={tone.hex}
+                strokeLinecap="round"
+                strokeDasharray={`${(Math.min(100, progress) / 100) * (2 * Math.PI * 52)} 999`}
+                style={{ transition: 'stroke-dasharray 700ms ease-out' }}
+              />
+            </svg>
+            <div className="absolute inset-0 flex flex-col items-center justify-center">
+              <span className="text-3xl font-bold text-gray-900 dark:text-white tabular-nums">{progress}%</span>
+              <span className="text-[10px] uppercase tracking-wider text-gray-400 mt-0.5">Avance real</span>
+            </div>
+          </div>
+          <div className="mt-4 flex justify-center gap-4 text-[11px]">
+            <span className="inline-flex items-center gap-1.5 text-gray-600 dark:text-gray-300">
+              <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: tone.hex }} />
+              Real {progress}%
+            </span>
+            <span className="inline-flex items-center gap-1.5 text-gray-500 dark:text-gray-400">
+              <span className="w-2.5 h-2.5 rounded-full bg-gray-300 dark:bg-gray-600" />
+              Esperado {timeProgress}%
+            </span>
+          </div>
+        </div>
+
+        {/* ─── 2b) KR breakdown bar chart ─── */}
+        <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900/40 p-5 lg:col-span-2">
+          <h2 className="text-sm font-semibold text-gray-900 dark:text-white mb-1">Avance por Key Result</h2>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
+            La línea punteada marca dónde debería estar cada KR hoy ({timeProgress}%).
+          </p>
+          {krChartData.length === 0 ? (
+            <div className="h-44 flex items-center justify-center text-sm text-gray-400">
+              Sin Key Results todavía
+            </div>
+          ) : (
+            <div className="w-full" style={{ height: Math.max(180, 40 + krChartData.length * 32) }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={krChartData} layout="vertical" margin={{ left: 10, right: 30, top: 5, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" horizontal={false} className="stroke-gray-100 dark:stroke-gray-800" />
+                  <XAxis type="number" domain={[0, 100]} tickFormatter={(v) => `${v}%`} className="text-xs" />
+                  <YAxis type="category" dataKey="name" tick={{ fontSize: 12 }} width={40} />
+                  <Tooltip
+                    cursor={{ fill: 'rgba(0,0,0,0.04)' }}
+                    contentStyle={{ borderRadius: 8, border: '1px solid #e5e7eb', fontSize: 12 }}
+                    formatter={((val: number, _name: any, props: any) => [`${val}%`, props?.payload?.fullName?.slice(0, 60)]) as any}
+                    labelFormatter={() => ''}
+                  />
+                  <ReferenceLine x={timeProgress} stroke="#9ca3af" strokeDasharray="4 4" label={{ value: 'hoy', position: 'top', fill: '#6b7280', fontSize: 10 }} />
+                  <Bar dataKey="progress" radius={[0, 6, 6, 0]}>
+                    {krChartData.map((d, i) => (
+                      <Cell key={i} fill={d.progress >= timeProgress - 5 ? '#10b981' : d.progress >= timeProgress - 15 ? '#f59e0b' : '#ef4444'} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* ═══════════════════════════════════════════════════
+         3) TIMELINE + Initiative pie
+         ═══════════════════════════════════════════════════ */}
+      <section className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+
+        {/* ─── Timeline (2/3) ─── */}
+        <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900/40 p-5 lg:col-span-2">
+          <h2 className="text-sm font-semibold text-gray-900 dark:text-white mb-1">Línea de tiempo</h2>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mb-6">
+            {formatDate(objective.startDate)} → {formatDate(objective.endDate)} ({totalDays} días)
+          </p>
+          <div className="relative h-2 rounded-full bg-gray-100 dark:bg-gray-800 mx-1 mt-12 mb-12">
+            {/* progress fill */}
+            <div
+              className={`absolute inset-y-0 left-0 rounded-full ${tone.bar} transition-all duration-700`}
+              style={{ width: `${Math.min(100, progress)}%` }}
+            />
+            {/* today marker */}
+            <div
+              className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 flex flex-col items-center"
+              style={{ left: `${Math.min(100, timeProgress)}%` }}
+            >
+              <span className="text-[10px] uppercase tracking-wider font-bold text-gray-500 dark:text-gray-400 -mt-7">Hoy</span>
+              <span className="w-3 h-3 rounded-full bg-gray-700 dark:bg-gray-300 border-2 border-white dark:border-gray-900 shadow-sm mt-1" />
+            </div>
+            {/* start/end labels */}
+            <div className="absolute -bottom-7 left-0 text-[10px] text-gray-400">Inicio</div>
+            <div className="absolute -bottom-7 right-0 text-[10px] text-gray-400">Fin</div>
+            <div className="absolute -top-7 left-0 text-[10px] text-gray-500 dark:text-gray-400">
+              {formatDate(objective.startDate)}
+            </div>
+            <div className="absolute -top-7 right-0 text-[10px] text-gray-500 dark:text-gray-400">
+              {formatDate(objective.endDate)}
+            </div>
+          </div>
+        </div>
+
+        {/* ─── Initiative pie (1/3) ─── */}
+        <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900/40 p-5">
+          <h2 className="text-sm font-semibold text-gray-900 dark:text-white mb-1">Iniciativas</h2>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
+            {initiativeStats.total} en total
+          </p>
+          {initiativePieData.length === 0 ? (
+            <div className="h-40 flex flex-col items-center justify-center text-center">
+              <ListTodo className="w-7 h-7 text-gray-300 dark:text-gray-600 mb-2" />
+              <p className="text-xs text-gray-400">Todavía no hay iniciativas</p>
+            </div>
+          ) : (
+            <>
+              <div className="h-32">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={initiativePieData}
+                      dataKey="value"
+                      innerRadius={36}
+                      outerRadius={56}
+                      paddingAngle={2}
+                    >
+                      {initiativePieData.map((d, i) => <Cell key={i} fill={d.color} />)}
+                    </Pie>
+                    <Tooltip
+                      contentStyle={{ borderRadius: 8, border: '1px solid #e5e7eb', fontSize: 12 }}
+                      formatter={((v: number, n: any) => [`${v}`, n]) as any}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+              <ul className="mt-3 space-y-1 text-xs">
+                {initiativePieData.map((d) => (
+                  <li key={d.name} className="flex items-center justify-between">
+                    <span className="inline-flex items-center gap-2 text-gray-600 dark:text-gray-300">
+                      <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: d.color }} />
+                      {d.name}
+                    </span>
+                    <span className="font-semibold tabular-nums text-gray-900 dark:text-white">{d.value}</span>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+        </div>
+      </section>
+
+      {/* ═══════════════════════════════════════════════════
+         4) KEY RESULTS LIST
+         ═══════════════════════════════════════════════════ */}
       <section>
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Key Results</h2>
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Key Results</h2>
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              Resultados clave del objetivo · {objective.keyResults.length} {objective.keyResults.length === 1 ? 'KR' : 'KRs'}
+            </p>
+          </div>
           <button
             onClick={() => setShowAddKR(true)}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg text-primary-600 hover:text-primary-700 hover:bg-primary-50 dark:text-primary-400 dark:hover:bg-primary-900/30 transition-colors"
@@ -322,13 +486,22 @@ export function ObjectiveDetail() {
 
 // ─── Helpers ────────────────────────────────────────────
 
-function Stat({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
+function KPICard({
+  label, value, sublabel, tint, highlight,
+}: {
+  label: string; value: string; sublabel?: string; tint: 'emerald' | 'primary' | 'amber' | 'rose'; highlight?: boolean;
+}) {
+  const tints: Record<typeof tint, string> = {
+    emerald: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
+    primary: 'bg-primary-500/10 text-primary-700 dark:text-primary-300',
+    amber:   'bg-amber-500/10 text-amber-700 dark:text-amber-300',
+    rose:    'bg-rose-500/10 text-rose-700 dark:text-rose-300',
+  };
   return (
-    <div>
-      <p className="text-[10px] uppercase tracking-wide font-semibold text-gray-400">{label}</p>
-      <p className={`mt-0.5 text-xl font-bold tabular-nums leading-none ${highlight ? 'text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400'}`}>
-        {value}
-      </p>
+    <div className={`rounded-xl p-3 ${highlight ? tints[tint] : 'bg-gray-50 dark:bg-gray-800/50'}`}>
+      <p className="text-[10px] uppercase tracking-wider font-semibold text-gray-500 dark:text-gray-400">{label}</p>
+      <p className={`mt-1 text-xl font-bold tabular-nums leading-none ${highlight ? '' : 'text-gray-900 dark:text-white'}`}>{value}</p>
+      {sublabel && <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1">{sublabel}</p>}
     </div>
   );
 }
@@ -343,9 +516,9 @@ function calcTimeProgress(startDate: string, endDate: string): number {
   return Math.round(((now - start) / (end - start)) * 100);
 }
 
-const TONE: Record<string, { chip: string; bar: string }> = {
-  emerald: { chip: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30', bar: 'bg-gradient-to-r from-emerald-500 to-emerald-600' },
-  primary: { chip: 'bg-primary-500/10 text-primary-700 dark:text-primary-300 border-primary-500/30', bar: 'bg-gradient-to-r from-primary-500 to-primary-600' },
-  rose:    { chip: 'bg-rose-500/10 text-rose-700 dark:text-rose-300 border-rose-500/30',             bar: 'bg-gradient-to-r from-rose-500 to-rose-600' },
-  gray:    { chip: 'bg-gray-200/60 text-gray-700 dark:text-gray-300 border-gray-300/40 dark:bg-gray-700/50 dark:border-gray-700', bar: 'bg-gradient-to-r from-gray-400 to-gray-500' },
+const TONE: Record<string, { chip: string; bar: string; hex: string }> = {
+  emerald: { chip: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30', bar: 'bg-gradient-to-r from-emerald-500 to-emerald-600', hex: '#10b981' },
+  primary: { chip: 'bg-primary-500/10 text-primary-700 dark:text-primary-300 border-primary-500/30', bar: 'bg-gradient-to-r from-primary-500 to-primary-600', hex: '#0ea5e9' },
+  rose:    { chip: 'bg-rose-500/10 text-rose-700 dark:text-rose-300 border-rose-500/30',             bar: 'bg-gradient-to-r from-rose-500 to-rose-600',       hex: '#ef4444' },
+  gray:    { chip: 'bg-gray-200/60 text-gray-700 dark:text-gray-300 border-gray-300/40 dark:bg-gray-700/50 dark:border-gray-700', bar: 'bg-gradient-to-r from-gray-400 to-gray-500', hex: '#9ca3af' },
 };

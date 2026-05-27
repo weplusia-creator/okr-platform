@@ -34,6 +34,7 @@ const OKRContext = createContext<OKRContextType | undefined>(undefined);
 export function OKRProvider({ children }: { children: ReactNode }) {
   const { organization, appUser } = useAuth();
   const [objectives, setObjectives] = useState<Objective[]>([]);
+  const [areas, setAreas] = useState<OKRArea[]>([]);
   // Mirror state in a ref so the updateKeyResult callback can read the
   // previous KR value without re-creating the callback every render.
   const objectivesRef = useRef<Objective[]>([]);

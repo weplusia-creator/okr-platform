@@ -5,6 +5,7 @@ import {
   Register,
   Dashboard,
   OKRClientsHub,
+  ObjectiveDetail,
   TableroControl,
   FinanceDashboard,
   Clients,
@@ -154,6 +155,7 @@ function AppRoutes() {
         <Route path="/okrs" element={<OKRClientsHub />} />
         <Route path="/okrs/internal" element={<Dashboard scope="internal" />} />
         <Route path="/okrs/clients/:clientId" element={<Dashboard />} />
+        <Route path="/okrs/objectives/:id" element={<ObjectiveDetail />} />
         <Route path="/okrs/initiatives" element={<OKRInitiatives />} />
         <Route path="/tareas" element={<TaskBoard />} />
         <Route path="/gestion" element={<TaskBoard />} />

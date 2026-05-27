@@ -5,6 +5,7 @@ export { Login } from './Login';
 export { Register } from './Register';
 export { Dashboard } from './Dashboard';
 export { OKRClientsHub } from './OKRClientsHub';
+export { ObjectiveDetail } from './ObjectiveDetail';
 export { TableroControl } from './TableroControl';
 export * from './finance';
 export * from './projects';

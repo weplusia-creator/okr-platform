@@ -1,5 +1,7 @@
-import { useState, useMemo } from 'react';
-import { Trash2, Edit2, Check, X, GripVertical, Plus, ChevronDown, ChevronRight, ListTodo, MessageCircle } from 'lucide-react';
+import { useState, useMemo, useEffect } from 'react';
+import { supabase } from '../lib/supabase';
+import { KRHistoryModal } from './KRHistoryModal';
+import { Trash2, Edit2, Check, X, GripVertical, Plus, ChevronDown, ChevronRight, ListTodo, MessageCircle, History, Minus } from 'lucide-react';
 import type { KeyResult } from '../types';
 import { ProgressBar } from './ProgressBar';
 import { InitiativeRow } from './InitiativeRow';
@@ -16,6 +18,31 @@ export function KeyResultItem({ keyResult, objectiveId }: KeyResultItemProps) {
   const { isAdmin, orgUsers } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [editedProgress, setEditedProgress] = useState(keyResult.progress);
+  const [updateNote, setUpdateNote] = useState('');
+  const [showHistory, setShowHistory] = useState(false);
+  const [lastUpdate, setLastUpdate] = useState<{ user_name: string | null; created_at: string } | null>(null);
+
+  // Pull the latest audit row so we can show "actualizado hace Xh por Y"
+  // under the progress bar. Re-fetches when the KR progress changes.
+  useEffect(() => {
+    let cancelled = false;
+    (supabase as any)
+      .from('key_result_history')
+      .select('user_name, created_at')
+      .eq('key_result_id', keyResult.id)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .then(({ data }: { data: any }) => {
+        if (!cancelled && data && data.length > 0) setLastUpdate(data[0] as any);
+      });
+    return () => { cancelled = true; };
+  }, [keyResult.id, keyResult.progress]);
+
+  // Quick-set helper used by the +/- buttons and preset chips.
+  const quickSet = (next: number, note?: string) => {
+    const clamped = Math.max(0, Math.min(100, Math.round(next)));
+    updateKeyResult(objectiveId, keyResult.id, { progress: clamped }, note ? { note } : undefined);
+  };
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showInitiatives, setShowInitiatives] = useState(true);
 
@@ -43,7 +70,13 @@ export function KeyResultItem({ keyResult, objectiveId }: KeyResultItemProps) {
   );
 
   const handleSaveProgress = () => {
-    updateKeyResult(objectiveId, keyResult.id, { progress: editedProgress });
+    updateKeyResult(
+      objectiveId,
+      keyResult.id,
+      { progress: editedProgress },
+      updateNote.trim() ? { note: updateNote.trim() } : undefined,
+    );
+    setUpdateNote('');
     setIsEditing(false);
   };
 
@@ -115,36 +148,126 @@ export function KeyResultItem({ keyResult, objectiveId }: KeyResultItemProps) {
             </p>
           )}
 
+          {/* Progress: always editable in 1 click. The big % is the affordance. */}
           {isEditing ? (
-            <div className="flex items-center gap-3">
+            <div className="space-y-2">
+              <div className="flex items-center gap-3">
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  value={editedProgress}
+                  onChange={(e) => setEditedProgress(parseInt(e.target.value))}
+                  className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700 accent-primary-600"
+                />
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={editedProgress}
+                  onChange={(e) => setEditedProgress(Math.max(0, Math.min(100, parseInt(e.target.value) || 0)))}
+                  className="w-16 text-center text-sm font-bold border border-gray-200 dark:border-gray-700 rounded-md py-1 bg-white dark:bg-gray-900"
+                />
+                <span className="text-sm font-semibold text-gray-500 dark:text-gray-400">%</span>
+              </div>
+              <div className="flex gap-1.5">
+                {[0, 25, 50, 75, 100].map(v => (
+                  <button
+                    key={v}
+                    type="button"
+                    onClick={() => setEditedProgress(v)}
+                    className={
+                      'px-2 py-1 text-[11px] rounded-md border transition-all ' +
+                      (editedProgress === v
+                        ? 'border-primary-500 bg-primary-500/10 text-primary-700 dark:text-primary-300'
+                        : 'border-gray-200 dark:border-gray-700 text-gray-500 hover:border-gray-300 dark:hover:border-gray-600')
+                    }
+                  >
+                    {v}%
+                  </button>
+                ))}
+              </div>
               <input
-                type="range"
-                min="0"
-                max="100"
-                value={editedProgress}
-                onChange={(e) => setEditedProgress(parseInt(e.target.value))}
-                className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700 accent-primary-600"
+                type="text"
+                value={updateNote}
+                onChange={(e) => setUpdateNote(e.target.value)}
+                placeholder="Comentario opcional (qué cambió / por qué)…"
+                className="input text-xs py-1.5"
               />
-              <span className="text-sm font-semibold text-gray-700 dark:text-gray-300 min-w-[3rem] text-right">
-                {editedProgress}%
-              </span>
-              <button
-                onClick={handleSaveProgress}
-                className="p-1.5 rounded-md text-success-600 hover:bg-success-50 dark:hover:bg-success-900/30 transition-colors"
-                title="Guardar"
-              >
-                <Check className="w-4 h-4" />
-              </button>
-              <button
-                onClick={handleCancel}
-                className="p-1.5 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                title="Cancelar"
-              >
-                <X className="w-4 h-4" />
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleSaveProgress}
+                  className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-md bg-primary-600 hover:bg-primary-700 text-white"
+                >
+                  <Check className="w-3.5 h-3.5" />
+                  Guardar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCancel}
+                  className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-md text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800"
+                >
+                  <X className="w-3.5 h-3.5" />
+                  Cancelar
+                </button>
+              </div>
             </div>
           ) : (
-            <ProgressBar progress={keyResult.progress} size="sm" />
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-2">
+                <ProgressBar progress={keyResult.progress} size="sm" />
+                <button
+                  type="button"
+                  onClick={() => { setEditedProgress(keyResult.progress); setIsEditing(true); }}
+                  className="shrink-0 px-2 py-0.5 text-sm font-bold tabular-nums rounded-md bg-gray-100 hover:bg-primary-50 dark:bg-gray-800 dark:hover:bg-primary-900/30 hover:text-primary-700 dark:hover:text-primary-300 transition-colors"
+                  title="Click para editar el progreso"
+                >
+                  {keyResult.progress}%
+                </button>
+              </div>
+              {/* Quick +5 / -5 + history link */}
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => quickSet(keyResult.progress - 5)}
+                  disabled={keyResult.progress <= 0}
+                  className="inline-flex items-center justify-center w-6 h-6 rounded-md text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed"
+                  title="Restar 5%"
+                >
+                  <Minus className="w-3 h-3" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => quickSet(keyResult.progress + 5)}
+                  disabled={keyResult.progress >= 100}
+                  className="inline-flex items-center justify-center w-6 h-6 rounded-md text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed"
+                  title="Sumar 5%"
+                >
+                  <Plus className="w-3 h-3" />
+                </button>
+                {lastUpdate && (
+                  <button
+                    type="button"
+                    onClick={() => setShowHistory(true)}
+                    className="inline-flex items-center gap-1 text-[11px] text-gray-500 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 ml-1 transition-colors"
+                  >
+                    <History className="w-3 h-3" />
+                    Actualizado por {lastUpdate.user_name || 'usuario'} · {formatShortRelative(lastUpdate.created_at)}
+                  </button>
+                )}
+                {!lastUpdate && (
+                  <button
+                    type="button"
+                    onClick={() => setShowHistory(true)}
+                    className="inline-flex items-center gap-1 text-[11px] text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 ml-1 transition-colors"
+                  >
+                    <History className="w-3 h-3" />
+                    Ver historial
+                  </button>
+                )}
+              </div>
+            </div>
           )}
 
           {/* Counts row */}
@@ -258,6 +381,27 @@ export function KeyResultItem({ keyResult, objectiveId }: KeyResultItemProps) {
           </div>
         </div>
       )}
+    {showHistory && (
+      <KRHistoryModal
+        isOpen={showHistory}
+        onClose={() => setShowHistory(false)}
+        keyResultId={keyResult.id}
+        keyResultTitle={keyResult.title}
+      />
+    )}
     </div>
   );
+}
+
+function formatShortRelative(iso: string): string {
+  const then = new Date(iso).getTime();
+  const diff = Date.now() - then;
+  const min = 60_000;
+  const hour = 60 * min;
+  const day = 24 * hour;
+  if (diff < min)     return 'ahora';
+  if (diff < hour)    return `hace ${Math.floor(diff / min)} min`;
+  if (diff < day)     return `hace ${Math.floor(diff / hour)}h`;
+  if (diff < 7 * day) return `hace ${Math.floor(diff / day)}d`;
+  return new Date(iso).toLocaleDateString('es-AR', { day: '2-digit', month: 'short' });
 }

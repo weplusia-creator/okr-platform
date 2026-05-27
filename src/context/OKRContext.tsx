@@ -1,4 +1,4 @@
-import { createContext, useContext, useMemo, useCallback, useState, useEffect, type ReactNode } from 'react';
+import { createContext, useContext, useMemo, useCallback, useState, useEffect, useRef, type ReactNode } from 'react';
 import { supabase, onTabResumed } from '../lib/supabase';
 import { useAuth } from './AuthContext';
 import type { Objective, KeyResult, OKRFilters, Initiative, InitiativeStatus, InitiativeComment } from '../types';
@@ -15,7 +15,7 @@ interface OKRContextType {
   updateObjective: (id: string, updates: Partial<Objective>) => Promise<void>;
   deleteObjective: (id: string) => Promise<void>;
   addKeyResult: (objectiveId: string, keyResult: Omit<KeyResult, 'id' | 'objectiveId'>) => Promise<void>;
-  updateKeyResult: (objectiveId: string, keyResultId: string, updates: Partial<KeyResult>) => Promise<void>;
+  updateKeyResult: (objectiveId: string, keyResultId: string, updates: Partial<KeyResult>, options?: { note?: string }) => Promise<void>;
   deleteKeyResult: (objectiveId: string, keyResultId: string) => Promise<void>;
   refreshObjectives: () => Promise<void>;
   initiatives: Initiative[];
@@ -34,6 +34,10 @@ const OKRContext = createContext<OKRContextType | undefined>(undefined);
 export function OKRProvider({ children }: { children: ReactNode }) {
   const { organization, appUser } = useAuth();
   const [objectives, setObjectives] = useState<Objective[]>([]);
+  // Mirror state in a ref so the updateKeyResult callback can read the
+  // previous KR value without re-creating the callback every render.
+  const objectivesRef = useRef<Objective[]>([]);
+  useEffect(() => { objectivesRef.current = objectives; }, [objectives]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filters, setFilters] = useState<OKRFilters>({
@@ -333,8 +337,17 @@ export function OKRProvider({ children }: { children: ReactNode }) {
   );
 
   const updateKeyResult = useCallback(
-    async (objectiveId: string, keyResultId: string, updates: Partial<KeyResult>) => {
+    async (
+      objectiveId: string,
+      keyResultId: string,
+      updates: Partial<KeyResult>,
+      options?: { note?: string },
+    ) => {
       try {
+        // Snapshot the previous values for the audit log.
+        const prevObj = objectivesRef.current.find(o => o.id === objectiveId);
+        const prevKR = prevObj?.keyResults.find(kr => kr.id === keyResultId);
+
         const dbUpdates: any = {};
         if (updates.title !== undefined) dbUpdates.title = updates.title;
         if (updates.progress !== undefined) dbUpdates.progress = updates.progress;
@@ -361,12 +374,30 @@ export function OKRProvider({ children }: { children: ReactNode }) {
               : obj
           )
         );
+
+        // Log audit row when the progress (or current_value) changed.
+        const progressChanged   = updates.progress     !== undefined && updates.progress     !== prevKR?.progress;
+        const currentValChanged = updates.currentValue !== undefined && updates.currentValue !== prevKR?.currentValue;
+        if ((progressChanged || currentValChanged) && appUser?.id) {
+          supabase.from('key_result_history').insert({
+            key_result_id: keyResultId,
+            user_id: appUser.id,
+            user_name: appUser.fullName || appUser.email || null,
+            previous_progress: prevKR?.progress ?? null,
+            new_progress: updates.progress ?? prevKR?.progress ?? 0,
+            previous_current_value: prevKR?.currentValue ?? null,
+            new_current_value: updates.currentValue ?? prevKR?.currentValue ?? null,
+            note: options?.note ?? null,
+          }).then(({ error: histErr }) => {
+            if (histErr) console.warn('No se pudo registrar la historia del KR:', histErr.message);
+          });
+        }
       } catch (err) {
         console.error('Error updating key result:', err);
         setError('Error al actualizar el Key Result');
       }
     },
-    []
+    [appUser?.id, appUser?.fullName, appUser?.email],
   );
 
   const deleteKeyResult = useCallback(

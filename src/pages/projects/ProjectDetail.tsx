@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, Link, useNavigate, useSearchParams} from 'react-router-dom';
 import { onTabResumed } from '../../lib/supabase';
 import {
   ArrowLeft,
@@ -142,7 +142,11 @@ export function ProjectDetail() {
   const { playbooks, fetchPlaybooks } = usePlaybook();
   const { checkins, configs, fetchCheckins, fetchConfigs } = useCheckin();
 
-  const [activeTab, setActiveTab] = useState<TabKey>('summary');
+  // Allow deep-linking to a specific tab via ?tab=X (used by the Home
+  // dashboard project shortcuts: Módulos / Tareas / Novedades / NPS).
+  const [searchParams] = useSearchParams();
+  const initialTab = (searchParams.get('tab') as TabKey | null) || 'summary';
+  const [activeTab, setActiveTab] = useState<TabKey>(initialTab);
   const [showModuleForm, setShowModuleForm] = useState(false);
   const [editingModule, setEditingModule] = useState<ProjectModule | null>(null);
   const [showDeliverableForm, setShowDeliverableForm] = useState(false);

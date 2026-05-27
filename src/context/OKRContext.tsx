@@ -82,9 +82,10 @@ export function OKRProvider({ children }: { children: ReactNode }) {
       }
 
       // Combine objectives with their key results
-      const transformedObjectives: Objective[] = (objectivesData || []).map(obj => ({
+      const transformedObjectives: Objective[] = (objectivesData || []).map((obj: any) => ({
         id: obj.id,
         organizationId: obj.organization_id,
+        clientId: obj.client_id ?? null,
         title: obj.title,
         description: obj.description,
         status: obj.status as Objective['status'],
@@ -147,6 +148,7 @@ export function OKRProvider({ children }: { children: ReactNode }) {
           .from('objectives')
           .insert({
             organization_id: organization.id,
+            client_id: objective.clientId ?? null,
             title: objective.title,
             description: objective.description,
             quarter: objective.quarter,
@@ -161,19 +163,21 @@ export function OKRProvider({ children }: { children: ReactNode }) {
 
         if (error) throw error;
 
+        const inserted = data as any;
         const newObjective: Objective = {
-          id: data.id,
-          organizationId: data.organization_id,
-          title: data.title,
-          description: data.description,
-          status: data.status as Objective['status'],
-          quarter: data.quarter as Objective['quarter'],
-          year: data.year,
-          owner: data.owner,
-          startDate: data.start_date,
-          endDate: data.end_date,
-          createdAt: data.created_at,
-          updatedAt: data.updated_at,
+          id: inserted.id,
+          organizationId: inserted.organization_id,
+          clientId: inserted.client_id ?? null,
+          title: inserted.title,
+          description: inserted.description,
+          status: inserted.status as Objective['status'],
+          quarter: inserted.quarter as Objective['quarter'],
+          year: inserted.year,
+          owner: inserted.owner,
+          startDate: inserted.start_date,
+          endDate: inserted.end_date,
+          createdAt: inserted.created_at,
+          updatedAt: inserted.updated_at,
           keyResults: [],
         };
 

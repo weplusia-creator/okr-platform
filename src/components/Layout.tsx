@@ -197,6 +197,11 @@ const CLIENT_NAV: NavItem[] = [
     icon: FolderKanban,
     path: '/portal',
   },
+  {
+    label: 'Mis OKRs',
+    icon: Target,
+    path: '/portal/okrs',
+  },
 ];
 
 export function Layout() {

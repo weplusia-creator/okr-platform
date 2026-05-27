@@ -25,6 +25,7 @@ import {
   KPIDashboard,
   ClientPortal,
   ClientProjectDetail,
+  PortalOKRs,
   OKRInitiatives,
   TaskBoard,
   Landing,
@@ -179,6 +180,7 @@ function AppRoutes() {
         <Route path="/projects/:id/edit" element={<ProjectForm />} />
         {/* Portal (client users) */}
         <Route path="/portal" element={<ClientPortal />} />
+        <Route path="/portal/okrs" element={<PortalOKRs />} />
         <Route path="/portal/:projectId" element={<ClientProjectDetail />} />
         <Route path="/projects/gantt" element={<GanttView />} />
         <Route path="/products" element={<Products />} />

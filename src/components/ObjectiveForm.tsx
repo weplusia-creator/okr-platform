@@ -3,6 +3,7 @@ import { Plus, X } from 'lucide-react';
 import { Modal } from './Modal';
 import { useOKR } from '../context/OKRContext';
 import { useAuth } from '../context/AuthContext';
+import { useFinance } from '../context/FinanceContext';
 import type { Objective, Quarter, OKRStatus, KeyResult } from '../types';
 import { QUARTER_LABELS, STATUS_CONFIG } from '../types';
 import { getCurrentQuarter, getCurrentYear, getQuarterDateRange, generateId } from '../utils/helpers';
@@ -24,7 +25,8 @@ interface KeyResultInput {
 
 export function ObjectiveForm({ isOpen, onClose, objective }: ObjectiveFormProps) {
   const { addObjective, updateObjective } = useOKR();
-  const { orgUsers } = useAuth();
+  const { orgUsers, appUser } = useAuth();
+  const { clients } = useFinance();
   const isEditing = !!objective;
 
   const currentQuarter = getCurrentQuarter();
@@ -38,6 +40,7 @@ export function ObjectiveForm({ isOpen, onClose, objective }: ObjectiveFormProps
     quarter: currentQuarter as Quarter,
     year: currentYear,
     owner: '',
+    clientId: '' as string,
     startDate: defaultDates.start,
     endDate: defaultDates.end,
   });
@@ -56,6 +59,7 @@ export function ObjectiveForm({ isOpen, onClose, objective }: ObjectiveFormProps
         quarter: objective.quarter,
         year: objective.year,
         owner: objective.owner,
+        clientId: objective.clientId ?? '',
         startDate: objective.startDate,
         endDate: objective.endDate,
       });
@@ -77,6 +81,7 @@ export function ObjectiveForm({ isOpen, onClose, objective }: ObjectiveFormProps
         quarter: currentQuarter,
         year: currentYear,
         owner: '',
+        clientId: appUser?.userType === 'client' ? (appUser?.clientId ?? '') : '',
         startDate: defaultDates.start,
         endDate: defaultDates.end,
       });
@@ -185,7 +190,10 @@ export function ObjectiveForm({ isOpen, onClose, objective }: ObjectiveFormProps
           keyResults: processedKeyResults.map(kr => ({ ...kr, objectiveId: objective.id })),
         });
       } else {
-        const newObjective = await addObjective(formData);
+        const newObjective = await addObjective({
+          ...formData,
+          clientId: formData.clientId || null,
+        });
         if (processedKeyResults.length > 0 && newObjective) {
           await updateObjective(newObjective.id, {
             keyResults: processedKeyResults.map(kr => ({ ...kr, objectiveId: newObjective.id })),
@@ -263,6 +271,35 @@ export function ObjectiveForm({ isOpen, onClose, objective }: ObjectiveFormProps
           </select>
           {errors.owner && (
             <p className="mt-1 text-sm text-danger-600">{errors.owner}</p>
+          )}
+        </div>
+
+        {/* Client — admins/consultants can scope this OKR to a client.
+            Client users see their own client preselected and locked. */}
+        <div>
+          <label className="label">
+            Cliente {appUser?.userType !== 'client' && <span className="text-xs text-gray-400 font-normal">(opcional)</span>}
+          </label>
+          <select
+            value={formData.clientId}
+            onChange={(e) => setFormData({ ...formData, clientId: e.target.value })}
+            className="select"
+            disabled={appUser?.userType === 'client'}
+          >
+            <option value="">— Sin asignar (interno) —</option>
+            {clients
+              .slice()
+              .sort((a, b) => a.name.localeCompare(b.name))
+              .map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+          </select>
+          {appUser?.userType === 'client' && (
+            <p className="mt-1 text-xs text-gray-400">
+              Este OKR se asigna automáticamente a tu empresa.
+            </p>
           )}
         </div>
 

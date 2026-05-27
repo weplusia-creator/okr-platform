@@ -66,12 +66,9 @@ export function ClientProjectDetail() {
       fetchModules(projectId);
       fetchAttendanceSessions(projectId);
       fetchParticipants(projectId);
-      fetchCanvases(projectId);
       fetchPlaybooks();
     }
-  }, [projectId, fetchModules, fetchAttendanceSessions, fetchParticipants, fetchCanvases, fetchPlaybooks]);
-
-  const projectCanvases = useMemo(() => canvases.filter(c => c.projectId === projectId), [canvases, projectId]);
+  }, [projectId, fetchModules, fetchAttendanceSessions, fetchParticipants, fetchPlaybooks]);
   const projectPlaybooks = useMemo(() => playbooks.filter(p => p.projectId === projectId && p.status === 'activo'), [playbooks, projectId]);
 
   // Load playbook details when there's an active playbook
@@ -389,31 +386,6 @@ export function ClientProjectDetail() {
           </div>
         )}
       </div>
-
-      {/* BMC Section */}
-      {projectCanvases.length > 0 && (
-        <div>
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-            <LayoutGrid className="w-5 h-5" /> Business Model Canvas
-          </h2>
-          {projectCanvases.map(canvas => (
-            <div key={canvas.id} className="card p-5">
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="font-medium text-gray-900 dark:text-white">{canvas.name}</h3>
-                <Link
-                  to={`/bmc/${canvas.id}/respond`}
-                  className="text-sm text-primary-600 hover:text-primary-700 dark:text-primary-400 hover:underline"
-                >
-                  Ver / Responder →
-                </Link>
-              </div>
-              {canvas.description && (
-                <p className="text-sm text-gray-500 dark:text-gray-400">{canvas.description}</p>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
 
       {/* Playbook Section */}
       {activePlaybook && (

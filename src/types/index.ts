@@ -28,6 +28,8 @@ export interface KeyResult {
 export interface Objective {
   id: string;
   organizationId: string;
+  /** Optional: if set, this OKR is scoped to a specific client (multi-tenant). */
+  clientId: string | null;
   title: string;
   description?: string | null;
   status: OKRStatus;

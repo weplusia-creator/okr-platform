@@ -49,9 +49,12 @@ export function HomeDashboard() {
   const { clients } = useFinance();
   const [showArchived, setShowArchived] = useState(false);
 
+  // Map client id → name + logo so each project card can render the
+  // client's brand mark prominently (with a fallback initial when there's
+  // no logo uploaded).
   const clientById = useMemo(() => {
-    const map: Record<string, string> = {};
-    clients.forEach(c => { map[c.id] = c.name; });
+    const map: Record<string, { name: string; logoUrl: string | null }> = {};
+    clients.forEach(c => { map[c.id] = { name: c.name, logoUrl: c.logoUrl }; });
     return map;
   }, [clients]);
 
@@ -161,7 +164,7 @@ export function HomeDashboard() {
               <ProjectCard
                 key={p.id}
                 project={p}
-                clientName={p.clientId ? clientById[p.clientId] : undefined}
+                client={p.clientId ? clientById[p.clientId] : undefined}
                 progress={modulesByProject[p.id]}
               />
             ))}
@@ -190,7 +193,7 @@ export function HomeDashboard() {
                 <ProjectCard
                   key={p.id}
                   project={p}
-                  clientName={p.clientId ? clientById[p.clientId] : undefined}
+                  client={p.clientId ? clientById[p.clientId] : undefined}
                   progress={modulesByProject[p.id]}
                   dim
                 />
@@ -236,12 +239,12 @@ function EmptyState() {
 
 function ProjectCard({
   project,
-  clientName,
+  client,
   progress,
   dim = false,
 }: {
   project: Project;
-  clientName?: string;
+  client?: { name: string; logoUrl: string | null };
   progress?: { total: number; completed: number };
   dim?: boolean;
 }) {
@@ -265,21 +268,33 @@ function ProjectCard({
       />
 
       <div className="p-5">
-        {/* Header */}
-        <div className="flex items-start justify-between gap-3 mb-3">
+        {/* Header: client logo (or fallback) + project info + status pill */}
+        <div className="flex items-start gap-3 mb-3">
+          <Link
+            to={`/projects/${project.id}`}
+            className="shrink-0"
+            aria-label={`Abrir ${project.name}`}
+          >
+            <ClientAvatar
+              name={client?.name}
+              logoUrl={client?.logoUrl}
+            />
+          </Link>
+
           <Link to={`/projects/${project.id}`} className="flex-1 min-w-0">
             <h3 className="font-semibold text-gray-900 dark:text-white truncate group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors text-[15px]">
               {project.name}
             </h3>
-            {clientName ? (
-              <p className="mt-1 flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400 truncate">
+            {client?.name ? (
+              <p className="mt-0.5 flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400 truncate">
                 <Building2 className="w-3 h-3 shrink-0" />
-                <span className="truncate">{clientName}</span>
+                <span className="truncate">{client.name}</span>
               </p>
             ) : (
-              <p className="mt-1 text-xs text-gray-400 italic">Sin cliente</p>
+              <p className="mt-0.5 text-xs text-gray-400 italic">Sin cliente</p>
             )}
           </Link>
+
           <span
             className={`shrink-0 text-[10px] uppercase font-bold px-2 py-1 rounded-full ${status.bgClass}`}
             style={{ color: status.color }}
@@ -353,3 +368,54 @@ function ProjectCard({
     </div>
   );
 }
+
+// ────────────────────────────────────────────────────────
+// Client avatar — uses the uploaded logo when available; otherwise
+// renders the client's initials on a coloured disc so every card still
+// has a strong visual anchor on the left.
+// ────────────────────────────────────────────────────────
+
+function ClientAvatar({ name, logoUrl }: { name?: string; logoUrl?: string | null }) {
+  if (logoUrl) {
+    return (
+      <div className="w-12 h-12 rounded-xl bg-white dark:bg-gray-100 border border-gray-200 dark:border-gray-300 shadow-sm overflow-hidden flex items-center justify-center">
+        <img
+          src={logoUrl}
+          alt={name ? `Logo ${name}` : 'Logo cliente'}
+          className="w-full h-full object-contain p-1"
+          loading="lazy"
+        />
+      </div>
+    );
+  }
+
+  const initials = (name || '?')
+    .split(/\s+/)
+    .map(w => w[0])
+    .filter(Boolean)
+    .slice(0, 2)
+    .join('')
+    .toUpperCase();
+
+  // Derive a stable colour from the name so the avatar is recognisable.
+  const palette = [
+    'from-primary-500 to-primary-600',
+    'from-emerald-500 to-emerald-600',
+    'from-amber-500 to-orange-500',
+    'from-pink-500 to-rose-500',
+    'from-indigo-500 to-violet-600',
+    'from-sky-500 to-cyan-600',
+  ];
+  const hash = (name || '').split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
+  const gradient = palette[hash % palette.length];
+
+  return (
+    <div
+      className={`w-12 h-12 rounded-xl bg-gradient-to-br ${gradient} text-white shadow-sm flex items-center justify-center font-bold text-sm`}
+      aria-hidden="true"
+    >
+      {initials || <Building2 className="w-5 h-5" />}
+    </div>
+  );
+}
+

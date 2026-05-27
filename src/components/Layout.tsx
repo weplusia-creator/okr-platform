@@ -116,7 +116,6 @@ const ADMIN_NAV: NavItem[] = [
     label: 'Tools',
     icon: Wrench,
     children: [
-      { label: 'Todas', path: '/tools', icon: Wrench },
       { label: 'Presentaciones', path: '/presentations', icon: Presentation },
     ],
   },

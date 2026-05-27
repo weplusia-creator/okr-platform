@@ -64,7 +64,6 @@ import {
   CheckinDashboard, CheckinDetail, CheckinPublicForm,
   CheckinHistory, CheckinConfigPage, CheckinPlantillas,
 } from './pages/checkins';
-import { ToolsDashboard } from './pages/tools/ToolsDashboard';
 import { Organizations, SuperUsers } from './pages/super';
 const QuizDashboard = lazy(() => import('./pages/quiz/QuizDashboard').then(m => ({ default: m.QuizDashboard })));
 const QuizForm = lazy(() => import('./pages/quiz/QuizForm').then(m => ({ default: m.QuizForm })));
@@ -215,8 +214,6 @@ function AppRoutes() {
         <Route path="/presentations/new" element={<PresentationForm />} />
         <Route path="/presentations/:id" element={<PresentationDetail />} />
         <Route path="/presentations/:id/edit" element={<PresentationForm />} />
-        {/* Tools Routes */}
-        <Route path="/tools" element={<ToolsDashboard />} />
         {/* Check-in Routes */}
         <Route path="/checkins" element={<CheckinDashboard />} />
         <Route path="/checkins/plantillas" element={<CheckinPlantillas />} />

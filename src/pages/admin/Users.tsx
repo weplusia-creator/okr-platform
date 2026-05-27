@@ -167,6 +167,18 @@ export function Users() {
         setNewRole('member');
         setNewJobTitle('');
         setNewClientId('');
+        // Show a friendly success toast based on whether the invite
+        // email was sent (preferred flow) or the user was created
+        // with an explicit password (legacy).
+        if (result.inviteSent) {
+          alert(
+            `✓ Usuario creado: ${result.user.fullName}\n\n` +
+            `Le mandamos un mail a ${result.user.email} con un link para que active su cuenta y elija su password.\n\n` +
+            `Decile que revise también la carpeta de spam si no lo ve.`
+          );
+        } else {
+          alert(`✓ Usuario creado: ${result.user.fullName} (${result.user.email})`);
+        }
       } else {
         setCreateError('Error al crear usuario.');
       }

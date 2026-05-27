@@ -27,7 +27,7 @@ interface AuthContextType {
   refreshUser: () => Promise<void>;
   orgUsers: AppUser[];
   fetchOrgUsers: () => Promise<void>;
-  createOrgUser: (email: string, fullName: string, role: UserRole, jobTitle: string | null, userType?: UserType, clientId?: string | null) => Promise<AppUser | null>;
+  createOrgUser: (email: string, fullName: string, role: UserRole, jobTitle: string | null, userType?: UserType, clientId?: string | null) => Promise<{ user: AppUser; inviteSent: boolean } | null>;
   updateOrgUser: (id: string, updates: Partial<Pick<AppUser, 'fullName' | 'role' | 'jobTitle' | 'status' | 'userType' | 'clientId'>>) => Promise<void>;
   deleteOrgUser: (id: string) => Promise<boolean>;
 }
@@ -432,8 +432,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({
+          // NO password — server uses inviteUserByEmail and emails the
+          // user a magic link to set their own password.
           email,
-          password: 'WAU2026',
           fullName,
           organizationId: appUser.organizationId,
           role,
@@ -460,7 +461,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       };
 
       setOrgUsers(prev => [...prev, newUser].sort((a, b) => (a.fullName || '').localeCompare(b.fullName || '')));
-      return newUser;
+      return { user: newUser, inviteSent: !!result.inviteSent };
     } catch (err: any) {
       console.error('Error creating user:', err);
       throw err;

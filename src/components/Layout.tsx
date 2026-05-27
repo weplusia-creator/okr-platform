@@ -68,7 +68,6 @@ const ADMIN_NAV: NavItem[] = [
       { label: 'Clientes', path: '/projects/clients', icon: Users },
       { label: 'Gantt', path: '/projects/gantt', icon: GanttChartIcon },
       { label: 'Check-ins', path: '/checkins', icon: ClipboardCheck },
-      { label: 'Diagnóstico BMC', path: '/bmc', icon: ClipboardList },
       { label: 'Playbook', path: '/playbook', icon: BookOpen },
     ],
   },
@@ -119,8 +118,6 @@ const ADMIN_NAV: NavItem[] = [
     children: [
       { label: 'Todas', path: '/tools', icon: Wrench },
       { label: 'Presentaciones', path: '/presentations', icon: Presentation },
-      { label: 'Prospector B2B', path: '/tools/prospector', icon: Target },
-      { label: 'Calculadora ROI', path: '/tools/roi', icon: Calculator },
     ],
   },
   {

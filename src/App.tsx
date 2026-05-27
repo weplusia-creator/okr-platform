@@ -48,10 +48,6 @@ import {
   DealForm,
   ActivityList,
 } from './pages/crm';
-const BMCDashboard = lazy(() => import('./pages/bmc').then(m => ({ default: m.BMCDashboard })));
-const BMCTemplates = lazy(() => import('./pages/bmc').then(m => ({ default: m.BMCTemplates })));
-const BMCCanvasView = lazy(() => import('./pages/bmc').then(m => ({ default: m.BMCCanvasView })));
-const BMCRespond = lazy(() => import('./pages/bmc').then(m => ({ default: m.BMCRespond })));
 const ProposalsDashboard = lazy(() => import('./pages/proposals').then(m => ({ default: m.ProposalsDashboard })));
 const ProposalForm = lazy(() => import('./pages/proposals').then(m => ({ default: m.ProposalForm })));
 const ProposalDetail = lazy(() => import('./pages/proposals').then(m => ({ default: m.ProposalDetail })));
@@ -69,15 +65,6 @@ import {
   CheckinHistory, CheckinConfigPage, CheckinPlantillas,
 } from './pages/checkins';
 import { ToolsDashboard } from './pages/tools/ToolsDashboard';
-import { ROIDashboard } from './pages/tools/roi/ROIDashboard';
-import { ROICalculator } from './pages/tools/roi/ROICalculator';
-const ProspectorDashboard = lazy(() => import('./pages/tools/prospector/ProspectorDashboard').then(m => ({ default: m.ProspectorDashboard })));
-const ProspectorList = lazy(() => import('./pages/tools/prospector/ProspectorList').then(m => ({ default: m.ProspectorList })));
-const ProspectorForm = lazy(() => import('./pages/tools/prospector/ProspectorForm').then(m => ({ default: m.ProspectorForm })));
-const ProspectorDetail = lazy(() => import('./pages/tools/prospector/ProspectorDetail').then(m => ({ default: m.ProspectorDetail })));
-const ProspectorSettings = lazy(() => import('./pages/tools/prospector/ProspectorSettings').then(m => ({ default: m.ProspectorSettings })));
-const ProspectorScraper = lazy(() => import('./pages/tools/prospector/ProspectorScraper').then(m => ({ default: m.ProspectorScraper })));
-const ProspectorScrapeHistory = lazy(() => import('./pages/tools/prospector/ProspectorScrapeHistory').then(m => ({ default: m.ProspectorScrapeHistory })));
 import { Organizations, SuperUsers } from './pages/super';
 const QuizDashboard = lazy(() => import('./pages/quiz/QuizDashboard').then(m => ({ default: m.QuizDashboard })));
 const QuizForm = lazy(() => import('./pages/quiz/QuizForm').then(m => ({ default: m.QuizForm })));
@@ -230,18 +217,6 @@ function AppRoutes() {
         <Route path="/presentations/:id/edit" element={<PresentationForm />} />
         {/* Tools Routes */}
         <Route path="/tools" element={<ToolsDashboard />} />
-        <Route path="/tools/roi" element={<ROIDashboard />} />
-        <Route path="/tools/roi/new" element={<ROICalculator />} />
-        <Route path="/tools/roi/:id" element={<ROICalculator />} />
-        {/* Prospector B2B */}
-        <Route path="/tools/prospector" element={<ProspectorDashboard />} />
-        <Route path="/tools/prospector/list" element={<ProspectorList />} />
-        <Route path="/tools/prospector/new" element={<ProspectorForm />} />
-        <Route path="/tools/prospector/scrape" element={<ProspectorScraper />} />
-        <Route path="/tools/prospector/history" element={<ProspectorScrapeHistory />} />
-        <Route path="/tools/prospector/settings" element={<ProspectorSettings />} />
-        <Route path="/tools/prospector/:id" element={<ProspectorDetail />} />
-        <Route path="/tools/prospector/:id/edit" element={<ProspectorForm />} />
         {/* Check-in Routes */}
         <Route path="/checkins" element={<CheckinDashboard />} />
         <Route path="/checkins/plantillas" element={<CheckinPlantillas />} />
@@ -254,11 +229,6 @@ function AppRoutes() {
         <Route path="/quizzes/:id" element={<QuizDetail />} />
         <Route path="/quizzes/:id/edit" element={<QuizForm />} />
         <Route path="/quizzes/:id/live" element={<QuizLive />} />
-        {/* BMC Routes */}
-        <Route path="/bmc" element={<BMCDashboard />} />
-        <Route path="/bmc/templates" element={<BMCTemplates />} />
-        <Route path="/bmc/:canvasId" element={<BMCCanvasView />} />
-        <Route path="/bmc/:canvasId/respond" element={<BMCRespond />} />
         {/* Super Admin Routes */}
         <Route path="/super/organizations" element={<Organizations />} />
         <Route path="/super/users" element={<SuperUsers />} />

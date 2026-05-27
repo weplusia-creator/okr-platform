@@ -7,13 +7,10 @@ import { FinanceProvider } from './context/FinanceContext';
 import { ProjectProvider } from './context/ProjectContext';
 import { KPIProvider } from './context/KPIContext';
 import { MeetingProvider } from './context/MeetingContext';
-import { BMCProvider } from './context/BMCContext';
 import { PlaybookProvider } from './context/PlaybookContext';
 import { CRMProvider } from './context/CRMContext';
 import { ProposalProvider } from './context/ProposalContext';
 import { ArcaProvider } from './context/ArcaContext';
-import { ToolsProvider } from './context/ToolsContext';
-import { ProspectorProvider } from './context/ProspectorContext';
 import { TaskProvider } from './context/TaskContext';
 import { CheckinProvider } from './context/CheckinContext';
 import { NotificationProvider } from './context/NotificationContext';
@@ -65,13 +62,10 @@ createRoot(document.getElementById('root')!).render(
             <ProjectProvider>
               <KPIProvider>
                 <MeetingProvider>
-                  <BMCProvider>
                     <PlaybookProvider>
                       <CRMProvider>
                         <ProposalProvider>
                           <ArcaProvider>
-                            <ToolsProvider>
-                              <ProspectorProvider>
                                 <TaskProvider>
                                   <CheckinProvider>
                                     <PresentationProvider>
@@ -83,13 +77,10 @@ createRoot(document.getElementById('root')!).render(
                                     </PresentationProvider>
                                   </CheckinProvider>
                                 </TaskProvider>
-                              </ProspectorProvider>
-                            </ToolsProvider>
                           </ArcaProvider>
                         </ProposalProvider>
                       </CRMProvider>
                     </PlaybookProvider>
-                  </BMCProvider>
                 </MeetingProvider>
               </KPIProvider>
             </ProjectProvider>

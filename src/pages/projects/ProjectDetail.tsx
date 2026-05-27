@@ -32,7 +32,6 @@ import {
 } from 'lucide-react';
 import { useProjects } from '../../context/ProjectContext';
 import { useAuth } from '../../context/AuthContext';
-import { useBMC } from '../../context/BMCContext';
 import { usePlaybook } from '../../context/PlaybookContext';
 import { parseLocalDate } from '../../utils/helpers';
 import { useCheckin } from '../../context/CheckinContext';
@@ -64,7 +63,7 @@ import {
 } from '../../types/projects';
 import { todayLocalISO } from '../../utils/helpers';
 
-type TabKey = 'summary' | 'novedades' | 'deliverables' | 'modules' | 'gantt' | 'team' | 'attendance' | 'nps' | 'documents' | 'finance' | 'activity' | 'onboarding' | 'bmc' | 'playbook' | 'checkins';
+type TabKey = 'summary' | 'novedades' | 'deliverables' | 'modules' | 'gantt' | 'team' | 'attendance' | 'nps' | 'documents' | 'finance' | 'activity' | 'onboarding' | 'playbook' | 'checkins';
 
 const PRIMARY_TABS: { key: TabKey; label: string; icon: React.ElementType }[] = [
   { key: 'summary', label: 'Resumen', icon: BarChart3 },
@@ -77,7 +76,6 @@ const PRIMARY_TABS: { key: TabKey; label: string; icon: React.ElementType }[] = 
 
 const SECONDARY_TABS: { key: TabKey; label: string; icon: React.ElementType }[] = [
   { key: 'checkins', label: 'Check-ins', icon: ClipboardCheck },
-  { key: 'bmc', label: 'BMC', icon: LayoutGrid },
   { key: 'playbook', label: 'Playbook', icon: BookMarked },
   { key: 'attendance', label: 'Asistencia', icon: ClipboardCheck },
   { key: 'nps', label: 'NPS', icon: Star },
@@ -137,8 +135,6 @@ export function ProjectDetail() {
 
   const [editingNovedadId, setEditingNovedadId] = useState<string | null>(null);
   const [editingNovedadContent, setEditingNovedadContent] = useState('');
-
-  const { canvases, fetchCanvases } = useBMC();
   const { playbooks, fetchPlaybooks } = usePlaybook();
   const { checkins, configs, fetchCheckins, fetchConfigs } = useCheckin();
 
@@ -170,13 +166,6 @@ export function ProjectDetail() {
   const isAlumno = currentParticipant?.role === 'alumno';
   const isAdminOrConsultor = currentParticipant?.role === 'admin' || currentParticipant?.role === 'consultor';
   const showOnboardingTab = isAlumno || isAdminOrConsultor;
-
-  // BMC & Playbook linked to this project
-  const projectCanvases = useMemo(() => canvases.filter(c => c.projectId === id), [canvases, id]);
-  const projectPlaybooks = useMemo(() => playbooks.filter(p => p.projectId === id && p.status === 'activo'), [playbooks, id]);
-  const projectCheckins = useMemo(() => checkins.filter(c => c.proyectoId === id).sort((a, b) => b.numero - a.numero), [checkins, id]);
-  const projectConfig = useMemo(() => configs.find(c => c.proyectoId === id), [configs, id]);
-  const hasBMC = projectCanvases.length > 0;
   const hasPlaybook = projectPlaybooks.length > 0;
 
   // Default tab for alumnos

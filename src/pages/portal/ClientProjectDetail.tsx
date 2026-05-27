@@ -17,7 +17,6 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useProjects } from '../../context/ProjectContext';
-import { useBMC } from '../../context/BMCContext';
 import { usePlaybook } from '../../context/PlaybookContext';
 import { PROJECT_STATUS_CONFIG, MODULE_STATUS_CONFIG } from '../../types/projects';
 import type { AttendanceRecord } from '../../types/projects';
@@ -35,7 +34,6 @@ export function ClientProjectDetail() {
   const { projectId } = useParams<{ projectId: string }>();
   const { appUser, isAdmin } = useAuth();
   const { projects, modules, fetchModules, attendanceSessions, fetchAttendanceSessions, fetchAttendanceRecords, participants, fetchParticipants, loading } = useProjects();
-  const { canvases, fetchCanvases } = useBMC();
   const { playbooks, fetchPlaybooks, stages: allStages, fetchStages, scripts: allScripts, fetchScripts, questions: allQuestions, fetchQuestions, objections: allObjections, fetchObjections } = usePlaybook();
 
   const isPreview = isAdmin && appUser?.userType !== 'client';

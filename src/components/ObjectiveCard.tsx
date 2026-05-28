@@ -1,3 +1,4 @@
+import { useOKR } from '../context/OKRContext';
 import { Link } from 'react-router-dom';
 import { ChevronRight, Clock, TrendingUp, TrendingDown, CheckCircle2 } from 'lucide-react';
 import type { Objective } from '../types';

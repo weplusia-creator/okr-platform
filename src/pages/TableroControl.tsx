@@ -9,6 +9,7 @@ import {
   BarChart, Bar, PieChart, Pie, Cell, AreaChart, Area,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts';
+import { KPICard } from '../components/ui/KPICard';
 import { useAuth } from '../context/AuthContext';
 import { useFinance } from '../context/FinanceContext';
 import { useCRM } from '../context/CRMContext';
@@ -254,6 +255,119 @@ export function TableroControl() {
   // Proposals pending (sent + viewed)
   const proposalsPending = proposalStats.sentCount + proposalStats.viewedCount;
 
+  // === Comparisons & sparkline series (additive — used by <KPICard />) ===
+  const pctChange = (curr: number, prev: number): number => {
+    if (prev === 0) return curr === 0 ? 0 : 100;
+    return ((curr - prev) / Math.abs(prev)) * 100;
+  };
+
+  // Sparklines for current-year financials (12 months)
+  const incomeSeries = useMemo(() => monthlyData.map(m => m.income), [monthlyData]);
+  const expenseSeries = useMemo(() => monthlyData.map(m => m.expenses), [monthlyData]);
+  const balanceSeries = useMemo(
+    () => monthlyData.map(m => m.income - m.expenses),
+    [monthlyData],
+  );
+
+  // Year balance vs previous year (delta)
+  const balanceDeltaPct = useMemo(() => {
+    const prevYear = currentYear - 1;
+    const prevTx = transactions.filter(t => parseInt(t.date.split('-')[0]) === prevYear);
+    const prevIncome = prevTx.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
+    const prevExpenses = prevTx.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
+    return pctChange(yearBalance, prevIncome - prevExpenses);
+  }, [transactions, currentYear, yearBalance]);
+
+  // Selected month vs previous month deltas
+  const prevMonthIdx = selectedMonth === 0 ? 11 : selectedMonth - 1;
+  const incomeDeltaPct = useMemo(
+    () => pctChange(selectedMonthIncome, monthlyData[prevMonthIdx]?.income ?? 0),
+    [selectedMonthIncome, monthlyData, prevMonthIdx],
+  );
+  const expensesDeltaPct = useMemo(
+    () => pctChange(selectedMonthExpenses, monthlyData[prevMonthIdx]?.expenses ?? 0),
+    [selectedMonthExpenses, monthlyData, prevMonthIdx],
+  );
+  // Invoiced this month vs invoiced previous month
+  const facturadoDeltaPct = useMemo(() => {
+    const prevMonthKey = (() => {
+      const y = prevMonthIdx === 11 ? currentYear - 1 : currentYear;
+      const m = String(prevMonthIdx + 1).padStart(2, '0');
+      return `${y}-${m}`;
+    })();
+    const prev = invoices
+      .filter(i => i.issueDate.startsWith(prevMonthKey) && i.status !== 'draft' && i.status !== 'cancelled')
+      .reduce((s, i) => s + i.total, 0);
+    return pctChange(billingTotals.totalFacturado, prev);
+  }, [invoices, billingTotals.totalFacturado, prevMonthIdx, currentYear]);
+
+  // Generic "last N months" series builder.
+  const lastNMonthsSeries = <T,>(
+    items: T[],
+    n: number,
+    getDate: (t: T) => string | null | undefined,
+    getValue: (t: T) => number,
+  ): number[] => {
+    const now = new Date();
+    const buckets: number[] = Array(n).fill(0);
+    const startYear = now.getFullYear();
+    const startMonth = now.getMonth();
+    for (const it of items) {
+      const ds = getDate(it);
+      if (!ds) continue;
+      const parts = ds.split('-');
+      if (parts.length < 2) continue;
+      const y = parseInt(parts[0]);
+      const m = parseInt(parts[1]);
+      if (!y || !m) continue;
+      const monthsDiff = (startYear - y) * 12 + (startMonth - (m - 1));
+      if (monthsDiff < 0 || monthsDiff >= n) continue;
+      buckets[n - 1 - monthsDiff] += getValue(it);
+    }
+    return buckets;
+  };
+
+  // Series for non-financial KPIs (last 6 months: new pipeline value, new projects, new proposals)
+  const pipelineSeries = useMemo(
+    () => lastNMonthsSeries(deals, 6, d => d.createdAt, d => d.amount || 0),
+    [deals],
+  );
+  const projectsSeries = useMemo(
+    () => lastNMonthsSeries(projects, 6, p => p.createdAt, () => 1),
+    [projects],
+  );
+  const proposalsSeries = useMemo(
+    () => lastNMonthsSeries(proposals, 6, p => p.createdAt, () => 1),
+    [proposals],
+  );
+
+  // Active projects: compute the count 30 days ago (approximation: # of projects created
+  // before today-30 days that aren't completed/cancelled).
+  const activeProjectsDeltaPct = useMemo(() => {
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - 30);
+    const cutoffStr = cutoff.toISOString().slice(0, 10);
+    const prevCount = projects.filter(p =>
+      p.createdAt && p.createdAt.slice(0, 10) <= cutoffStr &&
+      p.status !== 'completed' && p.status !== 'cancelled'
+    ).length;
+    return pctChange(activeProjects, prevCount);
+  }, [projects, activeProjects]);
+
+  // Proposals pending delta: count of sent/viewed created last 30d vs previous 30d
+  const proposalsPendingDeltaPct = useMemo(() => {
+    const today = new Date();
+    const d30 = new Date(today); d30.setDate(d30.getDate() - 30);
+    const d60 = new Date(today); d60.setDate(d60.getDate() - 60);
+    const s30 = d30.toISOString().slice(0, 10);
+    const s60 = d60.toISOString().slice(0, 10);
+    const isPending = (p: typeof proposals[number]) => p.status === 'sent' || p.status === 'viewed';
+    const last30 = proposals.filter(p => isPending(p) && (p.createdAt?.slice(0, 10) ?? '') >= s30).length;
+    const prev30 = proposals.filter(p => isPending(p) && (p.createdAt?.slice(0, 10) ?? '') >= s60 && (p.createdAt?.slice(0, 10) ?? '') < s30).length;
+    return pctChange(last30, prev30);
+  }, [proposals]);
+
+
   // Chart tooltip style
   const tooltipStyle = {
     backgroundColor: isDark ? '#363233' : '#fff',
@@ -292,67 +406,60 @@ export function TableroControl() {
 
       {/* KPI Strip */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-4">
-        <Link to="/finance" className="card p-3 sm:p-4 hover:shadow-md transition-shadow">
-          <div className="flex items-center gap-1.5 sm:gap-2 mb-1">
-            <div className="p-1 sm:p-1.5 rounded-lg bg-green-100 dark:bg-green-900/30">
-              <DollarSign className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-green-600 dark:text-green-400" />
-            </div>
-            <span className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400">Balance {currentYear}</span>
-          </div>
-          <p className={`text-sm sm:text-lg font-bold truncate ${yearBalance >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-            {formatCurrency(yearBalance)}
-          </p>
-        </Link>
-
-        <Link to="/finance/cash-flow" className="card p-3 sm:p-4 hover:shadow-md transition-shadow">
-          <div className="flex items-center gap-1.5 sm:gap-2 mb-1">
-            <div className="p-1 sm:p-1.5 rounded-lg bg-blue-100 dark:bg-blue-900/30">
-              <TrendingUp className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-600 dark:text-blue-400" />
-            </div>
-            <span className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400">Ingresos mes</span>
-          </div>
-          <p className="text-sm sm:text-lg font-bold text-gray-900 dark:text-white truncate">{formatCurrency(selectedMonthIncome)}</p>
-        </Link>
-
-        <Link to="/crm/pipeline" className="card p-3 sm:p-4 hover:shadow-md transition-shadow">
-          <div className="flex items-center gap-1.5 sm:gap-2 mb-1">
-            <div className="p-1 sm:p-1.5 rounded-lg bg-pink-100 dark:bg-pink-900/30">
-              <Handshake className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-pink-600 dark:text-pink-400" />
-            </div>
-            <span className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400">Pipeline CRM</span>
-          </div>
-          <p className="text-sm sm:text-lg font-bold text-gray-900 dark:text-white truncate">{formatCurrency(crmStats.pipelineValue)}</p>
-        </Link>
-
-        <Link to="/projects/list" className="card p-3 sm:p-4 hover:shadow-md transition-shadow">
-          <div className="flex items-center gap-1.5 sm:gap-2 mb-1">
-            <div className="p-1 sm:p-1.5 rounded-lg bg-yellow-100 dark:bg-yellow-900/30">
-              <FolderKanban className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-yellow-600 dark:text-yellow-400" />
-            </div>
-            <span className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400">Proyectos activos</span>
-          </div>
-          <p className="text-sm sm:text-lg font-bold text-gray-900 dark:text-white">{activeProjects}</p>
-        </Link>
-
-        <Link to="/okrs" className="card p-3 sm:p-4 hover:shadow-md transition-shadow">
-          <div className="flex items-center gap-1.5 sm:gap-2 mb-1">
-            <div className="p-1 sm:p-1.5 rounded-lg bg-purple-100 dark:bg-purple-900/30">
-              <Target className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-purple-600 dark:text-purple-400" />
-            </div>
-            <span className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400">Progreso OKRs</span>
-          </div>
-          <p className="text-sm sm:text-lg font-bold text-gray-900 dark:text-white">{avgOKRProgress}%</p>
-        </Link>
-
-        <Link to="/proposals" className="card p-3 sm:p-4 hover:shadow-md transition-shadow">
-          <div className="flex items-center gap-1.5 sm:gap-2 mb-1">
-            <div className="p-1 sm:p-1.5 rounded-lg bg-indigo-100 dark:bg-indigo-900/30">
-              <FileText className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-indigo-600 dark:text-indigo-400" />
-            </div>
-            <span className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400">Propuestas pend.</span>
-          </div>
-          <p className="text-sm sm:text-lg font-bold text-gray-900 dark:text-white">{proposalsPending}</p>
-        </Link>
+        <KPICard
+          to="/finance"
+          tone="green"
+          icon={<DollarSign className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
+          label={`Balance ${currentYear}`}
+          value={formatCurrency(yearBalance)}
+          valueClassName={yearBalance >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}
+          series={balanceSeries}
+          delta={{ pct: balanceDeltaPct, label: 'vs año anterior' }}
+        />
+        <KPICard
+          to="/finance/cash-flow"
+          tone="blue"
+          icon={<TrendingUp className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
+          label="Ingresos mes"
+          value={formatCurrency(selectedMonthIncome)}
+          series={incomeSeries}
+          delta={{ pct: incomeDeltaPct, label: 'vs mes pasado' }}
+        />
+        <KPICard
+          to="/crm/pipeline"
+          tone="pink"
+          icon={<Handshake className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
+          label="Pipeline CRM"
+          value={formatCurrency(crmStats.pipelineValue)}
+          series={pipelineSeries}
+          hint="ult. 6 meses"
+        />
+        <KPICard
+          to="/projects/list"
+          tone="yellow"
+          icon={<FolderKanban className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
+          label="Proyectos activos"
+          value={String(activeProjects)}
+          series={projectsSeries}
+          delta={{ pct: activeProjectsDeltaPct, label: 'vs 30d atras' }}
+        />
+        <KPICard
+          to="/okrs"
+          tone="purple"
+          icon={<Target className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
+          label="Progreso OKRs"
+          value={`${avgOKRProgress}%`}
+          hint={`${objectives.length} OKR${objectives.length === 1 ? '' : 's'} activos`}
+        />
+        <KPICard
+          to="/proposals"
+          tone="indigo"
+          icon={<FileText className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
+          label="Propuestas pend."
+          value={String(proposalsPending)}
+          series={proposalsSeries}
+          delta={{ pct: proposalsPendingDeltaPct, label: 'vs 30d atras' }}
+        />
       </div>
 
       {/* Month Selector + Billing KPIs */}
@@ -383,25 +490,43 @@ export function TableroControl() {
           )}
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4">
-          <Link to="/finance/invoices" className="card p-3 sm:p-4 hover:shadow-md transition-shadow">
-            <span className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400">Facturado</span>
-            <p className="text-sm sm:text-lg font-bold text-gray-900 dark:text-white truncate">{formatCurrency(billingTotals.totalFacturado)}</p>
-          </Link>
-          <Link to="/finance/cash-flow" className="card p-3 sm:p-4 hover:shadow-md transition-shadow">
-            <span className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400">Cobrado</span>
-            <p className="text-sm sm:text-lg font-bold text-green-600 dark:text-green-400 truncate">{formatCurrency(selectedMonthIncome)}</p>
-          </Link>
-          <Link to="/finance/cash-flow" className="card p-3 sm:p-4 hover:shadow-md transition-shadow">
-            <span className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400">Por cobrar</span>
-            <p className={`text-sm sm:text-lg font-bold truncate ${billingTotals.porCobrar > 0 ? 'text-yellow-600 dark:text-yellow-400' : 'text-gray-900 dark:text-white'}`}>{formatCurrency(billingTotals.porCobrar)}</p>
-          </Link>
-          <Link to="/finance/cash-flow" className="card p-3 sm:p-4 hover:shadow-md transition-shadow">
-            <span className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400">Gastos</span>
-            <p className="text-sm sm:text-lg font-bold text-red-600 dark:text-red-400 truncate">{formatCurrency(selectedMonthExpenses)}</p>
-            {recurringTotal > 0 && (
-              <span className="text-[9px] sm:text-[10px] text-gray-400 dark:text-gray-500">Fijos: {formatCurrency(recurringTotal)}</span>
-            )}
-          </Link>
+          <KPICard
+            to="/finance/invoices"
+            tone="indigo"
+            icon={<FileText className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
+            label="Facturado"
+            value={formatCurrency(billingTotals.totalFacturado)}
+            delta={{ pct: facturadoDeltaPct, label: 'vs mes pasado' }}
+          />
+          <KPICard
+            to="/finance/cash-flow"
+            tone="green"
+            icon={<TrendingUp className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
+            label="Cobrado"
+            value={formatCurrency(selectedMonthIncome)}
+            valueClassName="text-green-600 dark:text-green-400"
+            series={incomeSeries}
+            delta={{ pct: incomeDeltaPct, label: 'vs mes pasado' }}
+          />
+          <KPICard
+            to="/finance/cash-flow"
+            tone="yellow"
+            icon={<Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
+            label="Por cobrar"
+            value={formatCurrency(billingTotals.porCobrar)}
+            valueClassName={billingTotals.porCobrar > 0 ? 'text-yellow-600 dark:text-yellow-400' : 'text-gray-900 dark:text-white'}
+          />
+          <KPICard
+            to="/finance/cash-flow"
+            tone="red"
+            icon={<TrendingDown className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
+            label="Gastos"
+            value={formatCurrency(selectedMonthExpenses)}
+            valueClassName="text-red-600 dark:text-red-400"
+            series={expenseSeries}
+            delta={{ pct: expensesDeltaPct, label: 'vs mes pasado', invert: true }}
+            hint={recurringTotal > 0 ? `Fijos: ${formatCurrency(recurringTotal)}` : undefined}
+          />
         </div>
       </div>
 

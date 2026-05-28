@@ -7,6 +7,8 @@ import { useAuth } from '../../context/AuthContext';
 import type { Project, ProjectPayment } from '../../types/projects';
 import { todayLocalISO } from '../../utils/helpers';
 
+import { toast } from '../../components/ui/toast';
+import { confirmDialog } from '../../components/ui/confirm';
 interface FinanceSectionProps {
   project: Project;
 }
@@ -98,7 +100,7 @@ export function FinanceSection({ project }: FinanceSectionProps) {
       }
 
       if (!catId) {
-        alert('Error: No se encontró categoría de ingresos para crear la transacción en flujo de caja. Recargá la página e intentá de nuevo.');
+        toast.error('Error: No se encontró categoría de ingresos para crear la transacción en flujo de caja. Recargá la página e intentá de nuevo.');
         return;
       }
 
@@ -136,11 +138,11 @@ export function FinanceSection({ project }: FinanceSectionProps) {
       });
 
       if (!result) {
-        alert('Error: No se pudo crear la transacción en flujo de caja. Revisá la consola del navegador (F12) para más detalles.');
+        toast.error('Error: No se pudo crear la transacción en flujo de caja. Revisá la consola del navegador (F12) para más detalles.');
       }
     } catch (err: any) {
       console.error('Error creating cash flow transaction for payment:', err);
-      alert(`Error al registrar en flujo de caja: ${err?.message || 'Error desconocido'}`);
+      toast.error(`Error al registrar en flujo de caja: ${err?.message || 'Error desconocido'}`);
     }
   };
 
@@ -400,8 +402,8 @@ export function FinanceSection({ project }: FinanceSectionProps) {
                               </button>
                             )}
                             <button
-                              onClick={() => {
-                                if (confirm(`Eliminar cuota de ${formatMonth(payment.month)}?`)) {
+                              onClick={async () => {
+                                if ((await confirmDialog({ message: `Eliminar cuota de ${formatMonth(payment.month)}?`, danger: true }))) {
                                   deletePayment(payment.id);
                                 }
                               }}

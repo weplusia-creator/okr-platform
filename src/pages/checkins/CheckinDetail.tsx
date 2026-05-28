@@ -15,6 +15,7 @@ import type { CompromisoStatus, CompromisoPrioridad, CompromisoResponsable } fro
 import { Modal } from '../../components/Modal';
 import { parseLocalDate } from '../../utils/helpers';
 
+import { toast } from '../../components/ui/toast';
 export function CheckinDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -94,7 +95,7 @@ export function CheckinDetail() {
       await cerrarCheckin(id, closeForm);
       setShowClose(false);
     } catch (err: any) {
-      alert('Error al cerrar check-in: ' + (err?.message || 'Error desconocido'));
+      toast.error('Error al cerrar check-in: ' + (err?.message || 'Error desconocido'));
     } finally {
       setSaving(false);
     }
@@ -119,7 +120,7 @@ export function CheckinDetail() {
       setCompromisoForm({ descripcion: '', responsable: 'cliente', fechaLimite: '', prioridad: 'media' });
       setShowAddCompromiso(false);
     } catch (err: any) {
-      alert('Error al agregar compromiso: ' + (err?.message || 'Error desconocido'));
+      toast.error('Error al agregar compromiso: ' + (err?.message || 'Error desconocido'));
     } finally {
       setSaving(false);
     }
@@ -178,7 +179,7 @@ export function CheckinDetail() {
       setShowManualEntry(false);
       if (id) fetchMetricas(id);
     } catch (err: any) {
-      alert('Error al guardar: ' + (err?.message || 'Error desconocido'));
+      toast.error('Error al guardar: ' + (err?.message || 'Error desconocido'));
     } finally {
       setSaving(false);
     }

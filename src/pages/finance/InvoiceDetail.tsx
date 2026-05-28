@@ -22,6 +22,8 @@ import type { InvoiceStatus } from '../../types/finance';
 import type { ArcaInvoiceStatus } from '../../types/arca';
 import { todayLocalISO, parseLocalDate } from '../../utils/helpers';
 
+import { toast } from '../../components/ui/toast';
+import { confirmDialog } from '../../components/ui/confirm';
 const STATUS_CONFIG: Record<InvoiceStatus, { label: string; class: string }> = {
   draft: { label: 'Borrador', class: 'badge-gray' },
   issued: { label: 'Emitida', class: 'badge-primary' },
@@ -67,15 +69,15 @@ export function InvoiceDetail() {
         await markInvoiceAsPaid(invoice.id, paidDate);
         setPayModal(false);
       } catch (err: any) {
-        alert('No se pudo marcar como pagada: ' + (err?.message || 'Error desconocido'));
+        toast.error('No se pudo marcar como pagada: ' + (err?.message || 'Error desconocido'));
       }
     }
   };
 
   const handleCancel = async () => {
-    if (invoice && window.confirm('¿Estás seguro de que deseas cancelar esta factura?')) {
+    if (invoice && (await confirmDialog({ message: '¿Estás seguro de que deseas cancelar esta factura?', danger: true }))) {
       try { await updateInvoice(invoice.id, { status: 'cancelled' }); }
-      catch (err: any) { alert('No se pudo cancelar la factura: ' + (err?.message || 'Error desconocido')); }
+      catch (err: any) { toast.error('No se pudo cancelar la factura: ' + (err?.message || 'Error desconocido')); }
     }
   };
 

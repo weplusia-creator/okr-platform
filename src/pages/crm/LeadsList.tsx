@@ -19,6 +19,7 @@ import {
 } from '../../types/crm';
 import { parseLocalDate } from '../../utils/helpers';
 
+import { confirmDialog } from '../../components/ui/confirm';
 interface Filters {
   search: string;
   status: LeadStatus | 'all';
@@ -67,7 +68,7 @@ export function LeadsList() {
 
   const handleDelete = async (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
-    if (confirm('¿Estas seguro de eliminar este lead?')) {
+    if ((await confirmDialog({ message: '¿Estas seguro de eliminar este lead?', danger: true }))) {
       await deleteLead(id);
     }
   };
@@ -77,7 +78,7 @@ export function LeadsList() {
     const lead = leads.find((l) => l.id === leadId);
     if (!lead) return;
 
-    if (confirm(`¿Convertir "${lead.contactName}" a Deal?`)) {
+    if ((await confirmDialog({ message: `¿Convertir "${lead.contactName}" a Deal?`, danger: true }))) {
       const deal = await convertLeadToDeal(leadId, {
         name: `Oportunidad - ${lead.company || lead.contactName}`,
         description: lead.needs,

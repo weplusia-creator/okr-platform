@@ -18,6 +18,7 @@ import { parseLocalDate } from '../../utils/helpers';
 import { PROPOSAL_STATUS_CONFIG } from '../../types/proposals';
 import type { ProposalStatus } from '../../types/proposals';
 
+import { confirmDialog } from '../../components/ui/confirm';
 const formatCurrency = (amount: number) =>
   new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 0 }).format(amount);
 
@@ -70,7 +71,7 @@ export function ProposalsDashboard() {
 
   const handleDelete = async (id: string) => {
     setOpenMenuId(null);
-    if (window.confirm('¿Estas seguro de eliminar esta propuesta?')) {
+    if ((await confirmDialog({ message: '¿Estas seguro de eliminar esta propuesta?', danger: true }))) {
       await deleteProposal(id);
     }
   };

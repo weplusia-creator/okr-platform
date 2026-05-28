@@ -6,6 +6,7 @@ import { useQuiz } from '../../context/QuizContext';
 import { QUIZ_STATUS_CONFIG, QUIZ_MODE_LABELS } from '../../types/quiz';
 import type { QuizStatus, Quiz } from '../../types/quiz';
 
+import { confirmDialog } from '../../components/ui/confirm';
 export function QuizDashboard() {
   const { quizzes, loading, fetchQuizzes, deleteQuiz, updateQuiz, fetchParticipants } = useQuiz();
   const [filter, setFilter] = useState<QuizStatus | 'all'>('all');
@@ -36,7 +37,7 @@ export function QuizDashboard() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Eliminar este quiz y todas sus preguntas?')) return;
+    if (!(await confirmDialog({ message: 'Eliminar este quiz y todas sus preguntas?', danger: true }))) return;
     await deleteQuiz(id);
   };
 

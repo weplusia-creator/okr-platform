@@ -5,6 +5,7 @@ import { useFinance } from '../../context/FinanceContext';
 import type { InvoiceStatus, InvoiceItem } from '../../types/finance';
 import { todayLocalISO, toLocalISODate } from '../../utils/helpers';
 
+import { toast } from '../../components/ui/toast';
 interface FormItem {
   id: string;
   description: string;
@@ -144,7 +145,7 @@ export function InvoiceForm() {
         navigate('/finance/invoices');
       }
     } catch (err: any) {
-      alert('Error al guardar factura: ' + (err?.message || 'Error desconocido'));
+      toast.error('Error al guardar factura: ' + (err?.message || 'Error desconocido'));
     } finally {
       setLoading(false);
     }

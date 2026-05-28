@@ -7,6 +7,7 @@ import { useTask } from '../../context/TaskContext';
 import { useAuth } from '../../context/AuthContext';
 import type { Task, TaskStatus } from '../../types';
 
+import { toast } from '../../components/ui/toast';
 function avatarColor(id: string): string {
   let h = 2166136261;
   for (let i = 0; i < id.length; i++) { h ^= id.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; }
@@ -97,7 +98,7 @@ export function TaskDetail({ task, onClose }: Props) {
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     } catch (err: any) {
-      alert('Error al guardar tarea: ' + (err?.message || 'Error desconocido'));
+      toast.error('Error al guardar tarea: ' + (err?.message || 'Error desconocido'));
     }
   };
 
@@ -111,7 +112,7 @@ export function TaskDetail({ task, onClose }: Props) {
       await deleteTask(task.id);
       onClose();
     } catch (err: any) {
-      alert('Error al eliminar tarea: ' + (err?.message || 'Error desconocido'));
+      toast.error('Error al eliminar tarea: ' + (err?.message || 'Error desconocido'));
     }
   };
 
@@ -121,13 +122,13 @@ export function TaskDetail({ task, onClose }: Props) {
       await addTaskComment(task.id, commentText.trim());
       setCommentText('');
     } catch (err: any) {
-      alert('Error al agregar comentario: ' + (err?.message || 'Error desconocido'));
+      toast.error('Error al agregar comentario: ' + (err?.message || 'Error desconocido'));
     }
   };
 
   const handleCreateLabel = async () => {
     const name = newLabelName.trim();
-    if (!name) { alert('Nombre vacío'); return; }
+    if (!name) { toast.info('Nombre vacío'); return; }
     try {
       const label = await addLabel(name, newLabelColor);
       if (label) {
@@ -135,10 +136,10 @@ export function TaskDetail({ task, onClose }: Props) {
         setNewLabelName('');
         setShowLabelForm(false);
       } else {
-        alert('No se pudo crear la etiqueta (label es null). Puede que falte organización.');
+        toast.error('No se pudo crear la etiqueta (label es null). Puede que falte organización.');
       }
     } catch (err: any) {
-      alert('Error al crear etiqueta: ' + (err?.message || 'Error desconocido'));
+      toast.error('Error al crear etiqueta: ' + (err?.message || 'Error desconocido'));
     }
   };
 
@@ -290,7 +291,7 @@ export function TaskDetail({ task, onClose }: Props) {
                     try {
                       await assignLabel(task.id, val);
                     } catch (err: any) {
-                      alert('Error al asignar etiqueta: ' + (err?.message || 'Error'));
+                      toast.error('Error al asignar etiqueta: ' + (err?.message || 'Error'));
                     }
                   }}
                   className="text-xs border border-dashed border-gray-300 dark:border-gray-600 rounded-full px-2 py-0.5 bg-transparent text-gray-500 cursor-pointer"

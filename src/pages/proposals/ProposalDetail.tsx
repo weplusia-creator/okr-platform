@@ -28,6 +28,7 @@ import { parseLocalDate } from '../../utils/helpers';
 import { PROPOSAL_STATUS_CONFIG, type Proposal, type ProposalItem } from '../../types/proposals';
 import { Modal } from '../../components/Modal';
 
+import { toast } from '../../components/ui/toast';
 const formatCurrency = (amount: number): string => {
   return new Intl.NumberFormat('es-AR', {
     style: 'currency',
@@ -161,7 +162,7 @@ export function ProposalDetail() {
 
   const handleDownloadPDF = () => {
     if (!proposal?.shareToken) {
-      alert('Primero debes enviar la propuesta para generar el PDF');
+      toast.error('Primero debes enviar la propuesta para generar el PDF');
       return;
     }
     window.open(`${window.location.origin}/p/${proposal.shareToken}?print=1`, '_blank');

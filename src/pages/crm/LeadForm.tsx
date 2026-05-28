@@ -9,6 +9,7 @@ import {
   type LeadStatus,
 } from '../../types/crm';
 
+import { toast } from '../../components/ui/toast';
 interface FormData {
   contactName: string;
   company: string;
@@ -81,7 +82,7 @@ export function LeadForm() {
     e.preventDefault();
 
     if (!formData.contactName.trim()) {
-      alert('El nombre de contacto es requerido');
+      toast.error('El nombre de contacto es requerido');
       return;
     }
 

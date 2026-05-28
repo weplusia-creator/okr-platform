@@ -63,6 +63,8 @@ import {
 } from '../../types/projects';
 import { todayLocalISO } from '../../utils/helpers';
 
+import { toast } from '../../components/ui/toast';
+import { confirmDialog } from '../../components/ui/confirm';
 type TabKey = 'summary' | 'novedades' | 'deliverables' | 'modules' | 'gantt' | 'team' | 'attendance' | 'nps' | 'documents' | 'finance' | 'activity' | 'onboarding' | 'playbook' | 'checkins';
 
 const PRIMARY_TABS: { key: TabKey; label: string; icon: React.ElementType }[] = [
@@ -327,7 +329,7 @@ export function ProjectDetail() {
       await Promise.race([addNovedad(id, novedadContent.trim()), timeoutPromise]);
       setNovedadContent('');
     } catch (err: any) {
-      alert('Error al publicar: ' + (err?.message || 'Error desconocido'));
+      toast.error('Error al publicar: ' + (err?.message || 'Error desconocido'));
     } finally {
       setPostingNovedad(false);
     }
@@ -687,7 +689,7 @@ export function ProjectDetail() {
                                   e.preventDefault();
                                   updateNovedad(n.id, editingNovedadContent.trim())
                                     .then(() => setEditingNovedadId(null))
-                                    .catch(() => alert('Error al editar'));
+                                    .catch(() => toast.error('Error al editar'));
                                 }
                                 if (e.key === 'Escape') setEditingNovedadId(null);
                               }}
@@ -699,7 +701,7 @@ export function ProjectDetail() {
                                   if (!editingNovedadContent.trim()) return;
                                   updateNovedad(n.id, editingNovedadContent.trim())
                                     .then(() => setEditingNovedadId(null))
-                                    .catch(() => alert('Error al editar'));
+                                    .catch(() => toast.error('Error al editar'));
                                 }}
                                 className="btn-primary text-xs inline-flex items-center gap-1 px-2.5 py-1"
                               >
@@ -729,16 +731,16 @@ export function ProjectDetail() {
                             </button>
                           )}
                           <button
-                            onClick={() => togglePinNovedad(n.id, !n.pinned).catch(() => alert('Error al fijar novedad'))}
+                            onClick={() => togglePinNovedad(n.id, !n.pinned).catch(() => toast.error('Error al fijar novedad'))}
                             className={`p-1.5 rounded-lg transition-colors ${n.pinned ? 'text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/20' : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
                             title={n.pinned ? 'Desfijar' : 'Fijar'}
                           >
                             <Pin className="w-3.5 h-3.5" />
                           </button>
                           <button
-                            onClick={() => {
-                              if (confirm('Eliminar esta novedad?')) {
-                                deleteNovedad(n.id).catch(() => alert('Error al eliminar'));
+                            onClick={async () => {
+                              if ((await confirmDialog({ message: 'Eliminar esta novedad?', danger: true }))) {
+                                deleteNovedad(n.id).catch(() => toast.error('Error al eliminar'));
                               }
                             }}
                             className="p-1.5 text-gray-400 hover:text-danger-600 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"

@@ -19,6 +19,8 @@ import { PRESENTATION_STATUS_CONFIG, SLIDE_BG_COLORS, SLIDE_LAYOUT_CONFIG, getSl
 import type { Presentation, PresentationSlide } from '../../types/presentations';
 import { parseLocalDate } from '../../utils/helpers';
 
+import { toast } from '../../components/ui/toast';
+import { confirmDialog } from '../../components/ui/confirm';
 export function PresentationDetail() {
   const navigate = useNavigate();
   const { id } = useParams();
@@ -52,9 +54,9 @@ export function PresentationDetail() {
       const url = `${window.location.origin}/pres/${token}`;
       await navigator.clipboard.writeText(url).catch(() => {});
       setPres({ ...pres, status: 'published' });
-      alert('Presentacion publicada! Link copiado al portapapeles.');
+      toast.success('Presentacion publicada! Link copiado al portapapeles.');
     } catch (err: any) {
-      alert('Error al publicar: ' + (err?.message || 'Error desconocido'));
+      toast.error('Error al publicar: ' + (err?.message || 'Error desconocido'));
     } finally {
       setPublishing(false);
     }
@@ -64,16 +66,16 @@ export function PresentationDetail() {
     if (!pres) return;
     const url = `${window.location.origin}/pres/${pres.shareToken}`;
     await navigator.clipboard.writeText(url).catch(() => {});
-    alert('Link copiado al portapapeles');
+    toast.success('Link copiado al portapapeles');
   };
 
   const handleDelete = async () => {
-    if (!pres || !confirm('Eliminar esta presentacion?')) return;
+    if (!pres || !(await confirmDialog({ message: 'Eliminar esta presentacion?', danger: true }))) return;
     try {
       await deletePresentation(pres.id);
       navigate('/presentations');
     } catch (err: any) {
-      alert('Error al eliminar: ' + (err?.message || 'Error desconocido'));
+      toast.error('Error al eliminar: ' + (err?.message || 'Error desconocido'));
     }
   };
 

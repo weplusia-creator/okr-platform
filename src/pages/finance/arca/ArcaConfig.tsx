@@ -17,6 +17,7 @@ import { CertificateUpload } from '../../../components/arca/CertificateUpload';
 import { ArcaTabs } from '../../../components/arca/ArcaTabs';
 import { parseLocalDate } from '../../../utils/helpers';
 
+import { toast } from '../../../components/ui/toast';
 type ModalMode = 'add' | 'edit';
 
 interface CuitFormData {
@@ -139,7 +140,7 @@ export function ArcaConfig() {
         await deleteCuit(deleteTarget.id);
         setDeleteTarget(null);
       } catch (err: any) {
-        alert('No se pudo eliminar el CUIT: ' + (err?.message || 'Error desconocido'));
+        toast.error('No se pudo eliminar el CUIT: ' + (err?.message || 'Error desconocido'));
       }
     }
   };

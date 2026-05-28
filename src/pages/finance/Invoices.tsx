@@ -17,6 +17,7 @@ import { todayLocalISO, parseLocalDate } from '../../utils/helpers';
 import type { Invoice, InvoiceStatus } from '../../types/finance';
 import type { ArcaInvoiceStatus } from '../../types/arca';
 
+import { toast } from '../../components/ui/toast';
 const STATUS_CONFIG: Record<InvoiceStatus, { label: string; class: string }> = {
   draft: { label: 'Borrador', class: 'badge-gray' },
   issued: { label: 'Emitida', class: 'badge-primary' },
@@ -78,7 +79,7 @@ export function Invoices() {
         await deleteInvoice(deleteModal.id);
         setDeleteModal(null);
       } catch (err: any) {
-        alert('No se pudo eliminar la factura: ' + (err?.message || 'Error desconocido'));
+        toast.error('No se pudo eliminar la factura: ' + (err?.message || 'Error desconocido'));
       }
     }
   };
@@ -89,7 +90,7 @@ export function Invoices() {
         await markInvoiceAsPaid(payModal.id, paidDate);
         setPayModal(null);
       } catch (err: any) {
-        alert('No se pudo marcar como pagada: ' + (err?.message || 'Error desconocido'));
+        toast.error('No se pudo marcar como pagada: ' + (err?.message || 'Error desconocido'));
       }
     }
   };

@@ -9,6 +9,7 @@ import {
   type ParticipantRole,
 } from '../../types/projects';
 
+import { toast } from '../../components/ui/toast';
 const ROLE_DESCRIPTIONS: Record<ParticipantRole, string> = {
   alumno: 'Persona que realiza el curso/consultoría. Completa los módulos y tareas asignadas.',
   consultor: 'Profesional que guía al alumno, entrega materiales y hace seguimiento del progreso.',
@@ -410,7 +411,7 @@ export function TeamSection({ projectId, participants }: TeamSectionProps) {
                   .map(p => `${p.userName || 'Sin nombre'}: ${p.userPhone}`)
                   .join('\n');
                 navigator.clipboard.writeText(phones);
-                alert('Números copiados al portapapeles');
+                toast.success('Números copiados al portapapeles');
               }}
               className="btn-secondary w-full flex items-center justify-center gap-2"
             >

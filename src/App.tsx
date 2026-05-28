@@ -75,6 +75,8 @@ const QuizLive = lazy(() => import('./pages/quiz/QuizLive').then(m => ({ default
 const QuizPlay = lazy(() => import('./pages/quiz/QuizPlay').then(m => ({ default: m.QuizPlay })));
 import { HomeDashboard } from './pages/HomeDashboard';
 import { Layout, ProtectedRoute } from './components';
+import { Toaster } from './components/ui/toast';
+import { ConfirmDialogHost } from './components/ui/confirm';
 import { useAuth } from './context/AuthContext';
 
 function ClientFormKeyed() {
@@ -247,6 +249,8 @@ function App() {
   return (
     <BrowserRouter>
       <AppRoutes />
+      <Toaster />
+      <ConfirmDialogHost />
     </BrowserRouter>
   );
 }

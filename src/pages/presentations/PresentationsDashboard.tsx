@@ -15,6 +15,8 @@ import { parseLocalDate } from '../../utils/helpers';
 import { PRESENTATION_STATUS_CONFIG } from '../../types/presentations';
 import type { PresentationStatus } from '../../types/presentations';
 
+import { toast } from '../../components/ui/toast';
+import { confirmDialog } from '../../components/ui/confirm';
 export function PresentationsDashboard() {
   const navigate = useNavigate();
   const { presentations, loading, deletePresentation, duplicatePresentation } = usePresentations();
@@ -39,17 +41,17 @@ export function PresentationsDashboard() {
     try {
       await duplicatePresentation(id);
     } catch (err: any) {
-      alert('Error al duplicar: ' + (err?.message || 'Error desconocido'));
+      toast.error('Error al duplicar: ' + (err?.message || 'Error desconocido'));
     }
   };
 
   const handleDelete = async (id: string) => {
     setMenuOpen(null);
-    if (!confirm('Eliminar esta presentacion?')) return;
+    if (!(await confirmDialog({ message: 'Eliminar esta presentacion?', danger: true }))) return;
     try {
       await deletePresentation(id);
     } catch (err: any) {
-      alert('Error al eliminar: ' + (err?.message || 'Error desconocido'));
+      toast.error('Error al eliminar: ' + (err?.message || 'Error desconocido'));
     }
   };
 
@@ -57,7 +59,7 @@ export function PresentationsDashboard() {
     setMenuOpen(null);
     const url = `${window.location.origin}/pres/${token}`;
     await navigator.clipboard.writeText(url).catch(() => {});
-    alert('Link copiado');
+    toast.success('Link copiado');
   };
 
   if (loading) {

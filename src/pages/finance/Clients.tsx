@@ -17,6 +17,7 @@ import { useProjects } from '../../context/ProjectContext';
 import { useAuth } from '../../context/AuthContext';
 import type { Client } from '../../types/finance';
 
+import { toast } from '../../components/ui/toast';
 function getFaviconUrl(website: string | null): string | null {
   if (!website) return null;
   try {
@@ -85,7 +86,7 @@ export function Clients() {
         await deleteClient(deleteModal.id);
         setDeleteModal(null);
       } catch (err: any) {
-        alert('No se pudo eliminar el cliente: ' + (err?.message || 'Error desconocido'));
+        toast.error('No se pudo eliminar el cliente: ' + (err?.message || 'Error desconocido'));
       }
     }
   };

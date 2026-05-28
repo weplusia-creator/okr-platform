@@ -11,6 +11,7 @@ import { formatCuit } from '../../../types/arca';
 import { CuitSelector } from '../../../components/arca/CuitSelector';
 import { ArcaTabs } from '../../../components/arca/ArcaTabs';
 
+import { toast } from '../../../components/ui/toast';
 export function ArcaPuntosVenta() {
   const {
     cuits,
@@ -46,7 +47,7 @@ export function ArcaPuntosVenta() {
       setNewNumero('');
       setNewDescription('');
     } catch (err: any) {
-      alert('No se pudo crear el punto de venta: ' + (err?.message || 'Error desconocido'));
+      toast.error('No se pudo crear el punto de venta: ' + (err?.message || 'Error desconocido'));
     }
   };
 
@@ -56,14 +57,14 @@ export function ArcaPuntosVenta() {
         await deletePuntoVenta(deleteTarget);
         setDeleteTarget(null);
       } catch (err: any) {
-        alert('No se pudo eliminar el punto de venta: ' + (err?.message || 'Error desconocido'));
+        toast.error('No se pudo eliminar el punto de venta: ' + (err?.message || 'Error desconocido'));
       }
     }
   };
 
   const handleSetDefault = async (id: string) => {
     try { await setDefaultPuntoVenta(id); }
-    catch (err: any) { alert('No se pudo establecer como predeterminado: ' + (err?.message || 'Error desconocido')); }
+    catch (err: any) { toast.error('No se pudo establecer como predeterminado: ' + (err?.message || 'Error desconocido')); }
   };
 
   // ---------- Loading ----------

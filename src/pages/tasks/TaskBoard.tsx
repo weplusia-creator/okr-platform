@@ -7,6 +7,7 @@ import { TaskDetail } from './TaskDetail';
 import type { Task, TaskStatus } from '../../types';
 import { parseLocalDate } from '../../utils/helpers';
 
+import { toast } from '../../components/ui/toast';
 function avatarColor(id: string): string {
   let h = 2166136261;
   for (let i = 0; i < id.length; i++) { h ^= id.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; }
@@ -74,7 +75,7 @@ export function TaskBoard() {
       setNewDueDate('');
       setShowNewForm(false);
     } catch (err: any) {
-      alert('Error al crear tarea: ' + (err?.message || 'Error desconocido'));
+      toast.error('Error al crear tarea: ' + (err?.message || 'Error desconocido'));
     } finally {
       setNewSaving(false);
     }
@@ -118,7 +119,7 @@ export function TaskBoard() {
       } catch (err: any) {
         // updateTask now throws on failure — surface it instead of silently
         // leaving the card in the new column while the DB still has the old.
-        alert('No se pudo mover la tarea: ' + (err?.message || 'Error desconocido'));
+        toast.error('No se pudo mover la tarea: ' + (err?.message || 'Error desconocido'));
       }
     }
   }, [updateTask]);
@@ -384,7 +385,7 @@ export function TaskBoard() {
                 const id = confirmDelete;
                 setConfirmDelete(null);
                 try { await deleteTask(id); }
-                catch (err: any) { alert('No se pudo eliminar: ' + (err?.message || 'Error desconocido')); }
+                catch (err: any) { toast.error('No se pudo eliminar: ' + (err?.message || 'Error desconocido')); }
               }} className="btn-danger">Eliminar</button>
             </div>
           </div>

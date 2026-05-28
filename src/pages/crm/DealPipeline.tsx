@@ -7,6 +7,7 @@ import { useAuth } from '../../context/AuthContext';
 import { TERMINAL_STAGES, type DealStage, type Deal } from '../../types/crm';
 import { parseLocalDate } from '../../utils/helpers';
 
+import { confirmDialog } from '../../components/ui/confirm';
 const formatCurrency = (amount: number): string => {
   return new Intl.NumberFormat('es-AR', {
     style: 'currency',
@@ -210,9 +211,7 @@ export function DealPipeline() {
   };
 
   const handleDeleteDeal = async (deal: Deal) => {
-    const confirmed = window.confirm(
-      `¿Eliminar la oportunidad "${deal.name}"? Esta acción no se puede deshacer.`
-    );
+    const confirmed = (await confirmDialog({ message: `¿Eliminar la oportunidad "${deal.name}"? Esta acción no se puede deshacer.`, danger: true }));
     if (!confirmed) return;
     await deleteDeal(deal.id);
   };

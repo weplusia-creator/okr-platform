@@ -21,6 +21,8 @@ import { supabase } from '../../lib/supabase';
 import type { TransactionType } from '../../types/finance';
 import { todayLocalISO, parseLocalDate } from '../../utils/helpers';
 
+import { toast } from '../../components/ui/toast';
+import { confirmDialog } from '../../components/ui/confirm';
 const SOCIOS = [
   { id: 'mateo', name: 'Mateo' },
   { id: 'dionisio', name: 'Dionisio' },
@@ -248,7 +250,7 @@ export function Saldos() {
     const amount = parseFloat(settlementForm.amount);
     if (!organization?.id || !settlementForm.paidBy || !settlementForm.paidTo || !amount || amount <= 0) return;
     if (settlementForm.paidBy === settlementForm.paidTo) {
-      alert('El pagador y el receptor no pueden ser el mismo socio.');
+      toast.info('El pagador y el receptor no pueden ser el mismo socio.');
       return;
     }
 
@@ -271,14 +273,14 @@ export function Saldos() {
       setShowModal(false);
     } catch (err) {
       console.error('Error creating settlement:', err);
-      alert('Error al registrar el saldo');
+      toast.error('Error al registrar el saldo');
     } finally {
       setSaving(false);
     }
   };
 
   const handleDeleteSettlement = async (id: string) => {
-    if (!window.confirm('¿Eliminar este registro de saldo? La deuda volverá a aparecer.')) return;
+    if (!(await confirmDialog({ message: '¿Eliminar este registro de saldo? La deuda volverá a aparecer.', danger: true }))) return;
     try {
       const { error } = await supabase
         .from('partner_settlements')

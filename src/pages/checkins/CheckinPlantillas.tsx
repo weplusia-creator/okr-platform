@@ -6,6 +6,7 @@ import { SECCION_CONFIG } from '../../types/checkin';
 import type { PlantillaType, CheckinSeccion, TipoRespuesta } from '../../types/checkin';
 import { Modal } from '../../components/Modal';
 
+import { toast } from '../../components/ui/toast';
 const TIPO_RESPUESTA_LABELS: Record<TipoRespuesta, string> = {
   texto: 'Texto libre',
   emoji: 'Emoji',
@@ -78,10 +79,10 @@ export function CheckinPlantillas() {
         setForm({ nombre: '', descripcion: '', tipo: 'custom' });
         setExpandedId(p.id);
       } else {
-        alert('No se pudo crear la plantilla. Revisá la consola (F12) para más detalles.');
+        toast.error('No se pudo crear la plantilla. Revisá la consola (F12) para más detalles.');
       }
     } catch (err: any) {
-      alert('Error: ' + (err?.message || JSON.stringify(err)));
+      toast.error('Error: ' + (err?.message || JSON.stringify(err)));
     } finally {
       setSaving(false);
     }

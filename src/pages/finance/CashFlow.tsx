@@ -32,6 +32,8 @@ import type { TransactionType, CashFlowTransaction, RecurringExpense } from '../
 import type { ProjectPayment } from '../../types/projects';
 import { todayLocalISO } from '../../utils/helpers';
 
+import { toast } from '../../components/ui/toast';
+import { confirmDialog } from '../../components/ui/confirm';
 const SOCIOS = [
   { id: 'mateo', name: 'Mateo', email: 'mateo@wauconsultora.com' },
   { id: 'dionisio', name: 'Dionisio', email: 'dionisio@wauconsultora.com' },
@@ -255,9 +257,9 @@ export function CashFlow() {
     const isPaid = payment.status === 'paid';
 
     if (isPaid) {
-      if (!confirm(`¿Marcar cuota de ${payment.projectName} como pendiente y eliminar la transacción?`)) return;
+      if (!(await confirmDialog({ message: `¿Marcar cuota de ${payment.projectName} como pendiente y eliminar la transacción?`, danger: true }))) return;
     } else {
-      if (!confirm(`¿Marcar cuota de ${payment.projectName} como cobrada y registrar ingreso de $${payment.amount.toLocaleString('es-AR')}?`)) return;
+      if (!(await confirmDialog({ message: `¿Marcar cuota de ${payment.projectName} como cobrada y registrar ingreso de $${payment.amount.toLocaleString('es-AR')}?`, danger: true }))) return;
     }
 
     try {
@@ -388,9 +390,9 @@ export function CashFlow() {
   };
 
   const handleDeleteTransaction = async (id: string) => {
-    if (window.confirm('¿Estás seguro de que deseas eliminar esta transacción?')) {
+    if ((await confirmDialog({ message: '¿Estás seguro de que deseas eliminar esta transacción?', danger: true }))) {
       try { await deleteTransaction(id); }
-      catch (err: any) { alert('No se pudo eliminar la transacción: ' + (err?.message || 'Error desconocido')); }
+      catch (err: any) { toast.error('No se pudo eliminar la transacción: ' + (err?.message || 'Error desconocido')); }
     }
   };
 
@@ -437,13 +439,13 @@ export function CashFlow() {
 
   const handleToggleRecurring = async (r: RecurringExpense) => {
     try { await updateRecurringExpense(r.id, { active: !r.active }); }
-    catch (err: any) { alert('No se pudo actualizar: ' + (err?.message || 'Error desconocido')); }
+    catch (err: any) { toast.error('No se pudo actualizar: ' + (err?.message || 'Error desconocido')); }
   };
 
   const handleDeleteRecurring = async (id: string) => {
-    if (window.confirm('¿Eliminar este costo fijo?')) {
+    if ((await confirmDialog({ message: '¿Eliminar este costo fijo?', danger: true }))) {
       try { await deleteRecurringExpense(id); }
-      catch (err: any) { alert('No se pudo eliminar: ' + (err?.message || 'Error desconocido')); }
+      catch (err: any) { toast.error('No se pudo eliminar: ' + (err?.message || 'Error desconocido')); }
     }
   };
 
@@ -529,13 +531,13 @@ export function CashFlow() {
 
       const paidPayments = freshPayments.filter(p => p.status === 'paid');
       if (paidPayments.length === 0) {
-        alert('No hay cuotas marcadas como cobradas.');
+        toast.error('No hay cuotas marcadas como cobradas.');
         return;
       }
 
       const incomeCategory = categories.find(c => c.type === 'income');
       if (!incomeCategory) {
-        alert('Necesitás crear al menos una categoría de tipo "Ingreso" primero.');
+        toast.error('Necesitás crear al menos una categoría de tipo "Ingreso" primero.');
         return;
       }
 
@@ -561,11 +563,11 @@ export function CashFlow() {
       });
 
       if (missing.length === 0) {
-        alert(`Todas las cuotas cobradas (${paidPayments.length}) ya están sincronizadas.`);
+        toast.info(`Todas las cuotas cobradas (${paidPayments.length}) ya están sincronizadas.`);
         return;
       }
 
-      if (!window.confirm(`Se encontraron ${paidPayments.length} cuotas cobradas, de las cuales ${missing.length} no tienen transacción en flujo de caja. ¿Crear las ${missing.length} transacciones faltantes?`)) return;
+      if (!(await confirmDialog({ message: `Se encontraron ${paidPayments.length} cuotas cobradas, de las cuales ${missing.length} no tienen transacción en flujo de caja. ¿Crear las ${missing.length} transacciones faltantes?`, danger: true }))) return;
 
       let created = 0;
       for (const payment of missing) {
@@ -585,10 +587,10 @@ export function CashFlow() {
         if (result) created++;
       }
 
-      alert(`Se crearon ${created} transacciones de ingreso.`);
+      toast.info(`Se crearon ${created} transacciones de ingreso.`);
     } catch (err) {
       console.error('Error syncing payments:', err);
-      alert('Error al sincronizar. Revisá la consola.');
+      toast.error('Error al sincronizar. Revisá la consola.');
     } finally {
       setSyncing(false);
     }
@@ -1878,7 +1880,7 @@ export function CashFlow() {
                         <button
                           onClick={async () => {
                             try { await deleteCategory(cat.id); }
-                            catch (err: any) { alert('No se pudo eliminar la categoría: ' + (err?.message || 'Error desconocido')); }
+                            catch (err: any) { toast.error('No se pudo eliminar la categoría: ' + (err?.message || 'Error desconocido')); }
                           }}
                           className="p-1 text-gray-400 hover:text-danger-600"
                         >
@@ -1903,7 +1905,7 @@ export function CashFlow() {
                         <button
                           onClick={async () => {
                             try { await deleteCategory(cat.id); }
-                            catch (err: any) { alert('No se pudo eliminar la categoría: ' + (err?.message || 'Error desconocido')); }
+                            catch (err: any) { toast.error('No se pudo eliminar la categoría: ' + (err?.message || 'Error desconocido')); }
                           }}
                           className="p-1 text-gray-400 hover:text-danger-600"
                         >

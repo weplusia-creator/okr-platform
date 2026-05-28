@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import { parseLocalDate } from '../utils/helpers';
 import type { Initiative, InitiativeStatus } from '../types';
 
+import { toast } from '../components/ui/toast';
 const COLUMNS: { id: InitiativeStatus; label: string; color: string }[] = [
   { id: 'todo', label: 'Por hacer', color: 'border-gray-300 dark:border-gray-600' },
   { id: 'in_progress', label: 'En progreso', color: 'border-blue-400' },
@@ -135,7 +136,7 @@ export function OKRInitiatives() {
       await addComment(initId, text);
       setCommentText('');
     } catch (err: any) {
-      alert('No se pudo publicar el comentario: ' + (err?.message || 'Error desconocido'));
+      toast.error('No se pudo publicar el comentario: ' + (err?.message || 'Error desconocido'));
     }
   };
 

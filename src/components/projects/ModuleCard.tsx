@@ -6,6 +6,7 @@ import { useProjects } from '../../context/ProjectContext';
 import { SessionForm } from './SessionForm';
 import { parseLocalDate } from '../../utils/helpers';
 
+import { confirmDialog } from '../../components/ui/confirm';
 interface ModuleCardProps {
   module: ProjectModule;
   index: number;
@@ -59,7 +60,7 @@ export function ModuleCard({ module, index, onEdit, onComplete, onDelete, isActi
   };
 
   const handleDeleteSession = async (sessionId: string) => {
-    if (confirm('¿Eliminar esta sesión?')) {
+    if ((await confirmDialog({ message: '¿Eliminar esta sesión?', danger: true }))) {
       await deleteModuleSession(sessionId);
     }
   };

@@ -9,6 +9,7 @@ import { useCRM } from '../../context/CRMContext';
 import { ACTIVITY_TYPE_CONFIG } from '../../types/crm';
 import type { ActivityType } from '../../types/crm';
 
+import { toast } from '../../components/ui/toast';
 type FilterStatus = 'all' | 'pending' | 'completed' | 'overdue';
 
 const ActivityIcon: Record<ActivityType, React.ElementType> = {
@@ -60,7 +61,7 @@ export function ActivityList() {
     e.preventDefault();
     e.stopPropagation();
     try { await completeActivity(id); }
-    catch (err: any) { alert('No se pudo completar la actividad: ' + (err?.message || 'Error desconocido')); }
+    catch (err: any) { toast.error('No se pudo completar la actividad: ' + (err?.message || 'Error desconocido')); }
   };
 
   return (

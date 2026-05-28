@@ -43,6 +43,7 @@ import type { Client } from '../../types/finance';
 import { Modal } from '../../components/Modal';
 import { parseLocalDate } from '../../utils/helpers';
 
+import { toast } from '../../components/ui/toast';
 const formatCurrency = (amount: number): string => {
   return new Intl.NumberFormat('es-AR', {
     style: 'currency',
@@ -303,12 +304,12 @@ export function DealDetail() {
       if (!created) {
         // addDealNote returns null on failure (network, RLS, etc.).
         // Surface it so the user knows their text wasn't saved.
-        alert('No se pudo publicar la nota. Revisá tu conexión y volvé a intentar.');
+        toast.error('No se pudo publicar la nota. Revisá tu conexión y volvé a intentar.');
         return;
       }
       setNoteContent('');
     } catch (err: any) {
-      alert('No se pudo publicar la nota: ' + (err?.message || 'Error desconocido'));
+      toast.error('No se pudo publicar la nota: ' + (err?.message || 'Error desconocido'));
     } finally {
       setPostingNote(false);
     }
@@ -316,12 +317,12 @@ export function DealDetail() {
 
   const handleDeleteNote = async (noteId: string) => {
     try { await deleteDealNote(noteId); }
-    catch (err: any) { alert('No se pudo eliminar la nota: ' + (err?.message || 'Error desconocido')); }
+    catch (err: any) { toast.error('No se pudo eliminar la nota: ' + (err?.message || 'Error desconocido')); }
   };
 
   const handleCompleteActivity = async (activityId: string) => {
     try { await completeActivity(activityId); }
-    catch (err: any) { alert('No se pudo completar la actividad: ' + (err?.message || 'Error desconocido')); }
+    catch (err: any) { toast.error('No se pudo completar la actividad: ' + (err?.message || 'Error desconocido')); }
   };
 
   if (loading) {

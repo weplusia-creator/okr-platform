@@ -17,6 +17,7 @@ import { useOKR } from '../context/OKRContext';
 import { useAuth } from '../context/AuthContext';
 import { parseLocalDate } from '../utils/helpers';
 
+import { toast } from '../components/ui/toast';
 interface InitiativeRowProps {
   initiative: Initiative;
 }
@@ -111,7 +112,7 @@ export function InitiativeRow({ initiative }: InitiativeRowProps) {
       // expired session) the user lost their text and saw nothing happen.
       setCommentText('');
     } catch (err: any) {
-      alert('No se pudo publicar el comentario: ' + (err?.message || 'Error desconocido'));
+      toast.error('No se pudo publicar el comentario: ' + (err?.message || 'Error desconocido'));
     }
   };
 

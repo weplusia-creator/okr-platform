@@ -22,6 +22,7 @@ import { useAuth } from '../../context/AuthContext';
 import type { ProposalItem, ProposalItemDeliverable, ProposalItemFAQ } from '../../types/proposals';
 import type { Product } from '../../types/projects';
 
+import { toast } from '../../components/ui/toast';
 interface ServiceItemForm {
   id?: string;
   productId: string | null;
@@ -316,7 +317,7 @@ export function ProposalForm() {
     setAiParsing(true);
     try {
       const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY;
-      if (!apiKey) { alert('API key de Anthropic no configurada'); return; }
+      if (!apiKey) { toast.error('API key de Anthropic no configurada'); return; }
 
       const resp = await fetchWithTimeout('https://api.anthropic.com/v1/messages', {
         method: 'POST',
@@ -371,7 +372,7 @@ ${aiRawText}`,
       setAiRawText('');
     } catch (err: any) {
       console.error('Error parsing with AI:', err);
-      alert('Error al procesar el texto: ' + (err?.message || 'Error desconocido'));
+      toast.error('Error al procesar el texto: ' + (err?.message || 'Error desconocido'));
     } finally {
       setAiParsing(false);
     }
@@ -500,7 +501,7 @@ ${aiRawText}`,
       }
     } catch (err: any) {
       console.error('Error saving proposal:', err);
-      alert('Error al guardar propuesta: ' + (err?.message || 'Error desconocido'));
+      toast.error('Error al guardar propuesta: ' + (err?.message || 'Error desconocido'));
     } finally {
       setLoading(false);
     }

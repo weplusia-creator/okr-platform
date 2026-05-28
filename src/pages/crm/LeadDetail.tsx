@@ -21,6 +21,7 @@ import { LEAD_STATUS_CONFIG, LEAD_SOURCE_LABELS, ACTIVITY_TYPE_CONFIG, DEAL_STAG
 import { Modal } from '../../components/Modal';
 import { parseLocalDate } from '../../utils/helpers';
 
+import { toast } from '../../components/ui/toast';
 const formatDate = (dateString: string | null): string => {
   if (!dateString) return '-';
   return parseLocalDate(dateString).toLocaleDateString('es-AR', {
@@ -222,7 +223,7 @@ export function LeadDetail() {
   const handleToggleActivityComplete = async (activityId: string, isCompleted: boolean) => {
     if (!isCompleted) {
       try { await completeActivity(activityId); }
-      catch (err: any) { alert('No se pudo completar la actividad: ' + (err?.message || 'Error desconocido')); }
+      catch (err: any) { toast.error('No se pudo completar la actividad: ' + (err?.message || 'Error desconocido')); }
     }
   };
 

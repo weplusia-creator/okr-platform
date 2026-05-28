@@ -7,6 +7,7 @@ import { useFinance } from '../../context/FinanceContext';
 import { FRECUENCIA_LABELS, DIA_LABELS } from '../../types/checkin';
 import type { CheckinFrecuencia, DiaSemana, MetricaConfigItem } from '../../types/checkin';
 
+import { toast } from '../../components/ui/toast';
 export function CheckinConfigPage() {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
@@ -81,7 +82,7 @@ export function CheckinConfigPage() {
       }
       await fetchConfigs();
     } catch (err: any) {
-      alert('Error al guardar config: ' + (err?.message || 'Error desconocido'));
+      toast.error('Error al guardar config: ' + (err?.message || 'Error desconocido'));
     } finally {
       setSaving(false);
     }
@@ -89,7 +90,7 @@ export function CheckinConfigPage() {
 
   const handleCreateCheckin = async () => {
     if (!projectId || !config) {
-      alert('Primero guardá la configuración del check-in.');
+      toast.error('Primero guardá la configuración del check-in.');
       return;
     }
     setCreating(true);
@@ -144,7 +145,7 @@ export function CheckinConfigPage() {
         navigate(`/checkins/${checkin.id}`);
       }
     } catch (err: any) {
-      alert('Error al crear check-in: ' + (err?.message || 'Error desconocido'));
+      toast.error('Error al crear check-in: ' + (err?.message || 'Error desconocido'));
     } finally {
       setCreating(false);
     }

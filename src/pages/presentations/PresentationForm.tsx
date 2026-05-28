@@ -21,6 +21,7 @@ import { fetchWithTimeout, AI_TIMEOUT_MS } from '../../lib/fetchTimeout';
 import { SLIDE_BG_COLORS, SLIDE_LAYOUT_CONFIG, getSlideAccentColor } from '../../types/presentations';
 import type { SlideLayout, PresentationSlide } from '../../types/presentations';
 
+import { toast } from '../../components/ui/toast';
 interface LocalSlide {
   id?: string;
   title: string;
@@ -115,7 +116,7 @@ export function PresentationForm() {
     try {
       const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY;
       if (!apiKey) {
-        alert('API key de Anthropic no configurada');
+        toast.error('API key de Anthropic no configurada');
         return;
       }
 
@@ -199,7 +200,7 @@ ${aiText}`,
       }
     } catch (err: any) {
       console.error('Error generating with AI:', err);
-      alert('Error al generar la presentacion: ' + (err?.message || 'Error desconocido'));
+      toast.error('Error al generar la presentacion: ' + (err?.message || 'Error desconocido'));
     } finally {
       setAiParsing(false);
     }
@@ -325,8 +326,8 @@ ${aiText}`,
 
   const handleSave = async () => {
     if (!appUser) return;
-    if (!title.trim()) { alert('Ingresa un titulo'); return; }
-    if (slides.length === 0) { alert('Agrega al menos una slide'); return; }
+    if (!title.trim()) { toast.info('Ingresa un titulo'); return; }
+    if (slides.length === 0) { toast.info('Agrega al menos una slide'); return; }
     setSaving(true);
     setSaveProgress('Creando presentacion...');
 
@@ -412,7 +413,7 @@ ${aiText}`,
       navigate(`/presentations/${presentationId}`);
     } catch (err: any) {
       console.error('Error saving presentation:', err);
-      alert('Error al guardar: ' + (err?.message || 'Error desconocido'));
+      toast.error('Error al guardar: ' + (err?.message || 'Error desconocido'));
     } finally {
       setSaving(false);
       setSaveProgress('');
@@ -547,7 +548,7 @@ ${aiText}`,
             <button
               onClick={() => {
                 if (!title.trim()) {
-                  alert('Ingresa un titulo');
+                  toast.info('Ingresa un titulo');
                   return;
                 }
                 setStep(1);

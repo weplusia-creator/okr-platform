@@ -23,6 +23,7 @@ import { supabase } from '../../lib/supabase';
 import type { AppUser, UserRole, UserType } from '../../types';
 import { USER_ROLE_CONFIG } from '../../types';
 
+import { toast } from '../../components/ui/toast';
 interface UserPerformance {
   totalOKRs: number;
   avgProgress: number;
@@ -171,13 +172,11 @@ export function Users() {
         // email was sent (preferred flow) or the user was created
         // with an explicit password (legacy).
         if (result.inviteSent) {
-          alert(
-            `✓ Usuario creado: ${result.user.fullName}\n\n` +
+          toast.success(`✓ Usuario creado: ${result.user.fullName}\n\n` +
             `Le mandamos un mail a ${result.user.email} con un link para que active su cuenta y elija su password.\n\n` +
-            `Decile que revise también la carpeta de spam si no lo ve.`
-          );
+            `Decile que revise también la carpeta de spam si no lo ve.`);
         } else {
-          alert(`✓ Usuario creado: ${result.user.fullName} (${result.user.email})`);
+          toast.success(`✓ Usuario creado: ${result.user.fullName} (${result.user.email})`);
         }
       } else {
         setCreateError('Error al crear usuario.');

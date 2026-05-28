@@ -77,6 +77,7 @@ import { HomeDashboard } from './pages/HomeDashboard';
 import { Layout, ProtectedRoute } from './components';
 import { Toaster } from './components/ui/toast';
 import { ConfirmDialogHost } from './components/ui/confirm';
+import { CommandPaletteHost } from './components/ui/CommandPalette';
 import { useAuth } from './context/AuthContext';
 
 function ClientFormKeyed() {
@@ -251,6 +252,7 @@ function App() {
       <AppRoutes />
       <Toaster />
       <ConfirmDialogHost />
+      <CommandPaletteHost />
     </BrowserRouter>
   );
 }

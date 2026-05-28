@@ -91,6 +91,7 @@ export function OKRProvider({ children }: { children: ReactNode }) {
         id: obj.id,
         organizationId: obj.organization_id,
         clientId: obj.client_id ?? null,
+        areaId: obj.area_id ?? null,
         title: obj.title,
         description: obj.description,
         status: obj.status as Objective['status'],
@@ -154,6 +155,7 @@ export function OKRProvider({ children }: { children: ReactNode }) {
           .insert({
             organization_id: organization.id,
             client_id: objective.clientId ?? null,
+            area_id: objective.areaId ?? null,
             title: objective.title,
             description: objective.description,
             quarter: objective.quarter,
@@ -173,6 +175,7 @@ export function OKRProvider({ children }: { children: ReactNode }) {
           id: inserted.id,
           organizationId: inserted.organization_id,
           clientId: inserted.client_id ?? null,
+          areaId: inserted.area_id ?? null,
           title: inserted.title,
           description: inserted.description,
           status: inserted.status as Objective['status'],
@@ -209,6 +212,7 @@ export function OKRProvider({ children }: { children: ReactNode }) {
         if (updates.owner !== undefined) dbUpdates.owner = updates.owner;
         if (updates.startDate !== undefined) dbUpdates.start_date = updates.startDate;
         if (updates.endDate !== undefined) dbUpdates.end_date = updates.endDate;
+        if (updates.areaId !== undefined) dbUpdates.area_id = updates.areaId;
 
         if (Object.keys(dbUpdates).length > 0) {
           const { error } = await supabase

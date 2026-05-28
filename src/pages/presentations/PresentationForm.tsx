@@ -326,8 +326,8 @@ ${aiText}`,
 
   const handleSave = async () => {
     if (!appUser) return;
-    if (!title.trim()) { toast.info('Ingresa un titulo'); return; }
-    if (slides.length === 0) { toast.info('Agrega al menos una slide'); return; }
+    if (!title.trim()) { toast.warning('Ingresa un titulo'); return; }
+    if (slides.length === 0) { toast.warning('Agrega al menos una slide'); return; }
     setSaving(true);
     setSaveProgress('Creando presentacion...');
 
@@ -548,7 +548,7 @@ ${aiText}`,
             <button
               onClick={() => {
                 if (!title.trim()) {
-                  toast.info('Ingresa un titulo');
+                  toast.warning('Ingresa un titulo');
                   return;
                 }
                 setStep(1);

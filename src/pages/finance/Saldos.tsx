@@ -250,7 +250,7 @@ export function Saldos() {
     const amount = parseFloat(settlementForm.amount);
     if (!organization?.id || !settlementForm.paidBy || !settlementForm.paidTo || !amount || amount <= 0) return;
     if (settlementForm.paidBy === settlementForm.paidTo) {
-      toast.info('El pagador y el receptor no pueden ser el mismo socio.');
+      toast.warning('El pagador y el receptor no pueden ser el mismo socio.');
       return;
     }
 

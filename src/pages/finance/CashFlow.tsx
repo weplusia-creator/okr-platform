@@ -587,7 +587,7 @@ export function CashFlow() {
         if (result) created++;
       }
 
-      toast.info(`Se crearon ${created} transacciones de ingreso.`);
+      toast.success(`Se crearon ${created} transacciones de ingreso.`);
     } catch (err) {
       console.error('Error syncing payments:', err);
       toast.error('Error al sincronizar. Revisá la consola.');

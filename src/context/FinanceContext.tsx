@@ -215,14 +215,42 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
 
       if (Object.keys(row).length === 0) return true;
 
-      const { error: err } = await supabase
+      const { data: updated, error: err } = await supabase
         .from('clients')
         .update(row as any)
-        .eq('id', id);
+        .eq('id', id)
+        .select('*')
+        .single();
 
       if (err) throw err;
 
-      setClients(prev => prev.map(c => c.id === id ? { ...c, ...updates } : c));
+      // Apply the SERVER's view of the row (picks up DB trigger / computed columns,
+      // e.g. condicion_iva derived from cuit) instead of trusting our local merge.
+      // Cast to any: Supabase generated types are outdated for clients (missing
+      // tipo_documento, condicion_iva, logo_url) — same workaround as addClient above.
+      const u = updated as any;
+      if (u) {
+        setClients(prev => prev.map(c => c.id === id ? {
+          ...c,
+          name: u.name,
+          company: u.company ?? null,
+          email: u.email ?? null,
+          phone: u.phone ?? null,
+          address: u.address ?? null,
+          cuit: u.cuit ?? null,
+          tipoDocumento: u.tipo_documento ?? null,
+          condicionIva: u.condicion_iva ?? null,
+          industry: u.industry ?? null,
+          employeeCount: u.employee_count ?? null,
+          website: u.website ?? null,
+          contactName: u.contact_name ?? null,
+          contactRole: u.contact_role ?? null,
+          logoUrl: u.logo_url ?? null,
+          notes: u.notes ?? null,
+        } : c));
+      } else {
+        setClients(prev => prev.map(c => c.id === id ? { ...c, ...updates } : c));
+      }
       return true;
     } catch (err: any) {
       console.error('Error updating client:', err?.message || err);

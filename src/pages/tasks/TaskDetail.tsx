@@ -128,7 +128,7 @@ export function TaskDetail({ task, onClose }: Props) {
 
   const handleCreateLabel = async () => {
     const name = newLabelName.trim();
-    if (!name) { toast.info('Nombre vacío'); return; }
+    if (!name) { toast.warning('Nombre vacío'); return; }
     try {
       const label = await addLabel(name, newLabelColor);
       if (label) {

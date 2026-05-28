@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
-import { supabase } from '../lib/supabase';
+import { supabase, onTabResumed } from '../lib/supabase';
 import { useAuth } from './AuthContext';
 import type { AppNotification } from '../types/notifications';
 
@@ -87,6 +87,13 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
 
     return () => { supabase.removeChannel(channel); };
   }, [appUser?.id]);
+
+  // Refetch notifications when the tab regains focus, in case the realtime
+  // channel was torn down while backgrounded (CHANNEL_ERROR or network drop).
+  useEffect(() => {
+    if (!appUser?.id) return;
+    return onTabResumed(() => { fetchNotifications(); });
+  }, [appUser?.id, fetchNotifications]);
 
   const markAsRead = useCallback(async (id: string) => {
     try {

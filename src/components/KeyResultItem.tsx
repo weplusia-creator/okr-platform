@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { KRHistoryModal } from './KRHistoryModal';
 import { Trash2, Edit2, Check, X, GripVertical, Plus, ChevronDown, ChevronRight, ListTodo, MessageCircle, History, Minus } from 'lucide-react';
@@ -38,10 +38,29 @@ export function KeyResultItem({ keyResult, objectiveId }: KeyResultItemProps) {
     return () => { cancelled = true; };
   }, [keyResult.id, keyResult.progress]);
 
-  // Quick-set helper used by the +/- buttons and preset chips.
+  // One-shot write (used by the manual "Guardar" button).
   const quickSet = (next: number, note?: string) => {
     const clamped = Math.max(0, Math.min(100, Math.round(next)));
     updateKeyResult(objectiveId, keyResult.id, { progress: clamped }, note ? { note } : undefined);
+  };
+
+  // Debounced bump: many rapid +/- clicks coalesce into ONE DB write
+  // and ONE history entry that captures only the final value.
+  const [pendingProgress, setPendingProgress] = useState<number | null>(null);
+  const bumpTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (bumpTimerRef.current) clearTimeout(bumpTimerRef.current);
+  }, []);
+  const displayProgress = pendingProgress ?? keyResult.progress;
+  const bumpProgress = (delta: number) => {
+    const next = Math.max(0, Math.min(100, Math.round(displayProgress + delta)));
+    setPendingProgress(next);
+    if (bumpTimerRef.current) clearTimeout(bumpTimerRef.current);
+    bumpTimerRef.current = setTimeout(() => {
+      updateKeyResult(objectiveId, keyResult.id, { progress: next });
+      setPendingProgress(null);
+      bumpTimerRef.current = null;
+    }, 1200);
   };
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showInitiatives, setShowInitiatives] = useState(true);
@@ -216,22 +235,22 @@ export function KeyResultItem({ keyResult, objectiveId }: KeyResultItemProps) {
           ) : (
             <div className="space-y-1.5">
               <div className="flex items-center gap-2">
-                <ProgressBar progress={keyResult.progress} size="sm" />
+                <ProgressBar progress={displayProgress} size="sm" />
                 <button
                   type="button"
-                  onClick={() => { setEditedProgress(keyResult.progress); setIsEditing(true); }}
+                  onClick={() => { setEditedProgress(displayProgress); setIsEditing(true); }}
                   className="shrink-0 px-2 py-0.5 text-sm font-bold tabular-nums rounded-md bg-gray-100 hover:bg-primary-50 dark:bg-gray-800 dark:hover:bg-primary-900/30 hover:text-primary-700 dark:hover:text-primary-300 transition-colors"
                   title="Click para editar el progreso"
                 >
-                  {keyResult.progress}%
+                  {displayProgress}%
                 </button>
               </div>
               {/* Quick +5 / -5 + history link */}
               <div className="flex items-center gap-1.5">
                 <button
                   type="button"
-                  onClick={() => quickSet(keyResult.progress - 5)}
-                  disabled={keyResult.progress <= 0}
+                  onClick={() => bumpProgress(-5)}
+                  disabled={displayProgress <= 0}
                   className="inline-flex items-center justify-center w-6 h-6 rounded-md text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed"
                   title="Restar 5%"
                 >
@@ -239,8 +258,8 @@ export function KeyResultItem({ keyResult, objectiveId }: KeyResultItemProps) {
                 </button>
                 <button
                   type="button"
-                  onClick={() => quickSet(keyResult.progress + 5)}
-                  disabled={keyResult.progress >= 100}
+                  onClick={() => bumpProgress(+5)}
+                  disabled={displayProgress >= 100}
                   className="inline-flex items-center justify-center w-6 h-6 rounded-md text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed"
                   title="Sumar 5%"
                 >

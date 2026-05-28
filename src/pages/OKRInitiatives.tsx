@@ -46,18 +46,27 @@ export function OKRInitiatives() {
   const handleCreateInitiative = async () => {
     if (!newTitle.trim() || !newKrId) return;
     setNewSaving(true);
-    await addInitiative(newKrId, {
-      title: newTitle.trim(),
-      responsibleId: newResponsible || null,
-      dueDate: newDueDate || null,
-    });
-    setNewTitle('');
-    setNewObjId('');
-    setNewKrId('');
-    setNewResponsible('');
-    setNewDueDate('');
-    setShowNewForm(false);
-    setNewSaving(false);
+    try {
+      const created = await addInitiative(newKrId, {
+        title: newTitle.trim(),
+        responsibleId: newResponsible || null,
+        dueDate: newDueDate || null,
+      });
+      if (!created) {
+        toast.error('No se pudo crear la iniciativa. Reintentá en unos segundos.');
+        return;
+      }
+      setNewTitle('');
+      setNewObjId('');
+      setNewKrId('');
+      setNewResponsible('');
+      setNewDueDate('');
+      setShowNewForm(false);
+    } catch (err: any) {
+      toast.error('Error al crear iniciativa: ' + (err?.message || 'Error desconocido'));
+    } finally {
+      setNewSaving(false);
+    }
   };
 
   // Build KR → Objective map

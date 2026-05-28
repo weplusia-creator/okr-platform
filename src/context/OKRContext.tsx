@@ -213,6 +213,7 @@ export function OKRProvider({ children }: { children: ReactNode }) {
         if (updates.startDate !== undefined) dbUpdates.start_date = updates.startDate;
         if (updates.endDate !== undefined) dbUpdates.end_date = updates.endDate;
         if (updates.areaId !== undefined) dbUpdates.area_id = updates.areaId;
+        if (updates.clientId !== undefined) dbUpdates.client_id = updates.clientId;
 
         if (Object.keys(dbUpdates).length > 0) {
           const { error } = await supabase

@@ -278,28 +278,40 @@ export function TableroControl() {
     return pctChange(yearBalance, prevIncome - prevExpenses);
   }, [transactions, currentYear, yearBalance]);
 
-  // Selected month vs previous month deltas
+  // Selected month vs previous month deltas (handles Jan->Dec of last year)
   const prevMonthIdx = selectedMonth === 0 ? 11 : selectedMonth - 1;
+  const prevMonthYear = selectedMonth === 0 ? currentYear - 1 : currentYear;
+  const prevMonthKey = `${prevMonthYear}-${String(prevMonthIdx + 1).padStart(2, '0')}`;
+  const prevMonthTotals = useMemo(() => {
+    // For previous months in the SAME year, monthlyData has the right number.
+    // For January's "previous month" (December of last year), fall back to transactions.
+    if (prevMonthYear === currentYear) {
+      return {
+        income: monthlyData[prevMonthIdx]?.income ?? 0,
+        expenses: monthlyData[prevMonthIdx]?.expenses ?? 0,
+      };
+    }
+    const prevTx = transactions.filter(t => t.date.startsWith(prevMonthKey));
+    return {
+      income: prevTx.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0),
+      expenses: prevTx.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0),
+    };
+  }, [prevMonthYear, currentYear, monthlyData, prevMonthIdx, transactions, prevMonthKey]);
   const incomeDeltaPct = useMemo(
-    () => pctChange(selectedMonthIncome, monthlyData[prevMonthIdx]?.income ?? 0),
-    [selectedMonthIncome, monthlyData, prevMonthIdx],
+    () => pctChange(selectedMonthIncome, prevMonthTotals.income),
+    [selectedMonthIncome, prevMonthTotals.income],
   );
   const expensesDeltaPct = useMemo(
-    () => pctChange(selectedMonthExpenses, monthlyData[prevMonthIdx]?.expenses ?? 0),
-    [selectedMonthExpenses, monthlyData, prevMonthIdx],
+    () => pctChange(selectedMonthExpenses, prevMonthTotals.expenses),
+    [selectedMonthExpenses, prevMonthTotals.expenses],
   );
   // Invoiced this month vs invoiced previous month
   const facturadoDeltaPct = useMemo(() => {
-    const prevMonthKey = (() => {
-      const y = prevMonthIdx === 11 ? currentYear - 1 : currentYear;
-      const m = String(prevMonthIdx + 1).padStart(2, '0');
-      return `${y}-${m}`;
-    })();
     const prev = invoices
       .filter(i => i.issueDate.startsWith(prevMonthKey) && i.status !== 'draft' && i.status !== 'cancelled')
       .reduce((s, i) => s + i.total, 0);
     return pctChange(billingTotals.totalFacturado, prev);
-  }, [invoices, billingTotals.totalFacturado, prevMonthIdx, currentYear]);
+  }, [invoices, billingTotals.totalFacturado, prevMonthKey]);
 
   // Generic "last N months" series builder.
   const lastNMonthsSeries = <T,>(

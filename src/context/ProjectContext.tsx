@@ -481,7 +481,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
             .eq('project_id', id)
             .order('month');
           if (payData) {
-            setPayments(payData.map((p: any) => ({
+            const mapped = payData.map((p: any) => ({
               id: p.id,
               projectId: p.project_id,
               month: p.month,
@@ -491,7 +491,9 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
               invoiceId: p.invoice_id,
               notes: p.notes,
               createdAt: p.created_at,
-            })));
+            }));
+            // Merge: keep payments from OTHER projects intact
+            setPayments(prev => [...prev.filter(p => p.projectId !== id), ...mapped]);
           }
         } catch (err) {
           console.error('Error auto-generating payments:', err);
@@ -2031,7 +2033,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
 
       if (err) throw err;
 
-      setPayments((data || []).map((p: any) => ({
+      const mapped = (data || []).map((p: any) => ({
         id: p.id,
         projectId: p.project_id,
         month: p.month,
@@ -2041,7 +2043,9 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
         invoiceId: p.invoice_id,
         notes: p.notes,
         createdAt: p.created_at,
-      })));
+      }));
+      // Merge: keep payments from OTHER projects intact
+      setPayments(prev => [...prev.filter(p => p.projectId !== projectId), ...mapped]);
     } catch (err) {
       console.error('Error fetching payments:', err);
       setError('Error al cargar cuotas');

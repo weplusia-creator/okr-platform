@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   Search, FolderKanban, Users, Target, FileText, Handshake, Briefcase,
   Plus, BarChart3, DollarSign, Banknote, ListChecks,
-  X, CornerDownLeft, Command as CommandIcon,
+  X, CornerDownLeft, Command as CommandIcon, MessageCircle,
 } from 'lucide-react';
 import { useProjects } from '../../context/ProjectContext';
 import { useFinance } from '../../context/FinanceContext';
@@ -65,6 +65,7 @@ const ACTIONS: Array<Omit<PaletteItem, 'haystack'>> = [
   { id: 'a:new-client',   group: 'Acciones', title: 'Nuevo cliente',   to: '/projects/clients/new', icon: Plus, weight: 10 },
   { id: 'a:new-lead',     group: 'Acciones', title: 'Nuevo lead',      to: '/crm/leads/new', icon: Plus, weight: 10 },
   { id: 'a:new-deal',     group: 'Acciones', title: 'Nueva oportunidad', to: '/crm/deals/new', icon: Plus, weight: 10 },
+  { id: 'a:new-encuentro', group: 'Acciones', title: 'Cerrar encuentro', subtitle: 'Informe positivos/desafíos/compromisos', to: '/encuentros/nuevo', icon: MessageCircle, weight: 12 },
 ];
 
 const NAV: Array<Omit<PaletteItem, 'haystack'>> = [

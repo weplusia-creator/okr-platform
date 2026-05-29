@@ -36,14 +36,18 @@ export function PresentationDetail() {
   const [publishing, setPublishing] = useState(false);
 
   useEffect(() => {
-    if (id) {
-      (async () => {
-        setLoading(true);
+    if (!id) return;
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      try {
         const data = await getPresentation(id);
-        setPres(data);
-        setLoading(false);
-      })();
-    }
+        if (!cancelled) setPres(data);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
   }, [id, getPresentation]);
 
   const handlePublish = async () => {

@@ -40,8 +40,9 @@ export function MyModules() {
   const [statusFilter, setStatusFilter] = useState<ModuleStatus | 'all'>('all');
 
   useEffect(() => {
+    if (!appUser?.id) return;
+    let cancelled = false;
     const fetchModules = async () => {
-      if (!appUser?.id) return;
       setLoading(true);
       try {
         const db = supabase as any;
@@ -55,8 +56,10 @@ export function MyModules() {
 
         if (partError) throw partError;
         if (!participations || participations.length === 0) {
-          setModules([]);
-          setLoading(false);
+          if (!cancelled) {
+            setModules([]);
+            setLoading(false);
+          }
           return;
         }
 
@@ -71,6 +74,7 @@ export function MyModules() {
 
         if (error) throw error;
 
+        if (cancelled) return;
         setModules(
           (data || []).map((m: any) => {
             const clientName = m.projects?.clients?.name || '';
@@ -91,11 +95,12 @@ export function MyModules() {
       } catch (err) {
         console.error('Error fetching my modules:', err);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
 
     fetchModules();
+    return () => { cancelled = true; };
   }, [appUser?.id]);
 
   const filteredModules = useMemo(() => {

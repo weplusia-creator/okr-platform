@@ -91,25 +91,26 @@ export function ProposalDetail() {
   const [sendingProposal, setSendingProposal] = useState(false);
 
   useEffect(() => {
-    if (id) {
-      loadProposal();
-    }
-  }, [id]);
-
-  const loadProposal = async () => {
     if (!id) return;
-    setLoadingData(true);
-    try {
-      const [proposalData, itemsData] = await Promise.all([
-        getProposal(id),
-        fetchProposalItems(id),
-      ]);
-      setProposal(proposalData);
-      setItems(itemsData);
-    } finally {
-      setLoadingData(false);
-    }
-  };
+    let cancelled = false;
+    (async () => {
+      setLoadingData(true);
+      try {
+        const [proposalData, itemsData] = await Promise.all([
+          getProposal(id),
+          fetchProposalItems(id),
+        ]);
+        if (cancelled) return;
+        setProposal(proposalData);
+        setItems(itemsData);
+      } finally {
+        if (!cancelled) setLoadingData(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [id, getProposal, fetchProposalItems]);
+
+
 
   const toggleItemExpanded = (itemId: string) => {
     setExpandedItems((prev) => {

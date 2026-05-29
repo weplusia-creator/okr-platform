@@ -76,10 +76,13 @@ export function PresentationForm() {
 
   // Load existing presentation for edit
   useEffect(() => {
-    if (isEditing && id) {
-      (async () => {
-        setLoading(true);
+    if (!isEditing || !id) return;
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      try {
         const pres = await getPresentation(id);
+        if (cancelled) return;
         if (pres) {
           setTitle(pres.title);
           setSubtitle(pres.subtitle || '');
@@ -104,9 +107,11 @@ export function PresentationForm() {
             setStep(2);
           }
         }
-        setLoading(false);
-      })();
-    }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
   }, [id, isEditing, getPresentation]);
 
   // ===== AI Generation =====

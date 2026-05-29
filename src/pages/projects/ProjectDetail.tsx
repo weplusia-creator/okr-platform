@@ -244,6 +244,11 @@ export function ProjectDetail() {
 
   useEffect(() => {
     if (!id) return;
+    // Reset local error state when switching projects. Note: the 9 parallel
+    // context fetches inside loadProjectData can still race when navigating
+    // very fast (data of project A may overwrite B's). Full cancellation
+    // would require AbortController plumbed into every context fetch.
+    setLoadError(false);
     loadProjectData(id);
   }, [id, loadProjectData]);
 

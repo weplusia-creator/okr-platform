@@ -86,6 +86,41 @@ function ClientFormKeyed() {
   return <ClientForm key={id} />;
 }
 
+function ProjectFormKeyed() {
+  const { id } = useParams();
+  return <ProjectForm key={id || 'new'} />;
+}
+
+function InvoiceFormKeyed() {
+  const { id } = useParams();
+  return <InvoiceForm key={id || 'new'} />;
+}
+
+function LeadFormKeyed() {
+  const { id } = useParams();
+  return <LeadForm key={id || 'new'} />;
+}
+
+function DealFormKeyed() {
+  const { id } = useParams();
+  return <DealForm key={id || 'new'} />;
+}
+
+function ProposalFormKeyed() {
+  const { id } = useParams();
+  return <ProposalForm key={id || 'new'} />;
+}
+
+function PresentationFormKeyed() {
+  const { id } = useParams();
+  return <PresentationForm key={id || 'new'} />;
+}
+
+function QuizFormKeyed() {
+  const { id } = useParams();
+  return <QuizForm key={id || 'new'} />;
+}
+
 function HomeRedirect() {
   const { appUser } = useAuth();
   if (appUser?.userType === 'client') return <Navigate to="/portal" replace />;
@@ -171,9 +206,9 @@ function AppRoutes() {
         <Route path="/projects/clients/:id" element={<ClientDetail />} />
         <Route path="/projects/clients/:id/edit" element={<ClientFormKeyed />} />
         <Route path="/finance/invoices" element={<Invoices />} />
-        <Route path="/finance/invoices/new" element={<InvoiceForm />} />
+        <Route path="/finance/invoices/new" element={<InvoiceFormKeyed />} />
         <Route path="/finance/invoices/:id" element={<InvoiceDetail />} />
-        <Route path="/finance/invoices/:id/edit" element={<InvoiceForm />} />
+        <Route path="/finance/invoices/:id/edit" element={<InvoiceFormKeyed />} />
         <Route path="/finance/cash-flow" element={<CashFlow />} />
         <Route path="/finance/saldos" element={<Saldos />} />
         {/* ARCA Routes */}
@@ -184,9 +219,9 @@ function AppRoutes() {
         {/* Project Routes */}
         <Route path="/projects" element={<ProjectsDashboard />} />
         <Route path="/projects/list" element={<ProjectsList />} />
-        <Route path="/projects/new" element={<ProjectForm />} />
+        <Route path="/projects/new" element={<ProjectFormKeyed />} />
         <Route path="/projects/:id" element={<ProjectDetail />} />
-        <Route path="/projects/:id/edit" element={<ProjectForm />} />
+        <Route path="/projects/:id/edit" element={<ProjectFormKeyed />} />
         {/* Portal (client users) */}
         <Route path="/portal" element={<ClientPortal />} />
         <Route path="/portal/okrs" element={<PortalOKRs />} />
@@ -206,25 +241,25 @@ function AppRoutes() {
         <Route path="/crm" element={<CRMDashboard />} />
         <Route path="/crm/control" element={<CRMControlPanel />} />
         <Route path="/crm/leads" element={<LeadsList />} />
-        <Route path="/crm/leads/new" element={<LeadForm />} />
+        <Route path="/crm/leads/new" element={<LeadFormKeyed />} />
         <Route path="/crm/leads/:id" element={<LeadDetail />} />
-        <Route path="/crm/leads/:id/edit" element={<LeadForm />} />
+        <Route path="/crm/leads/:id/edit" element={<LeadFormKeyed />} />
         <Route path="/crm/pipeline" element={<DealPipeline />} />
-        <Route path="/crm/deals/new" element={<DealForm />} />
+        <Route path="/crm/deals/new" element={<DealFormKeyed />} />
         <Route path="/crm/deals/:id" element={<DealDetail />} />
-        <Route path="/crm/deals/:id/edit" element={<DealForm />} />
+        <Route path="/crm/deals/:id/edit" element={<DealFormKeyed />} />
         <Route path="/crm/activities" element={<ActivityList />} />
         {/* Proposal Routes */}
         <Route path="/proposals" element={<ProposalsDashboard />} />
-        <Route path="/proposals/new" element={<ProposalForm />} />
+        <Route path="/proposals/new" element={<ProposalFormKeyed />} />
         <Route path="/proposals/:id" element={<ProposalDetail />} />
-        <Route path="/proposals/:id/edit" element={<ProposalForm />} />
+        <Route path="/proposals/:id/edit" element={<ProposalFormKeyed />} />
         <Route path="/proposals/:id/slides" element={<ProposalSlideEditor />} />
         {/* Presentation Routes */}
         <Route path="/presentations" element={<PresentationsDashboard />} />
-        <Route path="/presentations/new" element={<PresentationForm />} />
+        <Route path="/presentations/new" element={<PresentationFormKeyed />} />
         <Route path="/presentations/:id" element={<PresentationDetail />} />
-        <Route path="/presentations/:id/edit" element={<PresentationForm />} />
+        <Route path="/presentations/:id/edit" element={<PresentationFormKeyed />} />
         {/* Check-in Routes */}
         <Route path="/checkins" element={<CheckinDashboard />} />
         <Route path="/checkins/plantillas" element={<CheckinPlantillas />} />
@@ -234,9 +269,9 @@ function AppRoutes() {
         <Route path="/encuentros/nuevo" element={<EncuentroNuevo />} />
         {/* Quiz Routes */}
         <Route path="/quizzes" element={<QuizDashboard />} />
-        <Route path="/quizzes/new" element={<QuizForm />} />
+        <Route path="/quizzes/new" element={<QuizFormKeyed />} />
         <Route path="/quizzes/:id" element={<QuizDetail />} />
-        <Route path="/quizzes/:id/edit" element={<QuizForm />} />
+        <Route path="/quizzes/:id/edit" element={<QuizFormKeyed />} />
         <Route path="/quizzes/:id/live" element={<QuizLive />} />
         {/* Super Admin Routes */}
         <Route path="/super/organizations" element={<Organizations />} />

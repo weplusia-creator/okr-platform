@@ -117,9 +117,10 @@ export function ProposalForm() {
 
   // Load existing proposal if editing
   useEffect(() => {
+    let cancelled = false;
     const loadData = async () => {
       setInitialLoading(true);
-
+      try {
       if (isEditing && id) {
         const proposal = await getProposal(id);
         if (proposal) {
@@ -185,10 +186,13 @@ export function ProposalForm() {
         }
       }
 
-      setInitialLoading(false);
+      } finally {
+        if (!cancelled) setInitialLoading(false);
+      }
     };
 
     loadData();
+    return () => { cancelled = true; };
   }, [id, dealId, isEditing, getProposal, fetchProposalItems, deals, leads]);
 
   const handleAddProduct = (product: Product) => {

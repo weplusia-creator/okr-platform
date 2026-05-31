@@ -168,7 +168,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // Safety timeout: if session hasn't loaded after 5s, retry once before giving up
     const timeout = setTimeout(() => {
-      if (!isMounted || session || user) return;
+      if (!isMounted) return;
+      // Rescue ALSO when session/user are set but loading is still true
+      // (e.g. fetchUserData stuck without resolving its finally callback).
+      // Original guard `if (session || user) return` allowed loading to be
+      // stuck indefinitely whenever the auth-state-change fired before
+      // fetchUserData completed.
+      if (bootstrapResolved) return;
+      if (session && user) {
+        // Session looks loaded but bootstrap never resolved -> just unstick
+        // the spinner. Worst case: appUser is null, ProtectedRoute renders
+        // its 'Error al cargar perfil' UI with a Retry button.
+        bootstrapResolved = true;
+        setLoading(false);
+        return;
+      }
       // One last attempt before giving up
       supabase.auth.getSession().then(({ data: { session: s } }) => {
         if (!isMounted) return;

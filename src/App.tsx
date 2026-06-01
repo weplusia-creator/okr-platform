@@ -68,6 +68,7 @@ import {
   CheckinHistory, CheckinConfigPage, CheckinPlantillas,
 } from './pages/checkins';
 import { EncuentroNuevo } from './pages/encuentros';
+import { MiDia } from './pages/personal';
 import { Organizations, SuperUsers } from './pages/super';
 const QuizDashboard = lazy(() => import('./pages/quiz/QuizDashboard').then(m => ({ default: m.QuizDashboard })));
 const QuizForm = lazy(() => import('./pages/quiz/QuizForm').then(m => ({ default: m.QuizForm })));
@@ -267,6 +268,7 @@ function AppRoutes() {
         <Route path="/checkins/history/:projectId" element={<CheckinHistory />} />
         <Route path="/checkins/:id" element={<CheckinDetail />} />
         <Route path="/encuentros/nuevo" element={<EncuentroNuevo />} />
+        <Route path="/mi-dia" element={<MiDia />} />
         {/* Quiz Routes */}
         <Route path="/quizzes" element={<QuizDashboard />} />
         <Route path="/quizzes/new" element={<QuizFormKeyed />} />

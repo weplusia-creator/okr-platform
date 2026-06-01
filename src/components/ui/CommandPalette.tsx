@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   Search, FolderKanban, Users, Target, FileText, Handshake, Briefcase,
   Plus, BarChart3, DollarSign, Banknote, ListChecks,
-  X, CornerDownLeft, Command as CommandIcon, MessageCircle,
+  X, CornerDownLeft, Command as CommandIcon, MessageCircle, Sun,
 } from 'lucide-react';
 import { useProjects } from '../../context/ProjectContext';
 import { useFinance } from '../../context/FinanceContext';
@@ -69,6 +69,7 @@ const ACTIONS: Array<Omit<PaletteItem, 'haystack'>> = [
 ];
 
 const NAV: Array<Omit<PaletteItem, 'haystack'>> = [
+  { id: 'n:midia',     group: 'Navegacion', title: 'Mi dia', subtitle: 'Tus pendientes de hoy', to: '/mi-dia', icon: Sun, weight: 11 },
   { id: 'n:dashboard',  group: 'Navegacion', title: 'Tablero de control', subtitle: 'Vista general', to: '/dashboard', icon: BarChart3, weight: 9 },
   { id: 'n:okrs',       group: 'Navegacion', title: 'OKRs', to: '/okrs', icon: Target, weight: 9 },
   { id: 'n:projects',   group: 'Navegacion', title: 'Proyectos', to: '/projects', icon: FolderKanban, weight: 9 },

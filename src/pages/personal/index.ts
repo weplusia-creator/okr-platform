@@ -1,0 +1,1 @@
+export { MiDia } from './MiDia';

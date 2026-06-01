@@ -46,6 +46,7 @@ import {
   LeadsList,
   LeadDetail,
   LeadForm,
+  LeadsImport,
   DealPipeline,
   DealDetail,
   DealForm,
@@ -242,6 +243,7 @@ function AppRoutes() {
         <Route path="/crm" element={<CRMDashboard />} />
         <Route path="/crm/control" element={<CRMControlPanel />} />
         <Route path="/crm/leads" element={<LeadsList />} />
+        <Route path="/crm/leads/import" element={<LeadsImport />} />
         <Route path="/crm/leads/new" element={<LeadFormKeyed />} />
         <Route path="/crm/leads/:id" element={<LeadDetail />} />
         <Route path="/crm/leads/:id/edit" element={<LeadFormKeyed />} />

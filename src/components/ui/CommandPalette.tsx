@@ -64,6 +64,7 @@ const ACTIONS: Array<Omit<PaletteItem, 'haystack'>> = [
   { id: 'a:new-invoice',  group: 'Acciones', title: 'Nueva factura',   to: '/finance/invoices/new', icon: Plus, weight: 10 },
   { id: 'a:new-client',   group: 'Acciones', title: 'Nuevo cliente',   to: '/projects/clients/new', icon: Plus, weight: 10 },
   { id: 'a:new-lead',     group: 'Acciones', title: 'Nuevo lead',      to: '/crm/leads/new', icon: Plus, weight: 10 },
+  { id: 'a:import-leads', group: 'Acciones', title: 'Importar leads CSV', subtitle: 'Desde ManyChat / Instagram', to: '/crm/leads/import', icon: Upload, weight: 10 },
   { id: 'a:new-deal',     group: 'Acciones', title: 'Nueva oportunidad', to: '/crm/deals/new', icon: Plus, weight: 10 },
   { id: 'a:new-encuentro', group: 'Acciones', title: 'Cerrar encuentro', subtitle: 'Informe positivos/desafíos/compromisos', to: '/encuentros/nuevo', icon: MessageCircle, weight: 12 },
 ];

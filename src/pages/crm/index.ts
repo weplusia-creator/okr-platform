@@ -7,3 +7,4 @@ export { DealPipeline } from './DealPipeline';
 export { DealDetail } from './DealDetail';
 export { DealForm } from './DealForm';
 export { ActivityList } from './ActivityList';
+export { LeadsImport } from './LeadsImport';

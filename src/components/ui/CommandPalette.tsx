@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   Search, FolderKanban, Users, Target, FileText, Handshake, Briefcase,
   Plus, BarChart3, DollarSign, Banknote, ListChecks,
-  X, CornerDownLeft, Command as CommandIcon, MessageCircle, Sun,
+  X, CornerDownLeft, Command as CommandIcon, MessageCircle, Sun, Upload,
 } from 'lucide-react';
 import { useProjects } from '../../context/ProjectContext';
 import { useFinance } from '../../context/FinanceContext';

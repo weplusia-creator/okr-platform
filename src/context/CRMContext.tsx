@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useCallback, useEffect, useMemo, type ReactNode } from 'react';
-import { supabase, onTabResumed } from '../lib/supabase';
+import { supabase, onTabResumed, getAccessTokenFresh } from '../lib/supabase';
 import { useAuth } from './AuthContext';
 import { useFinance } from './FinanceContext';
 import { useProjects } from './ProjectContext';
@@ -73,6 +73,14 @@ export function CRMProvider({ children }: { children: ReactNode }) {
   const { organization, appUser } = useAuth();
   const { addClient } = useFinance();
   const { addProject } = useProjects();
+
+  // Preflight: refresh stale Supabase token (e.g. after tab in background)
+  // BEFORE doing an insert/update. Mismo patron que addTask/addNovedad.
+  // Sin esto, el primer fetch tras idle se cuelga esperando refresh coalesced.
+  const preflightToken = async () => {
+    const token = await getAccessTokenFresh();
+    if (!token) throw new Error('Sesión expirada. Cerrá sesión y volvé a iniciar.');
+  };
 
   const [leads, setLeads] = useState<Lead[]>([]);
   const [deals, setDeals] = useState<Deal[]>([]);
@@ -307,6 +315,7 @@ export function CRMProvider({ children }: { children: ReactNode }) {
   }, [organization?.id]);
 
   const addLead = useCallback(async (data: Omit<Lead, 'id' | 'organizationId' | 'createdAt' | 'updatedAt' | 'score'>): Promise<Lead | null> => {
+    await preflightToken();
     if (!organization?.id) return null;
     try {
       const { data: row, error: err } = await supabase
@@ -524,6 +533,7 @@ export function CRMProvider({ children }: { children: ReactNode }) {
   }, [organization?.id]);
 
   const addDeal = useCallback(async (data: Omit<Deal, 'id' | 'organizationId' | 'createdAt' | 'updatedAt'>): Promise<Deal | null> => {
+    await preflightToken();
     if (!organization?.id) {
       throw new Error('No hay organización activa. Recargá la página e intentá de nuevo.');
     }
@@ -888,6 +898,7 @@ export function CRMProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const addDealNote = useCallback(async (dealId: string, content: string): Promise<DealNote | null> => {
+    await preflightToken();
     if (!organization?.id) return null;
     try {
       const { data, error: err } = await supabase
@@ -986,6 +997,7 @@ export function CRMProvider({ children }: { children: ReactNode }) {
   }, [organization?.id]);
 
   const addActivity = useCallback(async (data: Omit<Activity, 'id' | 'organizationId' | 'createdAt' | 'updatedAt'>): Promise<Activity | null> => {
+    await preflightToken();
     if (!organization?.id) return null;
     try {
       const { data: row, error: err } = await supabase

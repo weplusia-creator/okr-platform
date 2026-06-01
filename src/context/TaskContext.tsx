@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useCallback, useEffect, useMemo, type ReactNode } from 'react';
-import { supabase, onTabResumed } from '../lib/supabase';
+import { supabase, onTabResumed, getAccessTokenFresh } from '../lib/supabase';
 import { useAuth } from './AuthContext';
 import { notify } from '../lib/notify';
 import type { Task, TaskStatus, TaskComment, TaskLabel, TaskAttachment, TaskAssignee } from '../types';
@@ -93,6 +93,12 @@ export function TaskProvider({ children }: { children: ReactNode }) {
     if (!organization?.id) {
       throw new Error('No se encontró la organización. Recargá la página.');
     }
+    // Pre-flight: force token refresh if needed. Sin esto, un token stale
+    // de un tab que estuvo en background hace que el insert se cuelgue
+    // esperando que authRetryFetch refrescue, y a veces se queda en cola
+    // detras de otros refreshes coalesced que tambien estan stuck.
+    const token = await getAccessTokenFresh();
+    if (!token) throw new Error('Sesión expirada. Cerrá sesión y volvé a iniciar.');
     const { data: row, error: err } = await supabase
       .from('tasks')
       .insert({

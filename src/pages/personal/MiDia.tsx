@@ -200,12 +200,19 @@ export function MiDia() {
     if (!title || !appUser?.id) return;
     setCreating(true);
     try {
-      const created = await addTask({
-        title,
-        responsibleId: appUser.id,
-        dueDate: null,
-        isPrivate: newTaskPrivate,
-      });
+      // Race el insert contra un timeout de 20s para que el spinner nunca
+      // quede stuck (ej. token refresh colgado tras tab en background).
+      const created = await Promise.race([
+        addTask({
+          title,
+          responsibleId: appUser.id,
+          dueDate: null,
+          isPrivate: newTaskPrivate,
+        }),
+        new Promise<null>((_, reject) =>
+          setTimeout(() => reject(new Error('Tiempo de espera agotado. Refrescá la página y reintentá.')), 20_000),
+        ),
+      ]);
       if (created) {
         setNewTaskTitle('');
         setNewTaskPrivate(false);

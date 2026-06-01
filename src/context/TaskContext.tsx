@@ -7,8 +7,8 @@ import type { Task, TaskStatus, TaskComment, TaskLabel, TaskAttachment, TaskAssi
 interface TaskContextType {
   tasks: Task[];
   fetchTasks: () => Promise<void>;
-  addTask: (data: { title: string; description?: string | null; responsibleId?: string | null; dueDate?: string | null }) => Promise<Task | null>;
-  updateTask: (id: string, updates: Partial<Pick<Task, 'title' | 'description' | 'responsibleId' | 'dueDate' | 'status' | 'sortOrder'>>) => Promise<void>;
+  addTask: (data: { title: string; description?: string | null; responsibleId?: string | null; dueDate?: string | null; isPrivate?: boolean }) => Promise<Task | null>;
+  updateTask: (id: string, updates: Partial<Pick<Task, 'title' | 'description' | 'responsibleId' | 'dueDate' | 'status' | 'sortOrder' | 'isPrivate'>>) => Promise<void>;
   deleteTask: (id: string) => Promise<void>;
   taskComments: Record<string, TaskComment[]>;
   fetchTaskComments: (taskId: string) => Promise<void>;
@@ -76,6 +76,7 @@ export function TaskProvider({ children }: { children: ReactNode }) {
         dueDate: t.due_date,
         status: t.status as TaskStatus,
         sortOrder: t.sort_order || 0,
+        isPrivate: (t as any).is_private ?? false,
         createdAt: t.created_at,
         updatedAt: t.updated_at,
       })));
@@ -88,7 +89,7 @@ export function TaskProvider({ children }: { children: ReactNode }) {
     if (organization?.id) fetchTasks();
   }, [organization?.id, fetchTasks]);
 
-  const addTask = useCallback(async (data: { title: string; description?: string | null; responsibleId?: string | null; dueDate?: string | null }): Promise<Task | null> => {
+  const addTask = useCallback(async (data: { title: string; description?: string | null; responsibleId?: string | null; dueDate?: string | null; isPrivate?: boolean }): Promise<Task | null> => {
     if (!organization?.id) {
       throw new Error('No se encontró la organización. Recargá la página.');
     }
@@ -100,7 +101,8 @@ export function TaskProvider({ children }: { children: ReactNode }) {
         description: data.description || null,
         responsible_id: data.responsibleId || null,
         due_date: data.dueDate || null,
-      })
+        is_private: data.isPrivate ?? false,
+      } as any)
       .select('*, users!tasks_responsible_id_fkey(full_name)')
       .single();
 
@@ -119,6 +121,7 @@ export function TaskProvider({ children }: { children: ReactNode }) {
       dueDate: row.due_date,
       status: row.status as TaskStatus,
       sortOrder: row.sort_order || 0,
+      isPrivate: (row as any).is_private ?? false,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     };
@@ -140,7 +143,7 @@ export function TaskProvider({ children }: { children: ReactNode }) {
     return newTask;
   }, [organization?.id, appUser?.id]);
 
-  const updateTask = useCallback(async (id: string, updates: Partial<Pick<Task, 'title' | 'description' | 'responsibleId' | 'dueDate' | 'status' | 'sortOrder'>>) => {
+  const updateTask = useCallback(async (id: string, updates: Partial<Pick<Task, 'title' | 'description' | 'responsibleId' | 'dueDate' | 'status' | 'sortOrder' | 'isPrivate'>>) => {
     try {
       const dbUpdates: Record<string, unknown> = {};
       if (updates.title !== undefined) dbUpdates.title = updates.title;
@@ -149,6 +152,7 @@ export function TaskProvider({ children }: { children: ReactNode }) {
       if (updates.dueDate !== undefined) dbUpdates.due_date = updates.dueDate;
       if (updates.status !== undefined) dbUpdates.status = updates.status;
       if (updates.sortOrder !== undefined) dbUpdates.sort_order = updates.sortOrder;
+      if (updates.isPrivate !== undefined) dbUpdates.is_private = updates.isPrivate;
       dbUpdates.updated_at = new Date().toISOString();
 
       const { error: err } = await supabase.from('tasks').update(dbUpdates).eq('id', id);

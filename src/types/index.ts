@@ -164,6 +164,8 @@ export interface Task {
   dueDate: string | null;
   status: TaskStatus;
   sortOrder: number;
+  /** If true, only the responsibleId user can see/edit this task (RLS enforced). */
+  isPrivate: boolean;
   createdAt: string;
   updatedAt: string;
 }

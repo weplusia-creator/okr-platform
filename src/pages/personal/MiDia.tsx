@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Sun, CheckCircle2, Circle, Plus, ListChecks, Target, Phone,
-  AlertTriangle, Calendar, ArrowRight, Sparkles,
+  AlertTriangle, Calendar, ArrowRight, Sparkles, Lock,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useTask } from '../../context/TaskContext';
@@ -22,6 +22,7 @@ interface DiaItem {
   subtitle?: string;
   dueDate: string | null;
   href?: string;
+  isPrivate?: boolean;
   // Action: marca como done en su contexto correspondiente
   complete: () => Promise<void>;
   sortKey: number;
@@ -105,6 +106,7 @@ export function MiDia() {
   const { initiatives, fetchInitiatives, updateInitiative } = useOKR();
 
   const [newTaskTitle, setNewTaskTitle] = useState('');
+  const [newTaskPrivate, setNewTaskPrivate] = useState(false);
   const [creating, setCreating] = useState(false);
   const [showCompleted, setShowCompleted] = useState(false);
 
@@ -130,6 +132,7 @@ export function MiDia() {
         subtitle: t.description || undefined,
         dueDate: t.dueDate,
         href: `/tareas`,
+        isPrivate: t.isPrivate,
         complete: async () => { await updateTask(t.id, { status: 'done' }); },
         sortKey: t.dueDate ? new Date(t.dueDate).getTime() : Number.MAX_SAFE_INTEGER,
       });
@@ -201,10 +204,12 @@ export function MiDia() {
         title,
         responsibleId: appUser.id,
         dueDate: null,
+        isPrivate: newTaskPrivate,
       });
       if (created) {
         setNewTaskTitle('');
-        toast.success('Tarea agregada a tu día');
+        setNewTaskPrivate(false);
+        toast.success(newTaskPrivate ? 'Tarea privada agregada (solo vos la ves)' : 'Tarea agregada a tu día');
       } else {
         toast.error('No se pudo crear la tarea');
       }
@@ -256,13 +261,28 @@ export function MiDia() {
             className="flex-1 min-w-0 bg-transparent border-0 outline-none text-sm placeholder:text-gray-400 dark:placeholder:text-gray-500 text-gray-900 dark:text-white"
           />
           {newTaskTitle.trim() && (
-            <button
-              type="submit"
-              disabled={creating}
-              className="px-3 py-1 rounded-md text-xs font-semibold bg-[#3100E2] text-white hover:bg-[#2300a3] transition-colors disabled:opacity-50"
-            >
-              {creating ? 'Agregando...' : 'Agregar'}
-            </button>
+            <>
+              <label
+                title="Solo vos podes ver esta tarea (el resto del equipo no la ve en /tareas)"
+                className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs cursor-pointer select-none text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-[#3d3839] transition-colors"
+              >
+                <input
+                  type="checkbox"
+                  checked={newTaskPrivate}
+                  onChange={(e) => setNewTaskPrivate(e.target.checked)}
+                  className="rounded border-gray-300 dark:border-gray-600 text-[#3100E2] focus:ring-[#3100E2]"
+                />
+                <Lock className="w-3 h-3" />
+                Privada
+              </label>
+              <button
+                type="submit"
+                disabled={creating}
+                className="px-3 py-1 rounded-md text-xs font-semibold bg-[#3100E2] text-white hover:bg-[#2300a3] transition-colors disabled:opacity-50"
+              >
+                {creating ? 'Agregando...' : 'Agregar'}
+              </button>
+            </>
           )}
         </div>
       </form>
@@ -385,6 +405,11 @@ function ItemRow({
             <SourceIcon className="w-2.5 h-2.5" />
             {SOURCE_LABEL[item.source]}
           </span>
+          {item.isPrivate && (
+            <span title="Privada — solo vos la ves" className="inline-flex items-center text-gray-400 dark:text-gray-500">
+              <Lock className="w-3 h-3" />
+            </span>
+          )}
           <span className="text-sm font-medium text-gray-900 dark:text-white truncate">
             {item.title}
           </span>

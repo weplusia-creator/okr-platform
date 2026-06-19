@@ -10,6 +10,8 @@ import {
   ArrowRight,
   CalendarDays,
   Info,
+  FilePlus,
+  UserCheck,
 } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
 import { useProjects } from '../../context/ProjectContext';
@@ -126,6 +128,47 @@ export function FinanceDashboard() {
       1
     );
   }, [monthlyData, pendingByMonth]);
+
+  // ======================================================================
+  // Pendientes de facturación: proyectos activos cuyo cliente NO tiene
+  // ninguna factura emitida en los últimos 60 días.
+  // El usuario quiere visibilidad de "qué proyectos están corriendo pero no
+  // se han facturado" para no perderse cobros.
+  // ======================================================================
+  const pendingInvoicing = useMemo(() => {
+    const SIXTY_DAYS_MS = 60 * 24 * 60 * 60 * 1000;
+    const cutoff = Date.now() - SIXTY_DAYS_MS;
+
+    // Para cada cliente, fecha más reciente de factura emitida (issueDate)
+    const lastInvoiceByClient = new Map<string, number>();
+    invoices.forEach(inv => {
+      if (!inv.clientId) return;
+      const t = new Date(inv.issueDate).getTime();
+      const prev = lastInvoiceByClient.get(inv.clientId) ?? 0;
+      if (t > prev) lastInvoiceByClient.set(inv.clientId, t);
+    });
+
+    // Proyectos activos sin factura reciente para su cliente
+    const stale = projects
+      .filter(p => p.status === 'active' || p.status === 'planning')
+      .map(p => {
+        const lastInv = lastInvoiceByClient.get(p.clientId || '') ?? 0;
+        const client = clients.find(c => c.id === p.clientId);
+        return {
+          projectId: p.id,
+          projectName: p.name,
+          clientId: p.clientId,
+          clientName: client?.company || client?.name || '(sin cliente)',
+          lastInvoiceAt: lastInv,
+          daysSinceInvoice: lastInv === 0 ? null : Math.floor((Date.now() - lastInv) / (24 * 60 * 60 * 1000)),
+        };
+      })
+      .filter(p => p.lastInvoiceAt < cutoff && p.clientId)
+      .sort((a, b) => a.lastInvoiceAt - b.lastInvoiceAt) // oldest first
+      .slice(0, 8);
+
+    return stale;
+  }, [projects, invoices, clients]);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('es-AR', {
@@ -275,6 +318,115 @@ export function FinanceDashboard() {
           </div>
         </div>
       )}
+
+      {/* Pendientes de facturación: proyectos activos sin factura reciente */}
+      {pendingInvoicing.length > 0 && (
+        <div className="card p-5 border-l-4 border-blue-500 bg-blue-50/40 dark:bg-blue-900/10">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <FilePlus className="w-5 h-5 text-blue-600" />
+              <h3 className="font-semibold text-gray-900 dark:text-white">
+                Pendientes de facturación
+              </h3>
+              <span className="badge bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">
+                {pendingInvoicing.length}
+              </span>
+            </div>
+            <Link to="/finance/invoices/new" className="text-sm text-blue-600 hover:underline flex items-center gap-1">
+              Crear factura <ArrowRight className="w-4 h-4" />
+            </Link>
+          </div>
+          <p className="text-xs text-gray-600 dark:text-gray-400 mb-3">
+            Proyectos activos cuyo cliente no recibe factura desde hace ≥60 días.
+          </p>
+          <div className="space-y-1.5">
+            {pendingInvoicing.map(p => (
+              <Link
+                key={p.projectId}
+                to={`/projects/${p.projectId}`}
+                className="flex items-center justify-between px-3 py-2 rounded-lg bg-white dark:bg-[#363233] hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors group"
+              >
+                <div className="min-w-0 flex-1">
+                  <p className="font-medium text-sm text-gray-900 dark:text-white truncate">
+                    {p.projectName}
+                  </p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                    {p.clientName}
+                  </p>
+                </div>
+                <div className="text-right ml-3 flex items-center gap-2">
+                  <span className="text-xs text-gray-500 dark:text-gray-400">
+                    {p.daysSinceInvoice === null
+                      ? 'sin facturar'
+                      : `hace ${p.daysSinceInvoice}d`}
+                  </span>
+                  <ArrowRight className="w-4 h-4 text-gray-300 group-hover:text-blue-600 transition-colors" />
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Cobros por socio (resumen rápido — detalle en /finance/saldos) */}
+      <div className="card p-5">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <UserCheck className="w-5 h-5 text-success-600" />
+            <h3 className="font-semibold text-gray-900 dark:text-white">
+              Cobros por socio (este año)
+            </h3>
+          </div>
+          <Link to="/finance/saldos" className="text-sm text-primary-600 hover:underline flex items-center gap-1">
+            Ver balance completo <ArrowRight className="w-4 h-4" />
+          </Link>
+        </div>
+        {(() => {
+          const yearStart = new Date(currentYear, 0, 1).getTime();
+          const byCollector = new Map<string, { name: string; total: number; count: number }>();
+          let unassigned = 0;
+          invoices.forEach(inv => {
+            if (inv.status !== 'paid') return;
+            if (!inv.paidDate) return;
+            if (new Date(inv.paidDate).getTime() < yearStart) return;
+            const key = inv.collectedByUserId || '__unassigned__';
+            if (key === '__unassigned__') {
+              unassigned += inv.total || 0;
+              return;
+            }
+            const entry = byCollector.get(key) || { name: inv.collectedByName || 'Sin nombre', total: 0, count: 0 };
+            entry.total += inv.total || 0;
+            entry.count += 1;
+            byCollector.set(key, entry);
+          });
+          const rows = Array.from(byCollector.values()).sort((a, b) => b.total - a.total);
+          if (rows.length === 0 && unassigned === 0) {
+            return <p className="text-sm text-gray-500 dark:text-gray-400 py-2">Aún no hay facturas cobradas este año.</p>;
+          }
+          return (
+            <div className="space-y-2">
+              {rows.map(r => (
+                <div key={r.name} className="flex items-center justify-between py-1.5 px-2 rounded hover:bg-gray-50 dark:hover:bg-[#3d3839]">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-success-500" />
+                    <span className="text-sm text-gray-900 dark:text-white">{r.name}</span>
+                    <span className="text-xs text-gray-400">({r.count} factura{r.count === 1 ? '' : 's'})</span>
+                  </div>
+                  <span className="font-semibold text-sm text-success-700 dark:text-success-400">
+                    {formatCurrency(r.total)}
+                  </span>
+                </div>
+              ))}
+              {unassigned > 0 && (
+                <div className="flex items-center justify-between py-1.5 px-2 rounded text-gray-400 italic text-sm border-t border-gray-200 dark:border-gray-700 mt-1 pt-2">
+                  <span>Sin cobrador asignado</span>
+                  <span>{formatCurrency(unassigned)}</span>
+                </div>
+              )}
+            </div>
+          );
+        })()}
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Monthly Chart with future payments */}

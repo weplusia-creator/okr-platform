@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useCallback, useEffect, useMemo, type ReactNode } from 'react';
 import { supabase, onTabResumed, getAccessTokenFresh } from '../lib/supabase';
+import { preflightToken } from '../lib/preflight';
 import { useAuth } from './AuthContext';
 import { notify } from '../lib/notify';
 import type { Task, TaskStatus, TaskComment, TaskLabel, TaskAttachment, TaskAssignee } from '../types';
@@ -90,6 +91,7 @@ export function TaskProvider({ children }: { children: ReactNode }) {
   }, [organization?.id, fetchTasks]);
 
   const addTask = useCallback(async (data: { title: string; description?: string | null; responsibleId?: string | null; dueDate?: string | null; isPrivate?: boolean }): Promise<Task | null> => {
+    await preflightToken();
     if (!organization?.id) {
       throw new Error('No se encontró la organización. Recargá la página.');
     }
@@ -228,6 +230,7 @@ export function TaskProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const addTaskComment = useCallback(async (taskId: string, text: string): Promise<TaskComment> => {
+    await preflightToken();
     if (!appUser) {
       throw new Error('Sesión no inicializada. Cerrá sesión y volvé a iniciar.');
     }
@@ -348,6 +351,7 @@ export function TaskProvider({ children }: { children: ReactNode }) {
   }, [organization?.id, fetchTasks, fetchLabels]);
 
   const addLabel = useCallback(async (name: string, color: string): Promise<TaskLabel | null> => {
+    await preflightToken();
     if (!organization?.id) return null;
     const { data, error: err } = await supabase
       .from('task_labels')
@@ -456,6 +460,7 @@ export function TaskProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const addAttachment = useCallback(async (taskId: string, data: { type: 'file' | 'link'; name: string; url: string }) => {
+    await preflightToken();
     try {
       const { data: row, error: err } = await supabase
         .from('task_attachments')
@@ -519,6 +524,7 @@ export function TaskProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const addAssignee = useCallback(async (taskId: string, userId: string) => {
+    await preflightToken();
     try {
       const { data: row, error: err } = await supabase
         .from('task_assignees')

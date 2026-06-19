@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useCallback, useEffect, useMemo, useRef, type ReactNode } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { supabase, getAccessTokenFresh, onTabResumed } from '../lib/supabase';
+import { preflightToken } from '../lib/preflight';
 import { fetchWithTimeout } from '../lib/fetchTimeout';
 import { useAuth } from './AuthContext';
 import { notify } from '../lib/notify';
@@ -333,6 +334,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
   }, [organization?.id]);
 
   const addProject = useCallback(async (data: Omit<Project, 'id' | 'organizationId' | 'createdAt' | 'updatedAt'>): Promise<Project | null> => {
+    await preflightToken();
     if (!organization?.id) return null;
     try {
       const { data: row, error: err } = await db
@@ -620,6 +622,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const addParticipant = useCallback(async (data: Omit<ProjectParticipant, 'id' | 'createdAt'>): Promise<ProjectParticipant | null> => {
+    await preflightToken();
     try {
       let userId = data.userId;
       let isNewUser = false;
@@ -837,6 +840,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const addDeliverable = useCallback(async (data: Omit<ProjectDeliverable, 'id' | 'createdAt' | 'updatedAt'>): Promise<ProjectDeliverable | null> => {
+    await preflightToken();
     try {
       const { data: row, error: err } = await db
         .from('project_deliverables')
@@ -1040,6 +1044,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const addModule = useCallback(async (data: Omit<ProjectModule, 'id' | 'createdAt' | 'updatedAt' | 'totalHoursLogged'>): Promise<ProjectModule | null> => {
+    await preflightToken();
     try {
       const { data: row, error: err } = await db
         .from('project_modules')
@@ -1209,6 +1214,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
   // ===== MODULE SESSIONS =====
 
   const addModuleSession = useCallback(async (data: Omit<ModuleSession, 'id' | 'createdAt' | 'updatedAt'>): Promise<ModuleSession | null> => {
+    await preflightToken();
     try {
       const { data: row, error: err } = await db
         .from('module_sessions')
@@ -1383,6 +1389,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const addTimeEntry = useCallback(async (data: Omit<ModuleTimeEntry, 'id' | 'createdAt'>): Promise<ModuleTimeEntry | null> => {
+    await preflightToken();
     try {
       const { data: row, error: err } = await db
         .from('module_time_entries')
@@ -1481,6 +1488,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const addComment = useCallback(async (data: Omit<ModuleComment, 'id' | 'createdAt'>): Promise<ModuleComment | null> => {
+    await preflightToken();
     try {
       const { data: row, error: err } = await db
         .from('module_comments')
@@ -1547,6 +1555,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const addDocument = useCallback(async (data: Omit<ProjectDocument, 'id' | 'createdAt'>): Promise<ProjectDocument | null> => {
+    await preflightToken();
     try {
       const { data: row, error: err } = await db
         .from('project_documents')
@@ -1809,6 +1818,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const addNovedad = useCallback(async (projectId: string, content: string): Promise<ProjectNovedad> => {
+    await preflightToken();
     if (!appUser?.id) throw new Error('No user');
 
     // Pre-flight: force a token refresh if needed before touching the DB.
@@ -2377,6 +2387,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
   }, [organization?.id]);
 
   const addProduct = useCallback(async (name: string, description: string | null): Promise<Product | null> => {
+    await preflightToken();
     if (!organization?.id) return null;
     try {
       const { data: row, error: err } = await db
@@ -2480,6 +2491,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
   const addProductTemplateModule = useCallback(async (
     productId: string, title: string, description: string | null, sortOrder: number
   ): Promise<ProductTemplateModule | null> => {
+    await preflightToken();
     try {
       const { data: row, error: err } = await db
         .from('product_template_modules')
@@ -2765,6 +2777,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
   const addTemplateDeliverable = useCallback(async (
     templateModuleId: string, name: string, description: string | null, sortOrder: number
   ): Promise<ProductTemplateDeliverable | null> => {
+    await preflightToken();
     try {
       const { data: row, error: err } = await db
         .from('product_template_deliverables')
@@ -2846,6 +2859,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
   const addTemplateObjective = useCallback(async (
     templateModuleId: string, text: string, sortOrder: number
   ): Promise<ProductTemplateObjective | null> => {
+    await preflightToken();
     try {
       const { data: row, error: err } = await db
         .from('product_template_objectives')

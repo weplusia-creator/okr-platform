@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
 import { supabase, onTabResumed } from '../lib/supabase';
+import { preflightToken } from '../lib/preflight';
 import { useAuth } from './AuthContext';
 import type {
   Quiz, QuizQuestion, QuizOption, QuizSession, QuizParticipant, QuizResponse,
@@ -75,6 +76,7 @@ export function QuizProvider({ children }: { children: ReactNode }) {
   }, [organization?.id]);
 
   const addQuiz = useCallback(async (data: { title: string; description?: string; mode: QuizMode }): Promise<Quiz | null> => {
+    await preflightToken();
     if (!organization?.id || !appUser?.id) return null;
     try {
       const { data: row, error } = await db
@@ -148,6 +150,7 @@ export function QuizProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const addQuestion = useCallback(async (quizId: string, data: { questionType: QuestionType; questionText: string; explanation?: string; points?: number; timeLimitSeconds?: number | null; orderNum: number }): Promise<QuizQuestion | null> => {
+    await preflightToken();
     try {
       const { data: row, error } = await db
         .from('quiz_questions')
@@ -214,6 +217,7 @@ export function QuizProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const addOption = useCallback(async (questionId: string, data: { optionText: string; isCorrect: boolean; orderNum: number }): Promise<QuizOption | null> => {
+    await preflightToken();
     try {
       const { data: row, error } = await db
         .from('quiz_options')

@@ -30,7 +30,7 @@ export function Invoices() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { invoices, clients, loadingInvoices, deleteInvoice, markInvoiceAsPaid } = useFinance();
-  const { isAdmin } = useAuth();
+  const { isAdmin, orgUsers, appUser } = useAuth();
 
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<InvoiceStatus | 'all'>(
@@ -39,6 +39,8 @@ export function Invoices() {
   const [deleteModal, setDeleteModal] = useState<Invoice | null>(null);
   const [payModal, setPayModal] = useState<Invoice | null>(null);
   const [paidDate, setPaidDate] = useState(todayLocalISO());
+  // Quién cobró: por defecto el usuario logueado (si está en la org), si no nada.
+  const [collectorId, setCollectorId] = useState<string>('');
 
   const filteredInvoices = useMemo(() => {
     return invoices.filter(invoice => {
@@ -87,12 +89,19 @@ export function Invoices() {
   const handleMarkAsPaid = async () => {
     if (payModal) {
       try {
-        await markInvoiceAsPaid(payModal.id, paidDate);
+        await markInvoiceAsPaid(payModal.id, paidDate, collectorId || null);
         setPayModal(null);
+        setCollectorId('');
       } catch (err: any) {
         toast.error('No se pudo marcar como pagada: ' + (err?.message || 'Error desconocido'));
       }
     }
+  };
+
+  // Open pay modal — pre-seleccionar al usuario logueado como cobrador.
+  const openPayModal = (inv: Invoice) => {
+    setPayModal(inv);
+    setCollectorId(appUser?.id || '');
   };
 
   const getClientName = (clientId: string) => {
@@ -197,6 +206,9 @@ export function Invoices() {
                   <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 dark:text-gray-400">
                     ARCA
                   </th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 dark:text-gray-400">
+                    Cobró
+                  </th>
                   <th className="px-4 py-3 text-right text-sm font-medium text-gray-500 dark:text-gray-400">
                     Total
                   </th>
@@ -242,6 +254,18 @@ export function Invoices() {
                         <span className="text-xs text-gray-400">—</span>
                       )}
                     </td>
+                    <td className="px-4 py-3 text-sm">
+                      {invoice.collectedByName ? (
+                        <span className="inline-flex items-center gap-1 text-gray-700 dark:text-gray-300">
+                          <span className="w-2 h-2 rounded-full bg-success-500" />
+                          {invoice.collectedByName.split(' ')[0]}
+                        </span>
+                      ) : invoice.status === 'paid' ? (
+                        <span className="text-xs text-gray-400 italic">sin asignar</span>
+                      ) : (
+                        <span className="text-xs text-gray-400">—</span>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-right font-semibold text-gray-900 dark:text-white">
                       {formatCurrency(invoice.total)}
                     </td>
@@ -257,7 +281,7 @@ export function Invoices() {
                         {(invoice.status === 'issued' || invoice.status === 'overdue') && (
                           <button
                             onClick={() => {
-                              setPayModal(invoice);
+                              openPayModal(invoice);
                               setPaidDate(todayLocalISO());
                             }}
                             className="p-2 text-gray-400 hover:text-success-600 hover:bg-gray-100 dark:hover:bg-[#252525] rounded-lg transition-colors"
@@ -330,8 +354,26 @@ export function Invoices() {
                 />
               </div>
             </div>
+            <div className="mb-4">
+              <label className="label">¿Quién cobró?</label>
+              <select
+                value={collectorId}
+                onChange={(e) => setCollectorId(e.target.value)}
+                className="input"
+              >
+                <option value="">(Sin asignar)</option>
+                {orgUsers.map(u => (
+                  <option key={u.id} value={u.id}>
+                    {u.fullName}{u.id === appUser?.id ? ' (yo)' : ''}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                Para balances entre socios. Se guarda con la factura.
+              </p>
+            </div>
             <div className="flex justify-end gap-3">
-              <button onClick={() => setPayModal(null)} className="btn-secondary">
+              <button onClick={() => { setPayModal(null); setCollectorId(''); }} className="btn-secondary">
                 Cancelar
               </button>
               <button onClick={handleMarkAsPaid} className="btn-primary">

@@ -115,7 +115,7 @@ export function AgroLanding() {
             <span className="text-xs font-medium text-primary-300 bg-primary-300/10 px-2 py-0.5 rounded-full border border-primary-300/20">AGRO 360</span>
           </div>
           <a
-            href="https://cal.com/mateo-hunicken-oeq2lq/30min"
+            href="https://calendly.com/mateo-wauconsultora/30min?month=2026-06&date=2026-06-10"
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-wau-black bg-primary-300 hover:bg-primary-400 rounded-lg transition-colors"
@@ -155,7 +155,7 @@ export function AgroLanding() {
               Un programa intensivo para vendedores y emprendedores del agro que quieren dejar de improvisar, vender con método y construir una marca personal que genere oportunidades todos los meses.
             </p>
             <a
-              href="https://cal.com/mateo-hunicken-oeq2lq/30min"
+              href="https://calendly.com/mateo-wauconsultora/30min?month=2026-06&date=2026-06-10"
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-2 px-8 py-4 text-base font-semibold text-wau-black bg-primary-300 hover:bg-primary-400 rounded-xl shadow-lg shadow-primary-300/20 transition-all hover:shadow-xl hover:shadow-primary-300/30 hover:-translate-y-0.5"
@@ -397,7 +397,7 @@ export function AgroLanding() {
             <span className="text-primary-300 not-italic font-bold">WAU AGRO 360 viene a cambiar eso.</span>"
           </blockquote>
           <a
-            href="https://cal.com/mateo-hunicken-oeq2lq/30min"
+            href="https://calendly.com/mateo-wauconsultora/30min?month=2026-06&date=2026-06-10"
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-2 px-8 py-4 text-base font-semibold text-wau-black bg-primary-300 hover:bg-primary-400 rounded-xl transition-all hover:-translate-y-0.5 shadow-lg shadow-primary-300/20"

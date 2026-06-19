@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
 import { supabase, getAccessTokenFresh } from '../lib/supabase';
+import { preflightToken } from '../lib/preflight';
 import { fetchWithTimeout } from '../lib/fetchTimeout';
 import { useAuth } from './AuthContext';
 import type {
@@ -96,6 +97,7 @@ export function ArcaProvider({ children }: { children: ReactNode }) {
   const addCuit = useCallback(async (
     data: Omit<OrganizationCuit, 'id' | 'organizationId' | 'hasCertificate' | 'certificateExpiry' | 'createdAt' | 'updatedAt'>
   ): Promise<OrganizationCuit | null> => {
+    await preflightToken();
     if (!organization?.id) {
       setError('No se encontró la organización');
       return null;
@@ -232,6 +234,7 @@ export function ArcaProvider({ children }: { children: ReactNode }) {
     numero: number,
     description?: string
   ): Promise<PuntoDeVenta | null> => {
+    await preflightToken();
     try {
       const { data, error: err } = await supabase
         .from('arca_puntos_venta')

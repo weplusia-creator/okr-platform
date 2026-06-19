@@ -43,6 +43,10 @@ export interface Invoice {
   issueDate: string;
   dueDate: string;
   paidDate: string | null;
+  /** users.id del miembro del equipo que cobró la factura. NULL si no se registró. */
+  collectedByUserId: string | null;
+  /** Nombre del cobrador, hidratado desde users en fetchInvoices (no se persiste acá). */
+  collectedByName?: string | null;
   subtotal: number;
   tax: number;
   total: number;

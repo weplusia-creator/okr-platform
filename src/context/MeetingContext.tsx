@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
 import { supabase } from '../lib/supabase';
+import { preflightToken } from '../lib/preflight';
 import { useAuth } from './AuthContext';
 import type { Meeting, MeetingOccurrence, MeetingOccurrenceStatus } from '../types';
 import { toLocalISODate } from '../utils/helpers';
@@ -91,6 +92,7 @@ export function MeetingProvider({ children }: { children: ReactNode }) {
     durationMinutes: number;
     location?: string;
   }) => {
+    await preflightToken();
     if (!appUser?.organizationId) return;
 
     const { data: meeting, error } = await supabase

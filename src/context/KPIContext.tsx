@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
 import { supabase, onTabResumed } from '../lib/supabase';
+import { preflightToken } from '../lib/preflight';
 import { useAuth } from './AuthContext';
 import type { KPICategory, KPI, KPIEntry } from '../types';
 
@@ -59,6 +60,7 @@ export function KPIProvider({ children }: { children: ReactNode }) {
   }, [organization?.id]);
 
   const addCategory = useCallback(async (name: string, color = '#3B82F6'): Promise<KPICategory | null> => {
+    await preflightToken();
     if (!organization?.id) return null;
     try {
       const { data, error } = await supabase
@@ -136,6 +138,7 @@ export function KPIProvider({ children }: { children: ReactNode }) {
   }, [organization?.id]);
 
   const addKPI = useCallback(async (data: { name: string; description?: string; unit?: string; categoryId?: string; targetValue?: number }): Promise<KPI | null> => {
+    await preflightToken();
     if (!organization?.id) return null;
     try {
       const { data: row, error } = await supabase
@@ -227,6 +230,7 @@ export function KPIProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const addEntry = useCallback(async (kpiId: string, value: number, date: string, notes?: string): Promise<KPIEntry | null> => {
+    await preflightToken();
     try {
       const { data, error } = await supabase
         .from('kpi_entries')

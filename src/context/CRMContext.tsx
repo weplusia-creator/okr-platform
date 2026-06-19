@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useCallback, useEffect, useMemo, type ReactNode } from 'react';
 import { supabase, onTabResumed, getAccessTokenFresh } from '../lib/supabase';
+import { preflightToken } from '../lib/preflight';
 import { useAuth } from './AuthContext';
 import { useFinance } from './FinanceContext';
 import { useProjects } from './ProjectContext';
@@ -74,13 +75,9 @@ export function CRMProvider({ children }: { children: ReactNode }) {
   const { addClient } = useFinance();
   const { addProject } = useProjects();
 
-  // Preflight: refresh stale Supabase token (e.g. after tab in background)
-  // BEFORE doing an insert/update. Mismo patron que addTask/addNovedad.
-  // Sin esto, el primer fetch tras idle se cuelga esperando refresh coalesced.
-  const preflightToken = async () => {
-    const token = await getAccessTokenFresh();
-    if (!token) throw new Error('Sesión expirada. Cerrá sesión y volvé a iniciar.');
-  };
+  // NOTE: preflightToken is imported from '../lib/preflight' at top of file.
+  // Old inline definition removed to centralise the helper (avoids Vite chunk
+  // TDZ bugs caused by duplicating identical helpers across many files).
 
   const [leads, setLeads] = useState<Lead[]>([]);
   const [deals, setDeals] = useState<Deal[]>([]);
@@ -151,6 +148,7 @@ export function CRMProvider({ children }: { children: ReactNode }) {
   }, [pipelineStages]);
 
   const addStage = useCallback(async (data: Omit<PipelineStage, 'id'>) => {
+    await preflightToken();
     if (!organization?.id) return;
     try {
       const { data: row, error: err } = await supabase

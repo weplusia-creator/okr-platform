@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useCallback, useEffect, useMemo, type ReactNode } from 'react';
 import { supabase, onTabResumed } from '../lib/supabase';
+import { preflightToken } from '../lib/preflight';
 import { useAuth } from './AuthContext';
 import { notifyMany } from '../lib/notify';
 import type {
@@ -146,6 +147,7 @@ export function CheckinProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const addPlantilla = useCallback(async (data: Omit<CheckinPlantilla, 'id' | 'organizationId' | 'createdAt' | 'updatedAt'>): Promise<CheckinPlantilla | null> => {
+    await preflightToken();
     if (!organization?.id || !appUser?.id) {
       console.error('addPlantilla: missing org or user', { orgId: organization?.id, userId: appUser?.id });
       throw new Error('No se encontró la organización o el usuario. Intentá recargar la página.');
@@ -211,6 +213,7 @@ export function CheckinProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const addPlantillaPregunta = useCallback(async (data: Omit<CheckinPlantillaPregunta, 'id' | 'createdAt'>): Promise<CheckinPlantillaPregunta | null> => {
+    await preflightToken();
     try {
       const { data: row, error } = await db
         .from('checkin_plantilla_preguntas')
@@ -306,6 +309,7 @@ export function CheckinProvider({ children }: { children: ReactNode }) {
   }, [organization?.id]);
 
   const addConfig = useCallback(async (data: Omit<CheckinConfig, 'id' | 'organizationId' | 'createdAt' | 'updatedAt'>): Promise<CheckinConfig | null> => {
+    await preflightToken();
     if (!organization?.id || !appUser?.id) {
       throw new Error('No se encontró la organización o el usuario. Recargá la página.');
     }
@@ -434,6 +438,7 @@ export function CheckinProvider({ children }: { children: ReactNode }) {
   }, [organization?.id]);
 
   const addCheckin = useCallback(async (data: Omit<Checkin, 'id' | 'organizationId' | 'token' | 'createdAt' | 'updatedAt'>): Promise<Checkin | null> => {
+    await preflightToken();
     if (!organization?.id || !appUser?.id) {
       throw new Error('No se encontró la organización o el usuario. Recargá la página.');
     }
@@ -848,6 +853,7 @@ export function CheckinProvider({ children }: { children: ReactNode }) {
   }, [organization?.id]);
 
   const addCompromiso = useCallback(async (data: Omit<CheckinCompromiso, 'id' | 'organizationId' | 'createdAt' | 'updatedAt'>): Promise<CheckinCompromiso | null> => {
+    await preflightToken();
     if (!organization?.id) return null;
     try {
       const { data: row, error } = await db
@@ -958,6 +964,7 @@ export function CheckinProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const addMetrica = useCallback(async (data: Omit<CheckinMetrica, 'id' | 'createdAt'>): Promise<CheckinMetrica | null> => {
+    await preflightToken();
     try {
       const { data: row, error } = await db
         .from('checkin_metricas')

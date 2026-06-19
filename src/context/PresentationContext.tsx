@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
 import { supabase, onTabResumed } from '../lib/supabase';
+import { preflightToken } from '../lib/preflight';
 import { useAuth } from './AuthContext';
 import type {
   Presentation,
@@ -135,6 +136,7 @@ export function PresentationProvider({ children }: { children: ReactNode }) {
   // ===== Add Presentation =====
   const addPresentation = useCallback(
     async (data: CreatePresentationInput): Promise<Presentation> => {
+    await preflightToken();
       if (!appUser?.organizationId) throw new Error('No organization');
 
       const insertData: Record<string, any> = {
@@ -200,6 +202,7 @@ export function PresentationProvider({ children }: { children: ReactNode }) {
 
   // ===== Add Slide =====
   const addSlide = useCallback(async (data: CreateSlideInput): Promise<PresentationSlide> => {
+    await preflightToken();
     const insertData: Record<string, any> = {
       presentation_id: data.presentationId,
       title: data.title,

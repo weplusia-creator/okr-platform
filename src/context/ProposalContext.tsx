@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
 import { supabase, onTabResumed } from '../lib/supabase';
+import { preflightToken } from '../lib/preflight';
 import { useAuth } from './AuthContext';
 import type {
   Proposal,
@@ -226,6 +227,7 @@ export function ProposalProvider({ children }: { children: ReactNode }) {
   // ===== Add Proposal =====
   const addProposal = useCallback(
     async (data: CreateProposalInput): Promise<Proposal | null> => {
+    await preflightToken();
       if (!appUser?.organizationId) return null;
 
       try {
@@ -468,6 +470,7 @@ export function ProposalProvider({ children }: { children: ReactNode }) {
   // ===== Add Proposal Item =====
   const addProposalItem = useCallback(
     async (data: CreateProposalItemInput): Promise<ProposalItem | null> => {
+    await preflightToken();
       try {
         const totalPrice = data.unitPrice * (data.quantity || 1);
 

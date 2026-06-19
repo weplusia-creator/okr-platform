@@ -1,5 +1,6 @@
 import { createContext, useContext, useMemo, useCallback, useState, useEffect, useRef, type ReactNode } from 'react';
 import { supabase, onTabResumed } from '../lib/supabase';
+import { preflightToken } from '../lib/preflight';
 import { useAuth } from './AuthContext';
 import type { Objective, KeyResult, OKRFilters, Initiative, InitiativeStatus, InitiativeComment, OKRArea } from '../types';
 import { getCurrentQuarter, getCurrentYear } from '../utils/helpers';
@@ -147,6 +148,7 @@ export function OKRProvider({ children }: { children: ReactNode }) {
 
   const addObjective = useCallback(
     async (objective: Omit<Objective, 'id' | 'createdAt' | 'updatedAt' | 'keyResults' | 'organizationId'>): Promise<Objective | null> => {
+    await preflightToken();
       if (!organization?.id) return null;
 
       try {
@@ -301,6 +303,7 @@ export function OKRProvider({ children }: { children: ReactNode }) {
 
   const addKeyResult = useCallback(
     async (objectiveId: string, keyResult: Omit<KeyResult, 'id' | 'objectiveId'>) => {
+    await preflightToken();
       try {
         const { data, error } = await supabase
           .from('key_results')
@@ -522,6 +525,7 @@ export function OKRProvider({ children }: { children: ReactNode }) {
   }, [organization?.id, fetchObjectives, fetchInitiatives]);
 
   const addInitiative = useCallback(async (keyResultId: string, data: { title: string; responsibleId?: string | null; dueDate?: string | null; description?: string | null }): Promise<Initiative | null> => {
+    await preflightToken();
     if (!organization?.id) return null;
     try {
       const { data: row, error: err } = await supabase
@@ -622,6 +626,7 @@ export function OKRProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const addComment = useCallback(async (initiativeId: string, text: string): Promise<InitiativeComment> => {
+    await preflightToken();
     if (!appUser) {
       // Surface this instead of returning silently — caller can show a real error.
       throw new Error('Sesión no inicializada. Cerrá sesión y volvé a iniciar.');
@@ -694,6 +699,7 @@ export function OKRProvider({ children }: { children: ReactNode }) {
   useEffect(() => { if (organization?.id) fetchAreas(); }, [organization?.id, fetchAreas]);
 
   const addArea = useCallback(async (data: { name: string; color: string; clientId?: string | null }): Promise<OKRArea | null> => {
+    await preflightToken();
     if (!organization?.id) return null;
     const { data: row, error } = await (supabase as any)
       .from('okr_areas')

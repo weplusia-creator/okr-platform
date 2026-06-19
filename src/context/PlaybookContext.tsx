@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
 import { supabase, onTabResumed } from '../lib/supabase';
+import { preflightToken } from '../lib/preflight';
 import { useAuth } from './AuthContext';
 import type {
   Playbook, PlaybookStage, PlaybookStep, PlaybookScript,
@@ -116,6 +117,7 @@ export function PlaybookProvider({ children }: { children: ReactNode }) {
   }, [organization?.id]);
 
   const addPlaybook = useCallback(async (data: { name: string; description?: string; type: PlaybookType; industry?: string; productService?: string; projectId?: string; isTemplate?: boolean }): Promise<Playbook | null> => {
+    await preflightToken();
     if (!organization?.id || !appUser?.id) return null;
     try {
       const { data: row, error } = await db
@@ -357,6 +359,7 @@ export function PlaybookProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const addStage = useCallback(async (playbookId: string, data: { name: string; description?: string; objective?: string; sortOrder: number; estimatedDuration?: string; color?: string; icon?: string }): Promise<PlaybookStage | null> => {
+    await preflightToken();
     try {
       const { data: row, error } = await db
         .from('playbook_stages')
@@ -459,6 +462,7 @@ export function PlaybookProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const addStep = useCallback(async (stageId: string, data: { title: string; description?: string; sortOrder: number; type?: StepType; content?: string; isRequired?: boolean }): Promise<PlaybookStep | null> => {
+    await preflightToken();
     try {
       const { data: row, error } = await db
         .from('playbook_steps')
@@ -558,6 +562,7 @@ export function PlaybookProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const addScript = useCallback(async (playbookId: string, data: { name: string; situation?: string; scriptText: string; notes?: string; stageId?: string; sortOrder?: number }): Promise<PlaybookScript | null> => {
+    await preflightToken();
     try {
       const { data: row, error } = await db
         .from('playbook_scripts')
@@ -658,6 +663,7 @@ export function PlaybookProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const addQuestion = useCallback(async (playbookId: string, data: { question: string; category?: QuestionCategory; purpose?: string; stageId?: string; sortOrder?: number; whatToListen?: string; followupQuestion?: string }): Promise<PlaybookQuestion | null> => {
+    await preflightToken();
     try {
       const { data: row, error } = await db
         .from('playbook_questions')
@@ -761,6 +767,7 @@ export function PlaybookProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const addObjection = useCallback(async (playbookId: string, data: { objection: string; responses: { text: string; type: string; example: string }[]; category?: ObjectionCategory; severity?: ObjectionSeverity; signalsWorking?: string; ifNotWorking?: string; sortOrder?: number }): Promise<PlaybookObjection | null> => {
+    await preflightToken();
     try {
       const { data: row, error } = await db
         .from('playbook_objections')
@@ -862,6 +869,7 @@ export function PlaybookProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const addItem = useCallback(async (playbookId: string, data: { title: string; content?: Record<string, any>; itemType: ItemType; stageId?: string; sortOrder?: number }): Promise<PlaybookItem | null> => {
+    await preflightToken();
     try {
       const { data: row, error } = await db
         .from('playbook_items')

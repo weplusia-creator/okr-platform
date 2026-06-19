@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useCallback, useEffect, useRef, type ReactNode } from 'react';
 import { supabase, onTabResumed } from '../lib/supabase';
+import { preflightToken } from '../lib/preflight';
 import { useAuth } from './AuthContext';
 import { notifyMany } from '../lib/notify';
 import type {
@@ -32,7 +33,12 @@ interface FinanceContextType {
   addInvoice: (invoice: Omit<Invoice, 'id' | 'organizationId' | 'invoiceNumber' | 'createdAt' | 'updatedAt' | 'items'>, items: Omit<InvoiceItem, 'id' | 'invoiceId'>[]) => Promise<Invoice | null>;
   updateInvoice: (id: string, updates: Partial<Invoice>, items?: Omit<InvoiceItem, 'id' | 'invoiceId'>[]) => Promise<void>;
   deleteInvoice: (id: string) => Promise<void>;
-  markInvoiceAsPaid: (id: string, paidDate: string) => Promise<void>;
+  /**
+   * Mark an invoice as paid.
+   * `collectedByUserId` is the team member who cobró the invoice; persisted
+   * so balance-por-socio reports can show who collected what.
+   */
+  markInvoiceAsPaid: (id: string, paidDate: string, collectedByUserId?: string | null) => Promise<void>;
   getClientInvoices: (clientId: string) => Invoice[];
 
   // Cash Flow
@@ -132,6 +138,7 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
   }, [organization?.id]);
 
   const addClient = useCallback(async (client: Omit<Client, 'id' | 'organizationId' | 'createdAt' | 'updatedAt'>): Promise<Client | null> => {
+    await preflightToken();
     if (!organization?.id) {
       console.error('[addClient] No organization id');
       return null;
@@ -283,7 +290,7 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
     try {
       const { data: invoicesData, error: invErr } = await supabase
         .from('invoices')
-        .select('*, clients(name, company)')
+        .select('*, clients(name, company), collector:users!collected_by_user_id(id, full_name)')
         .eq('organization_id', organization.id)
         .order('created_at', { ascending: false });
 
@@ -323,6 +330,8 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
         issueDate: inv.issue_date,
         dueDate: inv.due_date,
         paidDate: inv.paid_date,
+        collectedByUserId: inv.collected_by_user_id ?? null,
+        collectedByName: (inv as any).collector?.full_name ?? null,
         subtotal: inv.subtotal,
         tax: inv.tax,
         total: inv.total,
@@ -355,6 +364,7 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
     invoice: Omit<Invoice, 'id' | 'organizationId' | 'invoiceNumber' | 'createdAt' | 'updatedAt' | 'items'>,
     items: Omit<InvoiceItem, 'id' | 'invoiceId'>[]
   ): Promise<Invoice | null> => {
+    await preflightToken();
     if (!organization?.id) {
       throw new Error('No se encontró la organización. Recargá la página.');
     }
@@ -429,6 +439,8 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
       issueDate: inv.issue_date,
       dueDate: inv.due_date,
       paidDate: inv.paid_date,
+      collectedByUserId: inv.collected_by_user_id ?? null,
+      collectedByName: null,
       subtotal: Number(inv.subtotal) || 0,
       tax: Number(inv.tax) || 0,
       total: Number(inv.total) || 0,
@@ -462,6 +474,7 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
       if (updates.issueDate !== undefined) dbUpdates.issue_date = updates.issueDate;
       if (updates.dueDate !== undefined) dbUpdates.due_date = updates.dueDate;
       if (updates.paidDate !== undefined) dbUpdates.paid_date = updates.paidDate;
+      if (updates.collectedByUserId !== undefined) dbUpdates.collected_by_user_id = updates.collectedByUserId;
       if (updates.subtotal !== undefined) dbUpdates.subtotal = updates.subtotal;
       if (updates.tax !== undefined) dbUpdates.tax = updates.tax;
       if (updates.total !== undefined) dbUpdates.total = updates.total;
@@ -523,11 +536,17 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const markInvoiceAsPaid = useCallback(async (id: string, paidDate: string) => {
+  const markInvoiceAsPaid = useCallback(async (id: string, paidDate: string, collectedByUserId?: string | null) => {
+    await preflightToken();
     try {
+      const updatePayload: Record<string, any> = { status: 'paid', paid_date: paidDate };
+      // Only set collected_by_user_id when explicitly provided. `null` clears it.
+      if (collectedByUserId !== undefined) {
+        updatePayload.collected_by_user_id = collectedByUserId;
+      }
       const { error: err } = await supabase
         .from('invoices')
-        .update({ status: 'paid', paid_date: paidDate })
+        .update(updatePayload)
         .eq('id', id);
 
       if (err) throw err;
@@ -689,6 +708,7 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
   }, [organization?.id]);
 
   const addCategory = useCallback(async (category: Omit<CashFlowCategory, 'id' | 'organizationId' | 'createdAt'>): Promise<CashFlowCategory | null> => {
+    await preflightToken();
     if (!organization?.id) return null;
     try {
       const { data, error: err } = await supabase
@@ -741,6 +761,7 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const addTransaction = useCallback(async (transaction: Omit<CashFlowTransaction, 'id' | 'organizationId' | 'createdAt'>): Promise<CashFlowTransaction | null> => {
+    await preflightToken();
     if (!organization?.id) return null;
     try {
       const basePayload: Record<string, unknown> = {
@@ -930,6 +951,7 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
   }, [organization?.id]);
 
   const addRecurringExpense = useCallback(async (expense: Omit<RecurringExpense, 'id' | 'organizationId' | 'createdAt'>): Promise<RecurringExpense | null> => {
+    await preflightToken();
     if (!organization?.id) return null;
     try {
       const { data, error: err } = await supabase

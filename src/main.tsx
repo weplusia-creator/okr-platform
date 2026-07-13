@@ -18,6 +18,7 @@ import { PresentationProvider } from './context/PresentationContext';
 import { QuizProvider } from './context/QuizContext';
 import './index.css';
 import App from './App';
+import { toast } from './components/ui/toast';
 
 // Gate: don't mount data providers until auth has finished loading.
 // Renders its own spinner (NOT null) — App.tsx's spinner lives inside this
@@ -113,6 +114,26 @@ function handleChunkError(err: unknown): boolean {
   return true;
 }
 
+// ── Red de seguridad global para errores no manejados ──────────────
+// Muchas operaciones asíncronas (guardar, cobrar, cargar) se disparan sin
+// await ni try/catch. Cuando fallan, la promesa se rechaza sin que nadie la
+// atrape y el usuario no ve NADA: parece que "no pasó nada". Este manejador
+// muestra un aviso visible cuando algo falla de verdad, sin tener que tocar
+// cientos de llamadas una por una. Es conservador: ignora errores benignos
+// (fetch abortado, timeouts de refresco en segundo plano) y no spamea.
+let lastErrorToastAt = 0;
+const BENIGN_ERR_RE = /AbortError|TimeoutError|user aborted|signal is aborted|ResizeObserver|Non-Error promise rejection|Load failed|Failed to fetch|NetworkError/i;
+function surfaceUnexpectedError(err: unknown): void {
+  const msg = err instanceof Error ? (err.message || err.name) : String(err ?? '');
+  // Los errores de chunk ya se manejan (recarga) y los benignos no molestan.
+  if (!msg || CHUNK_ERR_RE.test(msg) || BENIGN_ERR_RE.test(msg)) return;
+  const now = Date.now();
+  if (now - lastErrorToastAt < 4000) return; // throttle: máx. 1 aviso cada 4s
+  lastErrorToastAt = now;
+  console.error('[global-error]', err);
+  toast.error('Ocurrió un error y tu última acción puede no haberse guardado. Revisá tu conexión y reintentá.');
+}
+
 window.addEventListener('error', (event) => {
   if (handleChunkError(event.error || event.message)) {
     event.preventDefault();
@@ -121,7 +142,10 @@ window.addEventListener('error', (event) => {
 window.addEventListener('unhandledrejection', (event) => {
   if (handleChunkError(event.reason)) {
     event.preventDefault();
+    return;
   }
+  // No manejado por nadie más: avisar al usuario en vez de fallar en silencio.
+  surfaceUnexpectedError(event.reason);
 });
 
 createRoot(document.getElementById('root')!).render(

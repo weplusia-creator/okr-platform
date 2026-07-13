@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { toast } from '../ui/toast';
 import { Modal } from '../Modal';
 import { useProjects } from '../../context/ProjectContext';
 import { useAuth } from '../../context/AuthContext';
@@ -39,8 +40,9 @@ export function TimeEntryForm({ isOpen, onClose, taskId, taskTitle }: TimeEntryF
       setDescription('');
       setDate(todayLocalISO());
       onClose();
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error adding time entry:', err);
+      toast.error('No se pudo registrar la hora: ' + (err?.message || 'Error desconocido'));
     } finally {
       setSaving(false);
     }

@@ -295,6 +295,7 @@ export function CashFlow() {
       }
     } catch (err) {
       console.error('Error toggling payment status:', err);
+      toast.error('No se pudo actualizar el estado de la cuota. Recargá la página para ver el estado real.');
     }
   };
 
@@ -366,6 +367,8 @@ export function CashFlow() {
         });
       }
       setShowTransactionModal(false);
+    } catch (err: any) {
+      toast.error('No se pudo guardar la transacción: ' + (err?.message || 'Error desconocido'));
     } finally {
       setLoading(false);
     }
@@ -384,6 +387,8 @@ export function CashFlow() {
       });
       setShowCategoryModal(false);
       setCategoryForm({ name: '', type: 'expense', color: '#6366F1' });
+    } catch (err: any) {
+      toast.error('No se pudo crear la categoría: ' + (err?.message || 'Error desconocido'));
     } finally {
       setLoading(false);
     }
@@ -432,6 +437,8 @@ export function CashFlow() {
         });
       }
       setShowRecurringModal(false);
+    } catch (err: any) {
+      toast.error('No se pudo guardar el gasto recurrente: ' + (err?.message || 'Error desconocido'));
     } finally {
       setLoading(false);
     }
@@ -500,6 +507,7 @@ export function CashFlow() {
       });
     } catch (err) {
       console.error('Error paying recurring expense:', err);
+      toast.error('No se pudo registrar el pago del gasto recurrente. Reintentá.');
     } finally {
       setPayingId(null);
     }

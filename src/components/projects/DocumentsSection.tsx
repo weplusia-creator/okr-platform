@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { toast } from '../ui/toast';
 import { Plus, Edit, Trash2, ExternalLink, FileText, CheckCircle2, Circle } from 'lucide-react';
 import { Modal } from '../Modal';
 import { useProjects } from '../../context/ProjectContext';
@@ -97,8 +98,9 @@ export function DocumentsSection({ projectId, documents }: DocumentsSectionProps
         });
       }
       setShowModal(false);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error saving document:', err);
+      toast.error('No se pudo guardar el documento: ' + (err?.message || 'Error desconocido'));
     } finally {
       setSaving(false);
     }

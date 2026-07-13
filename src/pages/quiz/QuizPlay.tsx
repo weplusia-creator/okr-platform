@@ -72,9 +72,13 @@ export function QuizPlay() {
       setQuestions(withOptions);
 
       // For live mode, check for active session
+      let activeSession: QuizSession | null = null;
       if (quizData.mode === 'live') {
         const { data: sessions } = await db.from('quiz_sessions').select('*').eq('quiz_id', q.id).in('status', ['waiting', 'in_progress']).order('created_at', { ascending: false }).limit(1);
-        if (sessions && sessions.length > 0) setSession(mapSessionRow(sessions[0]));
+        if (sessions && sessions.length > 0) {
+          activeSession = mapSessionRow(sessions[0]);
+          setSession(activeSession);
+        }
       }
 
       // Check if participant already exists (reconnect)
@@ -95,7 +99,7 @@ export function QuizPlay() {
             setStage('results');
           } else {
             setCurrentIndex(answered);
-            if (quizData.mode === 'live' && sessions?.[0]?.status === 'waiting') setStage('waiting');
+            if (quizData.mode === 'live' && activeSession?.status === 'waiting') setStage('waiting');
             else setStage('playing');
           }
           return;

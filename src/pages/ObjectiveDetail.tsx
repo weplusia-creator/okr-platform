@@ -68,6 +68,49 @@ export function ObjectiveDetail() {
   const [showAddKR, setShowAddKR] = useState(false);
   const [newKRTitle, setNewKRTitle] = useState('');
 
+  // NOTE: Todos los hooks deben ejecutarse en cada render (reglas de hooks de React).
+  // Estos useMemo estaban ANTES debajo del `if (!objective) return`, lo que rompía la
+  // página ("rendered more hooks than during the previous render") cada vez que el
+  // objetivo todavía estaba cargando. Ahora corren siempre y se protegen internamente
+  // cuando el objetivo aún no existe.
+  const objInitiatives = useMemo(() => {
+    if (!objective) return [];
+    const krIds = new Set(objective.keyResults.map(kr => kr.id));
+    return initiatives.filter(i => krIds.has(i.keyResultId));
+  }, [initiatives, objective]);
+
+  const initiativeStats = useMemo(() => ({
+    done: objInitiatives.filter(i => i.status === 'done').length,
+    inProgress: objInitiatives.filter(i => i.status === 'in_progress').length,
+    todo: objInitiatives.filter(i => i.status === 'todo').length,
+    total: objInitiatives.length,
+  }), [objInitiatives]);
+
+  const client = useMemo(
+    () => objective?.clientId ? clients.find(c => c.id === objective.clientId) : null,
+    [clients, objective],
+  );
+
+  // Data for the KR breakdown chart.
+  const krChartData = useMemo(() => {
+    if (!objective) return [];
+    const tp = calcTimeProgress(objective.startDate, objective.endDate);
+    return objective.keyResults.map((kr, idx) => ({
+      name: `KR${idx + 1}`,
+      fullName: kr.title,
+      progress: kr.progress || 0,
+      expected: tp,
+      remaining: Math.max(0, 100 - (kr.progress || 0)),
+    }));
+  }, [objective]);
+
+  // Initiative status pie data.
+  const initiativePieData = useMemo(() => [
+    { name: 'Hechas',       value: initiativeStats.done,       color: '#10b981' },
+    { name: 'En progreso',  value: initiativeStats.inProgress, color: '#f59e0b' },
+    { name: 'Por hacer',    value: initiativeStats.todo,       color: '#94a3b8' },
+  ].filter(d => d.value > 0), [initiativeStats]);
+
   if (!objective) {
     return (
       <div className="rounded-xl border border-dashed border-gray-200 dark:border-gray-700 p-12 text-center">
@@ -93,23 +136,6 @@ export function ObjectiveDetail() {
 
   const tone = TONE[pacing.tone];
 
-  const objInitiatives = useMemo(() => {
-    const krIds = new Set(objective.keyResults.map(kr => kr.id));
-    return initiatives.filter(i => krIds.has(i.keyResultId));
-  }, [initiatives, objective.keyResults]);
-
-  const initiativeStats = useMemo(() => ({
-    done: objInitiatives.filter(i => i.status === 'done').length,
-    inProgress: objInitiatives.filter(i => i.status === 'in_progress').length,
-    todo: objInitiatives.filter(i => i.status === 'todo').length,
-    total: objInitiatives.length,
-  }), [objInitiatives]);
-
-  const client = useMemo(
-    () => objective.clientId ? clients.find(c => c.id === objective.clientId) : null,
-    [clients, objective.clientId],
-  );
-
   const daysRemaining = Math.max(0, Math.ceil(
     (new Date(objective.endDate).getTime() - Date.now()) / 86_400_000,
   ));
@@ -120,25 +146,6 @@ export function ObjectiveDetail() {
 
   const ownerInitials = (objective.owner || '?')
     .split(/\s+/).map(w => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase();
-
-  // Data for the KR breakdown chart.
-  const krChartData = useMemo(
-    () => objective.keyResults.map((kr, idx) => ({
-      name: `KR${idx + 1}`,
-      fullName: kr.title,
-      progress: kr.progress || 0,
-      expected: timeProgress,
-      remaining: Math.max(0, 100 - (kr.progress || 0)),
-    })),
-    [objective.keyResults, timeProgress],
-  );
-
-  // Initiative status pie data.
-  const initiativePieData = useMemo(() => [
-    { name: 'Hechas',       value: initiativeStats.done,       color: '#10b981' },
-    { name: 'En progreso',  value: initiativeStats.inProgress, color: '#f59e0b' },
-    { name: 'Por hacer',    value: initiativeStats.todo,       color: '#94a3b8' },
-  ].filter(d => d.value > 0), [initiativeStats]);
 
   const handleDelete = () => {
     deleteObjective(objective.id);

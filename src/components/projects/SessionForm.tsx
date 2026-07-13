@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { toast } from '../ui/toast';
 import { Presentation, Video, FileText } from 'lucide-react';
 import { Modal } from '../Modal';
 import { useProjects } from '../../context/ProjectContext';
@@ -82,8 +83,9 @@ export function SessionForm({ isOpen, onClose, moduleId, projectId, session, nex
         });
       }
       onClose();
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error saving session:', err);
+      toast.error('No se pudo guardar la sesión: ' + (err?.message || 'Error desconocido'));
     } finally {
       setSaving(false);
     }

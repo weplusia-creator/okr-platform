@@ -156,6 +156,7 @@ export function FinanceSection({ project }: FinanceSectionProps) {
       }
     } catch (err) {
       console.error('Error marking payment pending:', err);
+      toast.error('No se pudo marcar el pago como pendiente. Reintentá.');
     }
   };
 
@@ -191,6 +192,7 @@ export function FinanceSection({ project }: FinanceSectionProps) {
       }
     } catch (err) {
       console.error('Error creating invoice from payment:', err);
+      toast.error('No se pudo crear la factura desde el pago. Reintentá.');
     } finally {
       setCreatingInvoiceFor(null);
     }

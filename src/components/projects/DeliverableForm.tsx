@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { toast } from '../ui/toast';
 import { Plus, Trash2, Link } from 'lucide-react';
 import { Modal } from '../Modal';
 import { useProjects } from '../../context/ProjectContext';
@@ -135,8 +136,9 @@ export function DeliverableForm({
         });
       }
       onClose();
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error saving deliverable:', err);
+      toast.error('No se pudo guardar el entregable: ' + (err?.message || 'Error desconocido'));
     } finally {
       setSaving(false);
     }

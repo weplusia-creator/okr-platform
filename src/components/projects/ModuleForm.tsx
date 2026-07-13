@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { toast } from '../ui/toast';
 import { Plus, Trash2, Presentation, ListTodo, Video, FileText } from 'lucide-react';
 import { Modal } from '../Modal';
 import { useProjects } from '../../context/ProjectContext';
@@ -115,8 +116,9 @@ export function ModuleForm({ isOpen, onClose, onSaved, projectId, module, nextSo
       } else {
         onClose();
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error saving module:', err);
+      toast.error('No se pudo guardar el módulo: ' + (err?.message || 'Error desconocido'));
     } finally {
       setSaving(false);
     }

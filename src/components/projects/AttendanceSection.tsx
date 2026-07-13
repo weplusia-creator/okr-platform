@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { toast } from '../ui/toast';
 import { Plus, Calendar, CheckCircle, Trash2, Users } from 'lucide-react';
 import { Modal } from '../Modal';
 import { useProjects } from '../../context/ProjectContext';
@@ -74,8 +75,9 @@ export function AttendanceSection({ projectId, participants }: AttendanceSection
       setSessionTitle('');
       setSessionDate(todayLocalISO());
       setSessionDescription('');
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error creating session:', err);
+      toast.error('No se pudo crear la sesión: ' + (err?.message || 'Error desconocido'));
     } finally {
       setSaving(false);
     }

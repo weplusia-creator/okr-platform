@@ -291,6 +291,7 @@ export function Saldos() {
       setSettlements(prev => prev.filter(s => s.id !== id));
     } catch (err) {
       console.error('Error deleting settlement:', err);
+      toast.error('No se pudo eliminar el registro de saldo. Reintentá.');
     }
   };
 
